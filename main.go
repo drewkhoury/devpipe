@@ -32,7 +32,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"math/rand"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -388,7 +388,12 @@ func detectGitChanges(repoRoot string, inGitRepo bool, verbose bool) GitInfo {
 		}
 		return info
 	}
-	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	output := strings.TrimSpace(out.String())
+	if output == "" {
+		info.ChangedFiles = []string{}
+		return info
+	}
+	lines := strings.Split(output, "\n")
 	var files []string
 	for _, l := range lines {
 		if strings.TrimSpace(l) != "" {
@@ -402,8 +407,8 @@ func detectGitChanges(repoRoot string, inGitRepo bool, verbose bool) GitInfo {
 func makeRunID() string {
 	now := time.Now().UTC()
 	ts := now.Format("2006-01-02T15-04-05Z")
-	rand.Seed(time.Now().UnixNano())
-	suffix := rand.Intn(1_000_000)
+	// Use PID for uniqueness instead of deprecated rand.Seed
+	suffix := os.Getpid() % 1_000_000
 	return fmt.Sprintf("%s_%06d", ts, suffix)
 }
 
@@ -456,8 +461,8 @@ func runStage(st StageDefinition, runDir, logDir string, dryRun bool, verbose bo
 	cmd.Dir = st.Workdir
 
 	// Send stdout and stderr to both console and log file.
-	cmd.Stdout = ioMultiWriter(os.Stdout, logFile)
-	cmd.Stderr = ioMultiWriter(os.Stderr, logFile)
+	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
+	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
 
 	err = cmd.Run()
 	end := time.Now().UTC()
@@ -501,27 +506,3 @@ func writeRunJSON(runDir string, record RunRecord) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// ioMultiWriter is a tiny helper to avoid importing io.MultiWriter for clarity if desired.
-// Here we just re expose io.MultiWriter from stdlib.
-func ioMultiWriter(writers ...*os.File) *multiWriter {
-	return &multiWriter{writers: writers}
-}
-
-// multiWriter implements io.Writer over multiple *os.File.
-type multiWriter struct {
-	writers []*os.File
-}
-
-func (m *multiWriter) Write(p []byte) (int, error) {
-	var firstN int
-	for i, w := range m.writers {
-		n, err := w.Write(p)
-		if i == 0 {
-			firstN = n
-		}
-		if err != nil {
-			return n, err
-		}
-	}
-	return firstN, nil
-}
