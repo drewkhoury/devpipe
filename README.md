@@ -1,22 +1,24 @@
-# devpipe - Iteration 2
+# devpipe - Iteration 3
 
-A local "ready to commit" pipeline runner with TOML configuration support.
+A local "ready to commit" pipeline runner with beautiful UI and colors.
 
 ## Overview
 
-`devpipe` is a CLI tool that runs a configurable pipeline of checks before committing code. This is **Iteration 2** - now with TOML config support and git modes!
+`devpipe` is a CLI tool that runs a configurable pipeline of checks before committing code. This is **Iteration 3** - now with colored output and multiple UI modes!
 
-### Current Features (Iteration 2)
+### Current Features (Iteration 3)
 
 - ✅ Single static Go binary
+- ✅ **Beautiful UI** - 3 modes: `none`, `minimal`, `full`
+- ✅ **Colored output** - Status symbols and color-coded results
 - ✅ **TOML configuration** - Define your own stages per project
 - ✅ **Git modes** - `staged`, `staged_unstaged`, or `ref`
 - ✅ Git integration (repo detection, changed file tracking)
 - ✅ Per-run artifacts under `.devpipe/runs/<run-id>/`
 - ✅ Structured `run.json` with stage results
 - ✅ Per-stage logs (`logs/<stage-id>.log`)
-- ✅ CLI flags: `--config`, `--since`, `--only`, `--skip`, `--fail-fast`, `--dry-run`, `--verbose`, `--fast`
-- ✅ Plain text console output
+- ✅ CLI flags: `--ui`, `--no-color`, `--config`, `--since`, `--only`, `--skip`, `--fail-fast`, `--dry-run`, `--verbose`, `--fast`
+- ✅ TTY detection and terminal width adaptation
 - ✅ Backward compatible - works without config file
 
 ## Quick Start
@@ -32,6 +34,18 @@ make build
 ```bash
 # Run all stages (uses config.toml if present, otherwise built-in stages)
 ./devpipe
+
+# Run with full UI mode (fancy header)
+./devpipe --ui=full
+
+# Run with minimal UI mode (default)
+./devpipe --ui=minimal
+
+# Run with no UI (plain text)
+./devpipe --ui=none
+
+# Disable colors
+./devpipe --no-color
 
 # Run with verbose output
 ./devpipe --verbose
@@ -57,6 +71,47 @@ make build
 # Dry run (don't execute, just show what would run)
 ./devpipe --dry-run
 ```
+
+## UI Modes
+
+devpipe supports 3 UI modes:
+
+### `--ui=none` (Plain Text)
+```
+devpipe run 2025-11-28T22-04-51Z_015609
+Repo root: /Users/drew/repos/devpipe
+Git mode: staged_unstaged
+Changed files: 3
+[lint           ] ✓ PASS (1029ms)
+```
+
+### `--ui=minimal` (Default)
+```
+devpipe run 2025-11-28T22-04-57Z_015690
+Repo: /Users/drew/repos/devpipe
+Git mode: staged_unstaged | Changed files: 3
+
+[lint           ] ✓ PASS (1020ms)
+```
+
+### `--ui=full` (Fancy Header)
+```
+╔══════════════════════════════════════════════╗
+║ devpipe run 2025-11-28T22-05-06Z_015765      ║
+║ Repo: /Users/drew/repos/devpipe              ║
+║ Git: staged_unstaged | Files: 3              ║
+╚══════════════════════════════════════════════╝
+
+[lint           ] ✓ PASS (1032ms)
+```
+
+### Status Symbols
+
+- ✓ PASS (green)
+- ✗ FAIL (red)
+- ⊘ SKIPPED (yellow)
+- ⚙ RUNNING (blue)
+- ⋯ PENDING (gray)
 
 ## Configuration
 

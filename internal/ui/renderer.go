@@ -1,0 +1,158 @@
+package ui
+
+import (
+	"fmt"
+	"strings"
+)
+
+// UIMode represents the UI rendering mode
+type UIMode string
+
+const (
+	UIModeBasic UIMode = "basic"
+	UIModeFull  UIMode = "full"
+)
+
+// Renderer handles UI rendering
+type Renderer struct {
+	mode     UIMode
+	colors   *Colors
+	width    int
+	isTTY    bool
+}
+
+// NewRenderer creates a new UI renderer
+func NewRenderer(mode UIMode, enableColors bool) *Renderer {
+	isTTY := IsTTY(uintptr(1)) // stdout
+	width := GetTerminalWidth()
+	
+	// Force basic mode if not a TTY
+	if !isTTY && mode != UIModeBasic {
+		mode = UIModeBasic
+	}
+	
+	// Disable colors if not a TTY or explicitly disabled
+	if !isTTY {
+		enableColors = false
+	}
+	
+	return &Renderer{
+		mode:     mode,
+		colors:   NewColors(enableColors),
+		width:    width,
+		isTTY:    isTTY,
+	}
+}
+
+// RenderHeader renders the pipeline header
+func (r *Renderer) RenderHeader(runID, repoRoot string, gitMode string, changedFiles int) {
+	switch r.mode {
+	case UIModeFull:
+		r.renderFullHeader(runID, repoRoot, gitMode, changedFiles)
+	default:
+		r.renderBasicHeader(runID, repoRoot, gitMode, changedFiles)
+	}
+}
+
+func (r *Renderer) renderFullHeader(runID, repoRoot string, gitMode string, changedFiles int) {
+	line := strings.Repeat("═", r.width-2)
+	fmt.Printf("╔%s╗\n", line)
+	fmt.Printf("║ %s%-*s%s║\n", 
+		r.colors.Bold("devpipe run "+runID),
+		r.width-len("devpipe run "+runID)-3,
+		"",
+		"")
+	fmt.Printf("║ Repo: %-*s║\n", r.width-9, repoRoot)
+	if gitMode != "" {
+		info := fmt.Sprintf("Git: %s | Files: %d", gitMode, changedFiles)
+		fmt.Printf("║ %-*s║\n", r.width-3, info)
+	}
+	fmt.Printf("╚%s╝\n", line)
+	fmt.Println()
+}
+
+func (r *Renderer) renderBasicHeader(runID, repoRoot string, gitMode string, changedFiles int) {
+	fmt.Printf("devpipe run %s\n", runID)
+	fmt.Printf("Repo root: %s\n", repoRoot)
+	if gitMode != "" {
+		fmt.Printf("Git mode: %s\n", gitMode)
+		fmt.Printf("Changed files: %d\n", changedFiles)
+	}
+	fmt.Println() // Blank line after header
+}
+
+// RenderStageStart renders when a stage starts
+func (r *Renderer) RenderStageStart(id, command string, verbose bool) {
+	if verbose {
+		fmt.Printf("[%-15s] %s    %s\n", id, r.colors.Blue("RUN"), command)
+	} else {
+		fmt.Printf("[%-15s] %s\n", id, r.colors.Blue("RUN"))
+	}
+}
+
+// RenderStageComplete renders when a stage completes
+func (r *Renderer) RenderStageComplete(id, status string, exitCode *int, durationMs int64, verbose bool) {
+	symbol := r.colors.StatusSymbol(status)
+	statusText := r.colors.StatusColor(status, status)
+	
+	if verbose && exitCode != nil {
+		fmt.Printf("[%-15s] %s %s (exit %d, %dms)\n", id, symbol, statusText, *exitCode, durationMs)
+	} else {
+		fmt.Printf("[%-15s] %s %s (%dms)\n", id, symbol, statusText, durationMs)
+	}
+	fmt.Println() // Blank line after stage
+}
+
+// RenderStageSkipped renders when a stage is skipped
+func (r *Renderer) RenderStageSkipped(id, reason string, verbose bool) {
+	symbol := r.colors.StatusSymbol("SKIPPED")
+	if verbose {
+		fmt.Printf("[%-15s] %s %s (%s)\n", id, symbol, r.colors.Yellow("SKIPPED"), reason)
+	} else {
+		fmt.Printf("[%-15s] %s %s\n", id, symbol, r.colors.Yellow("SKIPPED"))
+	}
+	fmt.Println() // Blank line after skipped stage
+}
+
+// RenderSummary renders the final summary
+func (r *Renderer) RenderSummary(results []StageSummary, anyFailed bool) {
+	fmt.Println(r.colors.Bold("Summary:"))
+	
+	for _, result := range results {
+		symbol := r.colors.StatusSymbol(result.Status)
+		statusText := r.colors.StatusColor(result.Status, fmt.Sprintf("%-10s", result.Status))
+		durationText := fmt.Sprintf("%6dms", result.DurationMs)
+		
+		fmt.Printf("  %s %-15s %s %s\n", symbol, result.ID, statusText, durationText)
+	}
+	
+	fmt.Println()
+	if anyFailed {
+		fmt.Println(r.colors.Red("devpipe: one or more stages failed"))
+	} else {
+		fmt.Println(r.colors.Green("devpipe: all stages passed or were skipped"))
+	}
+	fmt.Println() // Blank line at very end
+}
+
+// StageSummary represents a stage result for the summary
+type StageSummary struct {
+	ID         string
+	Status     string
+	DurationMs int64
+}
+
+// RenderProgress renders a progress bar (for full mode)
+func (r *Renderer) RenderProgress(current, total int) {
+	if r.mode == UIModeBasic {
+		return
+	}
+	
+	barWidth := 40
+	if r.width > 80 {
+		barWidth = 60
+	}
+	
+	bar := r.colors.ProgressBar(current, total, barWidth)
+	fmt.Printf("\n%s (%d/%d stages)\n\n", bar, current, total)
+}

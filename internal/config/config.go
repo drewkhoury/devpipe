@@ -19,6 +19,7 @@ type Config struct {
 type DefaultsConfig struct {
 	OutputRoot     string    `toml:"outputRoot"`
 	FastThreshold  int       `toml:"fastThreshold"`
+	UIMode         string    `toml:"uiMode"`
 	Git            GitConfig `toml:"git"`
 }
 
@@ -72,6 +73,7 @@ func GetDefaults() Config {
 		Defaults: DefaultsConfig{
 			OutputRoot:    ".devpipe",
 			FastThreshold: 300,
+			UIMode:        "basic",
 			Git: GitConfig{
 				Mode: "staged_unstaged",
 				Ref:  "HEAD",
@@ -100,6 +102,9 @@ func MergeWithDefaults(cfg *Config) Config {
 	}
 	if cfg.Defaults.FastThreshold == 0 {
 		cfg.Defaults.FastThreshold = defaults.Defaults.FastThreshold
+	}
+	if cfg.Defaults.UIMode == "" {
+		cfg.Defaults.UIMode = defaults.Defaults.UIMode
 	}
 	if cfg.Defaults.Git.Mode == "" {
 		cfg.Defaults.Git.Mode = defaults.Defaults.Git.Mode

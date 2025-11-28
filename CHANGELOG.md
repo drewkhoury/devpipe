@@ -1,5 +1,40 @@
 # devpipe Changelog
 
+## [v0.3.0] - 2025-11-28 - Iteration 3 Complete
+
+### Added
+- **UI Modes** - Three rendering modes:
+  - `none` - Plain text output
+  - `minimal` - Clean header with status symbols (default)
+  - `full` - Fancy bordered header
+- **Colored Output** - Color-coded status with symbols:
+  - ✓ PASS (green)
+  - ✗ FAIL (red)
+  - ⊘ SKIPPED (yellow)
+  - ⚙ RUNNING (blue)
+  - ⋯ PENDING (gray)
+- **New CLI Flags**:
+  - `--ui <mode>` - Select UI mode (none, minimal, full)
+  - `--no-color` - Disable colored output
+- **TTY Detection** - Automatically detects terminal and disables UI/colors if not a TTY
+- **Terminal Width Adaptation** - Adjusts output to terminal width
+- **UI Package** - New `internal/ui` package with:
+  - `tty.go` - TTY detection and terminal width
+  - `colors.go` - Color support and status symbols
+  - `progress.go` - Progress calculation logic
+  - `renderer.go` - UI rendering modes
+
+### Changed
+- Console output now uses renderer system
+- Status symbols replace plain text status
+- Header format varies by UI mode
+- Colors respect NO_COLOR environment variable
+
+### Documentation
+- Updated README.md with UI modes and examples
+- Added status symbol reference
+- Documented --ui and --no-color flags
+
 ## [v0.2.0] - 2025-11-28 - Iteration 2 Complete
 
 ### Added
