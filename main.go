@@ -198,7 +198,7 @@ func main() {
 			continue
 		}
 
-		res, err := runStage(st, runDir, logDir, flagDryRun, flagVerbose)
+		res, _ := runStage(st, runDir, logDir, flagDryRun, flagVerbose)
 		results = append(results, res)
 
 		if res.Status == StatusFail {

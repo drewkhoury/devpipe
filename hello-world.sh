@@ -13,6 +13,13 @@ ART_DIR="${ROOT_DIR}/artifacts"
 
 mkdir -p "${ART_DIR}"
 
+# Support simulated failures via DEVPIPE_TEST_FAIL env var
+# Usage: DEVPIPE_TEST_FAIL=lint ./hello-world.sh lint
+if [[ "${DEVPIPE_TEST_FAIL:-}" == "$CMD" ]]; then
+  echo "[hello-world] ❌ Simulating failure for $CMD"
+  exit 1
+fi
+
 case "$CMD" in
   lint)
     echo "[hello-world] Linting sources..."

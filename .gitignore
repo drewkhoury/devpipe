@@ -1,0 +1,35 @@
+# devpipe binary
+devpipe
+
+# devpipe output
+.devpipe/
+
+# Test artifacts from hello-world.sh
+artifacts/
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test binary, built with `go test -c`
+*.test
+
+# Go coverage
+*.out
+
+# Go workspace file
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
