@@ -1,0 +1,17 @@
+[defaults]
+outputRoot = ".devpipe"
+fastThreshold = 300
+
+[defaults.git]
+mode = "staged"
+
+[stage_defaults]
+enabled = true
+workdir = "."
+estimatedSeconds = 10
+
+[stages.lint]
+name = "Lint"
+group = "quality"
+command = "./hello-world.sh lint"
+estimatedSeconds = 5

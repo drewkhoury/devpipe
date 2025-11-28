@@ -1,21 +1,23 @@
-# devpipe - Iteration 1
+# devpipe - Iteration 2
 
-A local "ready to commit" pipeline runner for Go projects.
+A local "ready to commit" pipeline runner with TOML configuration support.
 
 ## Overview
 
-`devpipe` is a CLI tool that runs a configurable pipeline of checks before committing code. This is **Iteration 1** - a minimal but functional pipeline runner with hardcoded stages.
+`devpipe` is a CLI tool that runs a configurable pipeline of checks before committing code. This is **Iteration 2** - now with TOML config support and git modes!
 
-### Current Features (Iteration 1)
+### Current Features (Iteration 2)
 
-- ✅ Single static Go binary (stdlib only, no dependencies)
-- ✅ Hardcoded pipeline stages (6 stages: lint, format, type-check, build, unit-tests, e2e-tests)
+- ✅ Single static Go binary
+- ✅ **TOML configuration** - Define your own stages per project
+- ✅ **Git modes** - `staged`, `staged_unstaged`, or `ref`
 - ✅ Git integration (repo detection, changed file tracking)
 - ✅ Per-run artifacts under `.devpipe/runs/<run-id>/`
 - ✅ Structured `run.json` with stage results
 - ✅ Per-stage logs (`logs/<stage-id>.log`)
-- ✅ CLI flags: `--only`, `--skip`, `--fail-fast`, `--dry-run`, `--verbose`, `--fast`
+- ✅ CLI flags: `--config`, `--since`, `--only`, `--skip`, `--fail-fast`, `--dry-run`, `--verbose`, `--fast`
 - ✅ Plain text console output
+- ✅ Backward compatible - works without config file
 
 ## Quick Start
 
@@ -28,11 +30,17 @@ make build
 ### Run
 
 ```bash
-# Run all stages
+# Run all stages (uses config.toml if present, otherwise built-in stages)
 ./devpipe
 
 # Run with verbose output
 ./devpipe --verbose
+
+# Use a specific config file
+./devpipe --config my-config.toml
+
+# Compare against a specific git ref
+./devpipe --since main
 
 # Run only specific stage
 ./devpipe --only unit-tests
@@ -48,6 +56,56 @@ make build
 
 # Dry run (don't execute, just show what would run)
 ./devpipe --dry-run
+```
+
+## Configuration
+
+### Creating a config.toml
+
+Copy the example config and customize for your project:
+
+```bash
+cp config.toml.example config.toml
+```
+
+### Config Structure
+
+```toml
+[defaults]
+outputRoot = ".devpipe"        # Where to store runs
+fastThreshold = 300            # Seconds threshold for --fast
+
+[defaults.git]
+mode = "staged_unstaged"       # Git mode: staged, staged_unstaged, or ref
+ref = "main"                   # Ref to compare against (when mode = ref)
+
+[stage_defaults]
+enabled = true
+workdir = "."
+estimatedSeconds = 10
+
+[stages.lint]
+name = "Lint"
+group = "quality"
+command = "npm run lint"
+estimatedSeconds = 5
+
+[stages.build]
+name = "Build"
+group = "release"
+command = "npm run build"
+estimatedSeconds = 30
+```
+
+### Git Modes
+
+- **`staged`** - Only staged files (`git diff --cached`)
+- **`staged_unstaged`** - Staged + unstaged files (`git diff HEAD`)
+- **`ref`** - Compare against specific ref (`git diff <ref>`)
+
+Override with `--since`:
+```bash
+./devpipe --since origin/main
 ```
 
 ## Makefile Commands

@@ -7,6 +7,9 @@ devpipe
 # Test artifacts from hello-world.sh
 artifacts/
 
+# Test config file
+config.tmp.toml
+
 # Go build artifacts
 *.exe
 *.exe~

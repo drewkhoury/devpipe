@@ -1,33 +1,10 @@
-// devpipe - Iteration 1
+// devpipe - Iteration 2
 //
-// Minimal local pipeline runner with hardcoded stages.
-//
-// Build:
-//   go build -o devpipe .
-//
-// Example usage:
-//   ./devpipe
-//   ./devpipe --verbose
-//   ./devpipe --only unit-tests
-//   ./devpipe --skip lint --skip format
-//   ./devpipe --fail-fast
-//   ./devpipe --dry-run
-//
-// To test quickly, use the companion ./hello-world.sh script as commands.
-//
-// This iteration provides:
-//   - Hardcoded stages and commands
-//   - Basic CLI flags (--only, --skip, --fail-fast, --dry-run, --verbose, --fast)
-//   - Git repo root detection (or fallback to CWD)
-//   - Simple changed file detection (git diff --name-only HEAD)
-//   - Per-stage logs under .devpipe/runs/<run-id>/logs/
-//   - run.json summary per run
-//   - Plain text console output (no TUI yet)
+// Local pipeline runner with TOML config support and git modes.
 
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -36,82 +13,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"github.com/drew/devpipe/internal/config"
+	"github.com/drew/devpipe/internal/git"
+	"github.com/drew/devpipe/internal/model"
 )
 
-type StageStatus string
-
-const (
-	StatusPending StageStatus = "PENDING"
-	StatusRunning StageStatus = "RUNNING"
-	StatusPass    StageStatus = "PASS"
-	StatusFail    StageStatus = "FAIL"
-	StatusSkipped StageStatus = "SKIPPED"
-)
-
-// StageDefinition is the built in definition of a stage (iteration 1, no config).
-type StageDefinition struct {
-	ID              string
-	Name            string
-	Group           string
-	Command         string
-	Workdir         string
-	EstimatedSeconds int
-}
-
-// StageResult is the per stage record written into run.json.
-type StageResult struct {
-	ID              string      `json:"id"`
-	Name            string      `json:"name"`
-	Group           string      `json:"group"`
-	Status          StageStatus `json:"status"`
-	ExitCode        *int        `json:"exitCode,omitempty"`
-	Skipped         bool        `json:"skipped"`
-	SkipReason      string      `json:"skipReason,omitempty"`
-	Command         string      `json:"command"`
-	Workdir         string      `json:"workdir"`
-	LogPath         string      `json:"logPath"`
-	StartTime       string      `json:"startTime,omitempty"`
-	EndTime         string      `json:"endTime,omitempty"`
-	DurationMs      int64       `json:"durationMs"`
-	EstimatedSeconds int        `json:"estimatedSeconds"`
-}
-
-// RunFlags captures CLI flags for run.json.
-type RunFlags struct {
-	Fast      bool     `json:"fast"`
-	FailFast  bool     `json:"failFast"`
-	DryRun    bool     `json:"dryRun"`
-	Verbose   bool     `json:"verbose"`
-	Only      string   `json:"only,omitempty"`
-	Skip      []string `json:"skip,omitempty"`
-}
-
-// RunRecord is the top level JSON written per run.
-type RunRecord struct {
-	RunID      string        `json:"runId"`
-	Timestamp  string        `json:"timestamp"`
-	RepoRoot   string        `json:"repoRoot"`
-	OutputRoot string        `json:"outputRoot"`
-	Git        GitInfo       `json:"git"`
-	Flags      RunFlags      `json:"flags"`
-	Stages     []StageResult `json:"stages"`
-}
-
-// GitInfo holds minimal git metadata for iteration 1.
-type GitInfo struct {
-	InGitRepo    bool     `json:"inGitRepo"`
-	RepoRoot     string   `json:"repoRoot"`
-	DiffBase     string   `json:"diffBase"`
-	ChangedFiles []string `json:"changedFiles"`
-}
-
-// sliceFlag allows repeating --skip.
+// sliceFlag allows repeating --skip
 type sliceFlag []string
 
 func (s *sliceFlag) String() string {
-	return strings.Join(*s, ",")
+	return fmt.Sprintf("%v", *s)
 }
 
 func (s *sliceFlag) Set(val string) error {
@@ -122,6 +35,8 @@ func (s *sliceFlag) Set(val string) error {
 func main() {
 	// CLI flags
 	var (
+		flagConfig   string
+		flagSince    string
 		flagOnly     string
 		flagFailFast bool
 		flagDryRun   bool
@@ -129,25 +44,84 @@ func main() {
 		flagFast     bool
 		flagSkipVals sliceFlag
 	)
+	
+	flag.StringVar(&flagConfig, "config", "", "Path to config file (default: config.toml)")
+	flag.StringVar(&flagSince, "since", "", "Git ref to compare against (overrides config)")
 	flag.StringVar(&flagOnly, "only", "", "Run only a single stage by id")
 	flag.Var(&flagSkipVals, "skip", "Skip a stage by id (can be specified multiple times)")
 	flag.BoolVar(&flagFailFast, "fail-fast", false, "Stop on first stage failure")
 	flag.BoolVar(&flagDryRun, "dry-run", false, "Do not execute commands, simulate only")
 	flag.BoolVar(&flagVerbose, "verbose", false, "Verbose logging")
-	flag.BoolVar(&flagFast, "fast", false, "Skip long running stages (est >= 300s)")
+	flag.BoolVar(&flagFast, "fast", false, "Skip long running stages")
 	flag.Parse()
 
-	// Determine repo root (git or cwd).
-	repoRoot, inGitRepo := detectRepoRoot()
+	// Determine repo root
+	repoRoot, inGitRepo := git.DetectRepoRoot()
 	if !inGitRepo && flagVerbose {
 		fmt.Println("WARNING: not in a git repo, using current directory as repo root")
 	}
 
-	// Minimal git info for iteration 1.
-	gitInfo := detectGitChanges(repoRoot, inGitRepo, flagVerbose)
+	// Load configuration
+	cfg, err := config.LoadConfig(flagConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Merge with defaults
+	mergedCfg := config.MergeWithDefaults(cfg)
+	
+	// Determine which stages to use
+	var stages map[string]config.StageConfig
+	var stageOrder []string
+	
+	if cfg == nil || len(cfg.Stages) == 0 {
+		// No config file or no stages defined, use built-in
+		if flagVerbose {
+			fmt.Println("No config file found, using built-in stages")
+		}
+		stages = config.BuiltInStages(repoRoot)
+		stageOrder = config.GetStageOrder()
+	} else {
+		// Use stages from config
+		stages = mergedCfg.Stages
+		// Use the built-in order if stages match, otherwise alphabetical
+		builtInOrder := config.GetStageOrder()
+		for _, id := range builtInOrder {
+			if _, exists := stages[id]; exists {
+				stageOrder = append(stageOrder, id)
+			}
+		}
+		// Add any additional stages not in built-in order
+		for id := range stages {
+			found := false
+			for _, existing := range stageOrder {
+				if existing == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				stageOrder = append(stageOrder, id)
+			}
+		}
+	}
 
-	// Prepare output dir for this run: .devpipe/runs/<run-id>
-	outputRoot := filepath.Join(repoRoot, ".devpipe")
+	// Determine git mode and ref
+	gitMode := mergedCfg.Defaults.Git.Mode
+	gitRef := mergedCfg.Defaults.Git.Ref
+	
+	// CLI --since overrides config
+	if flagSince != "" {
+		gitMode = "ref"
+		gitRef = flagSince
+	}
+
+	// Get changed files
+	gitInfo := git.DetectChangedFiles(repoRoot, inGitRepo, gitMode, gitRef, flagVerbose)
+
+	// Prepare output dir
+	outputRoot := filepath.Join(repoRoot, mergedCfg.Defaults.OutputRoot)
 	runID := makeRunID()
 	runDir := filepath.Join(outputRoot, "runs", runID)
 	logDir := filepath.Join(runDir, "logs")
@@ -157,15 +131,41 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Build list of stages.
-	stages := builtInStages(repoRoot)
+	// Build stage definitions
+	var stageDefs []model.StageDefinition
+	for _, id := range stageOrder {
+		stageCfg, ok := stages[id]
+		if !ok {
+			continue
+		}
+		
+		// Resolve with defaults
+		resolved := mergedCfg.ResolveStageConfig(id, stageCfg, repoRoot)
+		
+		// Skip if disabled
+		if resolved.Enabled != nil && !*resolved.Enabled {
+			if flagVerbose {
+				fmt.Printf("[%-15s] DISABLED in config\n", id)
+			}
+			continue
+		}
+		
+		stageDefs = append(stageDefs, model.StageDefinition{
+			ID:               id,
+			Name:             resolved.Name,
+			Group:            resolved.Group,
+			Command:          resolved.Command,
+			Workdir:          resolved.Workdir,
+			EstimatedSeconds: resolved.EstimatedSeconds,
+		})
+	}
 
-	// Apply CLI filters (only/skip and fast).
-	stageOrder := filterStages(stages, flagOnly, flagSkipVals, flagFast, flagVerbose)
+	// Apply CLI filters
+	filteredStages := filterStages(stageDefs, flagOnly, flagSkipVals, flagFast, mergedCfg.Defaults.FastThreshold, flagVerbose)
 
-	// Run stages sequentially.
+	// Run stages
 	var (
-		results         []StageResult
+		results         []model.StageResult
 		overallExitCode int
 		anyFailed       bool
 	)
@@ -173,21 +173,26 @@ func main() {
 	fmt.Printf("devpipe run %s\n", runID)
 	fmt.Printf("Repo root: %s\n", repoRoot)
 	if inGitRepo {
-		fmt.Printf("Changed files (HEAD): %d\n", len(gitInfo.ChangedFiles))
+		fmt.Printf("Git mode: %s", gitMode)
+		if gitMode == "ref" {
+			fmt.Printf(" (ref: %s)", gitRef)
+		}
+		fmt.Printf("\n")
+		fmt.Printf("Changed files: %d\n", len(gitInfo.ChangedFiles))
 	}
 
-	for _, st := range stageOrder {
-		// Determine if stage should be skipped due to fast mode.
-		longRunning := st.EstimatedSeconds >= 300
+	for _, st := range filteredStages {
+		// Check if should skip due to --fast
+		longRunning := st.EstimatedSeconds >= mergedCfg.Defaults.FastThreshold
 		if flagFast && longRunning && flagOnly == "" {
 			if flagVerbose {
 				fmt.Printf("[%-15s] SKIPPED by --fast (est %ds)\n", st.ID, st.EstimatedSeconds)
 			}
-			results = append(results, StageResult{
+			results = append(results, model.StageResult{
 				ID:               st.ID,
 				Name:             st.Name,
 				Group:            st.Group,
-				Status:           StatusSkipped,
+				Status:           model.StatusSkipped,
 				Skipped:          true,
 				SkipReason:       "skipped by --fast",
 				Command:          st.Command,
@@ -201,7 +206,7 @@ func main() {
 		res, _ := runStage(st, runDir, logDir, flagDryRun, flagVerbose)
 		results = append(results, res)
 
-		if res.Status == StatusFail {
+		if res.Status == model.StatusFail {
 			anyFailed = true
 			overallExitCode = 1
 			if flagFailFast {
@@ -213,21 +218,24 @@ func main() {
 		}
 	}
 
-	// Build run record.
+	// Build run record
 	now := time.Now().UTC().Format(time.RFC3339)
-	runRecord := RunRecord{
+	runRecord := model.RunRecord{
 		RunID:      runID,
 		Timestamp:  now,
 		RepoRoot:   repoRoot,
 		OutputRoot: outputRoot,
+		ConfigPath: flagConfig,
 		Git:        gitInfo,
-		Flags: RunFlags{
+		Flags: model.RunFlags{
 			Fast:     flagFast,
 			FailFast: flagFailFast,
 			DryRun:   flagDryRun,
 			Verbose:  flagVerbose,
 			Only:     flagOnly,
 			Skip:     flagSkipVals,
+			Config:   flagConfig,
+			Since:    flagSince,
 		},
 		Stages: results,
 	}
@@ -239,7 +247,7 @@ func main() {
 		}
 	}
 
-	// Final summary to console.
+	// Final summary
 	fmt.Println()
 	fmt.Println("Summary:")
 	for _, r := range results {
@@ -254,71 +262,13 @@ func main() {
 	os.Exit(overallExitCode)
 }
 
-// builtInStages returns the hardcoded stage list for iteration 1.
-// You can wire these commands to ./hello-world.sh initially.
-func builtInStages(repoRoot string) []StageDefinition {
-	script := filepath.Join(repoRoot, "hello-world.sh")
-	return []StageDefinition{
-		{
-			ID:              "lint",
-			Name:            "Lint",
-			Group:           "quality",
-			Command:         fmt.Sprintf("%s lint", script),
-			Workdir:         repoRoot,
-			EstimatedSeconds: 5,
-		},
-		{
-			ID:              "format",
-			Name:            "Format",
-			Group:           "quality",
-			Command:         fmt.Sprintf("%s format", script),
-			Workdir:         repoRoot,
-			EstimatedSeconds: 5,
-		},
-		{
-			ID:              "type-check",
-			Name:            "Type Check",
-			Group:           "correctness",
-			Command:         fmt.Sprintf("%s type-check", script),
-			Workdir:         repoRoot,
-			EstimatedSeconds: 10,
-		},
-		{
-			ID:              "build",
-			Name:            "Build",
-			Group:           "release",
-			Command:         fmt.Sprintf("%s build", script),
-			Workdir:         repoRoot,
-			EstimatedSeconds: 15,
-		},
-		{
-			ID:              "unit-tests",
-			Name:            "Unit Tests",
-			Group:           "correctness",
-			Command:         fmt.Sprintf("%s unit-tests", script),
-			Workdir:         repoRoot,
-			EstimatedSeconds: 20,
-		},
-		{
-			ID:              "e2e-tests",
-			Name:            "E2E Tests",
-			Group:           "correctness",
-			Command:         fmt.Sprintf("%s e2e-tests", script),
-			Workdir:         repoRoot,
-			EstimatedSeconds: 600, // 10 minutes, considered long running
-		},
-	}
-}
-
-// filterStages applies --only, --skip, and --fast (long-running) at the selection level.
-// The actual --fast skipping happens later so we can record explicit SKIPPED results.
-func filterStages(stages []StageDefinition, only string, skip sliceFlag, fast bool, verbose bool) []StageDefinition {
+func filterStages(stages []model.StageDefinition, only string, skip sliceFlag, fast bool, fastThreshold int, verbose bool) []model.StageDefinition {
 	skipSet := map[string]struct{}{}
 	for _, id := range skip {
 		skipSet[id] = struct{}{}
 	}
 
-	var out []StageDefinition
+	var out []model.StageDefinition
 	if only != "" {
 		for _, s := range stages {
 			if s.ID == only {
@@ -342,68 +292,6 @@ func filterStages(stages []StageDefinition, only string, skip sliceFlag, fast bo
 	return out
 }
 
-func detectRepoRoot() (string, bool) {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &bytes.Buffer{}
-	if err := cmd.Run(); err != nil {
-		// Not a git repo, use cwd.
-		cwd, err2 := os.Getwd()
-		if err2 != nil {
-			return ".", false
-		}
-		return cwd, false
-	}
-	root := strings.TrimSpace(buf.String())
-	if root == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return ".", false
-		}
-		return cwd, false
-	}
-	return root, true
-}
-
-func detectGitChanges(repoRoot string, inGitRepo bool, verbose bool) GitInfo {
-	info := GitInfo{
-		InGitRepo:    inGitRepo,
-		RepoRoot:     repoRoot,
-		DiffBase:     "HEAD",
-		ChangedFiles: []string{},
-	}
-	if !inGitRepo {
-		return info
-	}
-
-	cmd := exec.Command("git", "diff", "--name-only", "HEAD")
-	cmd.Dir = repoRoot
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &bytes.Buffer{}
-	if err := cmd.Run(); err != nil {
-		if verbose {
-			fmt.Fprintf(os.Stderr, "WARNING: git diff failed: %v\n", err)
-		}
-		return info
-	}
-	output := strings.TrimSpace(out.String())
-	if output == "" {
-		info.ChangedFiles = []string{}
-		return info
-	}
-	lines := strings.Split(output, "\n")
-	var files []string
-	for _, l := range lines {
-		if strings.TrimSpace(l) != "" {
-			files = append(files, l)
-		}
-	}
-	info.ChangedFiles = files
-	return info
-}
-
 func makeRunID() string {
 	now := time.Now().UTC()
 	ts := now.Format("2006-01-02T15-04-05Z")
@@ -412,12 +300,12 @@ func makeRunID() string {
 	return fmt.Sprintf("%s_%06d", ts, suffix)
 }
 
-func runStage(st StageDefinition, runDir, logDir string, dryRun bool, verbose bool) (StageResult, error) {
-	res := StageResult{
+func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verbose bool) (model.StageResult, error) {
+	res := model.StageResult{
 		ID:               st.ID,
 		Name:             st.Name,
 		Group:            st.Group,
-		Status:           StatusPending,
+		Status:           model.StatusPending,
 		Command:          st.Command,
 		Workdir:          st.Workdir,
 		LogPath:          "",
@@ -433,7 +321,7 @@ func runStage(st StageDefinition, runDir, logDir string, dryRun bool, verbose bo
 		} else {
 			fmt.Printf("[%-15s] DRY RUN\n", st.ID)
 		}
-		res.Status = StatusSkipped
+		res.Status = model.StatusSkipped
 		res.Skipped = true
 		res.SkipReason = "dry-run"
 		return res, nil
@@ -447,12 +335,12 @@ func runStage(st StageDefinition, runDir, logDir string, dryRun bool, verbose bo
 
 	start := time.Now().UTC()
 	res.StartTime = start.Format(time.RFC3339)
-	res.Status = StatusRunning
+	res.Status = model.StatusRunning
 
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: cannot create log file %s: %v\n", logPath, err)
-		res.Status = StatusFail
+		res.Status = model.StatusFail
 		return res, err
 	}
 	defer logFile.Close()
@@ -460,7 +348,7 @@ func runStage(st StageDefinition, runDir, logDir string, dryRun bool, verbose bo
 	cmd := exec.Command("sh", "-c", st.Command)
 	cmd.Dir = st.Workdir
 
-	// Send stdout and stderr to both console and log file.
+	// Send stdout and stderr to both console and log file
 	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
 	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
 
@@ -477,7 +365,7 @@ func runStage(st StageDefinition, runDir, logDir string, dryRun bool, verbose bo
 		} else {
 			exitCode = 1
 		}
-		res.Status = StatusFail
+		res.Status = model.StatusFail
 		res.ExitCode = &exitCode
 		if verbose {
 			fmt.Printf("[%-15s] FAIL (exit %d, %dms)\n", st.ID, exitCode, res.DurationMs)
@@ -487,7 +375,7 @@ func runStage(st StageDefinition, runDir, logDir string, dryRun bool, verbose bo
 		return res, err
 	}
 
-	res.Status = StatusPass
+	res.Status = model.StatusPass
 	res.ExitCode = &exitCode
 	if verbose {
 		fmt.Printf("[%-15s] PASS (exit 0, %dms)\n", st.ID, res.DurationMs)
@@ -497,7 +385,7 @@ func runStage(st StageDefinition, runDir, logDir string, dryRun bool, verbose bo
 	return res, nil
 }
 
-func writeRunJSON(runDir string, record RunRecord) error {
+func writeRunJSON(runDir string, record model.RunRecord) error {
 	path := filepath.Join(runDir, "run.json")
 	data, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {
@@ -505,4 +393,3 @@ func writeRunJSON(runDir string, record RunRecord) error {
 	}
 	return os.WriteFile(path, data, 0o644)
 }
-

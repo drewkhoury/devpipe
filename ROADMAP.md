@@ -45,7 +45,7 @@
 
 ---
 
-### **Iteration 2 - Config + TOML + Git Modes** 📋 NEXT
+### **Iteration 2 - Config + TOML + Git Modes** ✅ COMPLETE
 
 **Goal:** Make it project-configurable
 
@@ -73,13 +73,17 @@ estimatedSeconds = 30
 ```
 
 **Deliverables:**
-- [ ] TOML parser
-- [ ] Config loading with defaults
-- [ ] Git mode implementations
-- [ ] Example config.toml
-- [ ] Documentation
+- [x] TOML parser
+- [x] Config loading with defaults
+- [x] Git mode implementations
+- [x] Example config.toml
+- [x] Documentation
+- [x] Package structure (internal/config, internal/git, internal/model)
+- [x] All tests passing
 
-**Timeline:** 3-5 days
+**Timeline:** ✅ Completed in ~1 hour
+
+**What you can do now:** Define your own stages per project with config.toml!
 
 ---
 

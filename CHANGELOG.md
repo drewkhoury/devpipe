@@ -1,5 +1,44 @@
 # devpipe Changelog
 
+## [v0.2.0] - 2025-11-28 - Iteration 2 Complete
+
+### Added
+- **TOML Configuration Support** - Define custom stages per project with `config.toml`
+- **Git Modes** - Three modes for changed file detection:
+  - `staged` - Only staged files (`git diff --cached`)
+  - `staged_unstaged` - Staged + unstaged files (`git diff HEAD`)
+  - `ref` - Compare against specific ref (`git diff <ref>`)
+- **New CLI Flags**:
+  - `--config <path>` - Specify custom config file location
+  - `--since <ref>` - Override git ref for comparison
+- **Config Schema**:
+  - `[defaults]` - Global settings (outputRoot, fastThreshold)
+  - `[defaults.git]` - Git configuration (mode, ref)
+  - `[stage_defaults]` - Default values for all stages
+  - `[stages.<id>]` - Per-stage configuration
+- **Package Structure** - Organized code into internal packages:
+  - `internal/config` - Configuration loading and merging
+  - `internal/git` - Git operations and modes
+  - `internal/model` - Data structures
+- **Enhanced run.json** - Now includes:
+  - `configPath` - Path to config file used
+  - `git.mode` - Git mode used
+  - `git.ref` - Git ref compared against
+  - `flags.config` - Config flag value
+  - `flags.since` - Since flag value
+
+### Changed
+- Stages now configurable via TOML instead of hardcoded
+- Git changed file detection now supports multiple modes
+- Stage ordering preserved from built-in order when using config
+- Backward compatible - works without config file using built-in stages
+
+### Documentation
+- Updated README.md with configuration examples
+- Added config.toml.example with comprehensive examples
+- Documented all three git modes
+- Added configuration section to README
+
 ## [Unreleased] - Quick Wins Applied
 
 ### Fixed

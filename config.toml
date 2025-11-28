@@ -1,0 +1,111 @@
+# devpipe configuration file
+# Copy this to config.toml and customize for your project
+
+[defaults]
+# Where to store pipeline runs
+outputRoot = ".devpipe"
+
+# Threshold in seconds for --fast flag (skip stages >= this value)
+fastThreshold = 300
+
+[defaults.git]
+# Git mode: "staged", "staged_unstaged", or "ref"
+# - staged: only staged files (git diff --cached)
+# - staged_unstaged: staged + unstaged files (git diff HEAD)
+# - ref: compare against specific ref
+mode = "staged_unstaged"
+
+# Reference to compare against (used when mode = "ref")
+ref = "main"
+
+[stage_defaults]
+# Default values for all stages
+enabled = true
+workdir = "."
+estimatedSeconds = 10
+
+# Define your stages
+# Each stage must have at minimum: command
+# Optional: name, group, workdir, estimatedSeconds, enabled
+
+[stages.lint]
+name = "Lint"
+group = "quality"
+command = "./hello-world.sh lint"
+estimatedSeconds = 5
+
+[stages.format]
+name = "Format"
+group = "quality"
+command = "./hello-world.sh format"
+estimatedSeconds = 5
+
+[stages.type-check]
+name = "Type Check"
+group = "correctness"
+command = "./hello-world.sh type-check"
+estimatedSeconds = 10
+
+[stages.build]
+name = "Build"
+group = "release"
+command = "./hello-world.sh build"
+estimatedSeconds = 15
+
+[stages.unit-tests]
+name = "Unit Tests"
+group = "correctness"
+command = "./hello-world.sh unit-tests"
+estimatedSeconds = 20
+
+[stages.e2e-tests]
+name = "E2E Tests"
+group = "correctness"
+command = "./hello-world.sh e2e-tests"
+estimatedSeconds = 600
+
+# You can disable stages
+# enabled = false
+
+# You can override workdir per stage
+# workdir = "./frontend"
+
+# Example: Real project configuration
+# [stages.eslint]
+# name = "ESLint"
+# group = "quality"
+# command = "npm run lint"
+# workdir = "."
+# estimatedSeconds = 10
+
+# [stages.prettier]
+# name = "Prettier"
+# group = "quality"
+# command = "npm run format:check"
+# estimatedSeconds = 5
+
+# [stages.typescript]
+# name = "TypeScript"
+# group = "correctness"
+# command = "npm run type-check"
+# estimatedSeconds = 15
+
+# [stages.jest]
+# name = "Jest Tests"
+# group = "correctness"
+# command = "npm test"
+# estimatedSeconds = 30
+
+# [stages.build-frontend]
+# name = "Build Frontend"
+# group = "release"
+# command = "npm run build"
+# workdir = "./frontend"
+# estimatedSeconds = 60
+
+# [stages.build-backend]
+# name = "Build Backend"
+# group = "release"
+# command = "go build -o bin/server ./cmd/server"
+# workdir = "./backend"
+# estimatedSeconds = 20
