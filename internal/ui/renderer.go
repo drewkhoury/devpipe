@@ -19,10 +19,11 @@ type Renderer struct {
 	colors   *Colors
 	width    int
 	isTTY    bool
+	animated bool
 }
 
 // NewRenderer creates a new UI renderer
-func NewRenderer(mode UIMode, enableColors bool) *Renderer {
+func NewRenderer(mode UIMode, enableColors bool, animated bool) *Renderer {
 	isTTY := IsTTY(uintptr(1)) // stdout
 	width := GetTerminalWidth()
 	
@@ -36,12 +37,23 @@ func NewRenderer(mode UIMode, enableColors bool) *Renderer {
 		enableColors = false
 	}
 	
+	// Disable animation if not a TTY
+	if !isTTY {
+		animated = false
+	}
+	
 	return &Renderer{
 		mode:     mode,
 		colors:   NewColors(enableColors),
 		width:    width,
 		isTTY:    isTTY,
+		animated: animated,
 	}
+}
+
+// IsAnimated returns true if animated mode is enabled
+func (r *Renderer) IsAnimated() bool {
+	return r.animated
 }
 
 // RenderHeader renders the pipeline header
@@ -83,6 +95,11 @@ func (r *Renderer) renderBasicHeader(runID, repoRoot string, gitMode string, cha
 
 // RenderStageStart renders when a stage starts
 func (r *Renderer) RenderStageStart(id, command string, verbose bool) {
+	// In animated mode, don't print anything yet
+	if r.animated {
+		return
+	}
+	
 	if verbose {
 		fmt.Printf("[%-15s] %s    %s\n", id, r.colors.Blue("RUN"), command)
 	} else {
@@ -92,6 +109,11 @@ func (r *Renderer) RenderStageStart(id, command string, verbose bool) {
 
 // RenderStageComplete renders when a stage completes
 func (r *Renderer) RenderStageComplete(id, status string, exitCode *int, durationMs int64, verbose bool) {
+	// In animated mode, don't print anything (animation handles it)
+	if r.animated {
+		return
+	}
+	
 	symbol := r.colors.StatusSymbol(status)
 	statusText := r.colors.StatusColor(status, status)
 	
@@ -105,6 +127,11 @@ func (r *Renderer) RenderStageComplete(id, status string, exitCode *int, duratio
 
 // RenderStageSkipped renders when a stage is skipped
 func (r *Renderer) RenderStageSkipped(id, reason string, verbose bool) {
+	// In animated mode, don't print anything (animation handles it)
+	if r.animated {
+		return
+	}
+	
 	symbol := r.colors.StatusSymbol("SKIPPED")
 	if verbose {
 		fmt.Printf("[%-15s] %s %s (%s)\n", id, symbol, r.colors.Yellow("SKIPPED"), reason)
@@ -116,6 +143,11 @@ func (r *Renderer) RenderStageSkipped(id, reason string, verbose bool) {
 
 // RenderSummary renders the final summary
 func (r *Renderer) RenderSummary(results []StageSummary, anyFailed bool) {
+	// Add blank line before summary if animated (animation already on screen)
+	if r.animated {
+		fmt.Println()
+	}
+	
 	fmt.Println(r.colors.Bold("Summary:"))
 	
 	for _, result := range results {
@@ -155,4 +187,12 @@ func (r *Renderer) RenderProgress(current, total int) {
 	
 	bar := r.colors.ProgressBar(current, total, barWidth)
 	fmt.Printf("\n%s (%d/%d stages)\n\n", bar, current, total)
+}
+
+// CreateAnimatedTracker creates an animated stage tracker
+func (r *Renderer) CreateAnimatedTracker(stages []StageProgress, headerLines int, refreshMs int) *AnimatedStageTracker {
+	if !r.animated {
+		return nil
+	}
+	return NewAnimatedStageTracker(r, stages, headerLines, refreshMs)
 }

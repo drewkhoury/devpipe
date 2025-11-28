@@ -17,10 +17,11 @@ type Config struct {
 
 // DefaultsConfig holds global defaults
 type DefaultsConfig struct {
-	OutputRoot     string    `toml:"outputRoot"`
-	FastThreshold  int       `toml:"fastThreshold"`
-	UIMode         string    `toml:"uiMode"`
-	Git            GitConfig `toml:"git"`
+	OutputRoot        string    `toml:"outputRoot"`
+	FastThreshold     int       `toml:"fastThreshold"`
+	UIMode            string    `toml:"uiMode"`
+	AnimationRefreshMs int      `toml:"animationRefreshMs"`
+	Git               GitConfig `toml:"git"`
 }
 
 // GitConfig holds git-related configuration
@@ -71,9 +72,10 @@ func LoadConfig(path string) (*Config, error) {
 func GetDefaults() Config {
 	return Config{
 		Defaults: DefaultsConfig{
-			OutputRoot:    ".devpipe",
-			FastThreshold: 300,
-			UIMode:        "basic",
+			OutputRoot:         ".devpipe",
+			FastThreshold:      300,
+			UIMode:             "basic",
+			AnimationRefreshMs: 500, // 500ms = 2 FPS (efficient default)
 			Git: GitConfig{
 				Mode: "staged_unstaged",
 				Ref:  "HEAD",
@@ -105,6 +107,9 @@ func MergeWithDefaults(cfg *Config) Config {
 	}
 	if cfg.Defaults.UIMode == "" {
 		cfg.Defaults.UIMode = defaults.Defaults.UIMode
+	}
+	if cfg.Defaults.AnimationRefreshMs == 0 {
+		cfg.Defaults.AnimationRefreshMs = defaults.Defaults.AnimationRefreshMs
 	}
 	if cfg.Defaults.Git.Mode == "" {
 		cfg.Defaults.Git.Mode = defaults.Defaults.Git.Mode

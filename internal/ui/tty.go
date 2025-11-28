@@ -5,21 +5,27 @@ import (
 	"golang.org/x/term"
 )
 
-// IsTTY returns true if the given file descriptor is a terminal
+// IsTTY checks if the given file descriptor is a terminal
 func IsTTY(fd uintptr) bool {
 	return term.IsTerminal(int(fd))
 }
 
-// GetTerminalWidth returns the width of the terminal, or 80 if not a TTY
+// GetTerminalWidth returns the terminal width, or 80 if not a TTY
 func GetTerminalWidth() int {
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		return 80 // Default width
-	}
-	if width < 40 {
-		return 40 // Minimum width
+	if err != nil || width < 40 {
+		return 80
 	}
 	return width
+}
+
+// GetTerminalHeight returns the terminal height, or 24 if not a TTY
+func GetTerminalHeight() int {
+	_, height, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || height < 10 {
+		return 24
+	}
+	return height
 }
 
 // IsColorEnabled returns true if color output should be enabled

@@ -1,0 +1,24 @@
+# Animation refresh rate configuration examples
+
+[defaults]
+# Animation refresh rate in milliseconds (20-2000ms allowed)
+# Lower = smoother but more CPU, Higher = more efficient but choppier
+# 
+# Recommended values:
+#   20ms   = 50 FPS (very smooth, high CPU)
+#   33ms   = 30 FPS (smooth, like video)
+#   50ms   = 20 FPS (smooth)
+#   100ms  = 10 FPS (balanced)
+#   200ms  = 5 FPS (efficient)
+#   500ms  = 2 FPS (very efficient, default) ⭐
+#   1000ms = 1 FPS (minimal overhead)
+#
+animationRefreshMs = 500
+
+# Other defaults...
+outputRoot = ".devpipe"
+fastThreshold = 300
+uiMode = "basic"  # or "full"
+
+[defaults.git]
+mode = "staged_unstaged"

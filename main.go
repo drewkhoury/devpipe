@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -41,6 +42,7 @@ func main() {
 		flagOnly     string
 		flagUI       string
 		flagNoColor  bool
+		flagAnimated bool
 		flagFailFast bool
 		flagDryRun   bool
 		flagVerbose  bool
@@ -53,6 +55,7 @@ func main() {
 	flag.StringVar(&flagOnly, "only", "", "Run only a single stage by id")
 	flag.StringVar(&flagUI, "ui", "basic", "UI mode: basic, full")
 	flag.BoolVar(&flagNoColor, "no-color", false, "Disable colored output")
+	flag.BoolVar(&flagAnimated, "animated", false, "Show live progress animation (experimental)")
 	flag.Var(&flagSkipVals, "skip", "Skip a stage by id (can be specified multiple times)")
 	flag.BoolVar(&flagFailFast, "fail-fast", false, "Stop on first stage failure")
 	flag.BoolVar(&flagDryRun, "dry-run", false, "Do not execute commands, simulate only")
@@ -89,7 +92,9 @@ func main() {
 	
 	// Create renderer
 	enableColors := !flagNoColor && ui.IsColorEnabled()
-	renderer := ui.NewRenderer(uiMode, enableColors)
+	// Animated mode requires TTY
+	animated := flagAnimated && ui.IsTTY(uintptr(1))
+	renderer := ui.NewRenderer(uiMode, enableColors, animated)
 
 	// Determine repo root
 	repoRoot, inGitRepo := git.DetectRepoRoot()
@@ -198,12 +203,61 @@ func main() {
 
 	// Render header
 	renderer.RenderHeader(runID, repoRoot, gitMode, len(gitInfo.ChangedFiles))
+	
+	// Setup animation if enabled
+	var tracker *ui.AnimatedStageTracker
+	
+	// Ensure cursor is restored on exit (in case of panic or early exit)
+	defer func() {
+		if tracker != nil {
+			fmt.Print("\033[?25h") // Show cursor
+		}
+	}()
+	
+	if renderer.IsAnimated() {
+		// Build stage progress list
+		var stageProgress []ui.StageProgress
+		for _, st := range filteredStages {
+			stageProgress = append(stageProgress, ui.StageProgress{
+				ID:               st.ID,
+				Name:             st.Name,
+				Group:            st.Group,
+				Status:           "PENDING",
+				EstimatedSeconds: st.EstimatedSeconds,
+				ElapsedSeconds:   0,
+				StartTime:        time.Time{},
+			})
+		}
+		
+		// Calculate header lines
+		headerLines := 4 // basic mode: run ID, repo, git mode, changed files
+		if renderer.IsAnimated() {
+			headerLines = 4
+		}
+		
+		tracker = renderer.CreateAnimatedTracker(stageProgress, headerLines, mergedCfg.Defaults.AnimationRefreshMs)
+		if tracker != nil {
+			if err := tracker.Start(); err != nil {
+				// Animation failed, fall back to non-animated
+				if flagVerbose {
+					fmt.Fprintf(os.Stderr, "WARNING: Animation not supported, using basic mode\n")
+				}
+				tracker = nil
+			}
+		}
+	}
 
 	for _, st := range filteredStages {
 		// Check if should skip due to --fast
 		longRunning := st.EstimatedSeconds >= mergedCfg.Defaults.FastThreshold
 		if flagFast && longRunning && flagOnly == "" {
 			reason := fmt.Sprintf("skipped by --fast (est %ds)", st.EstimatedSeconds)
+			
+			// Update tracker if animated
+			if tracker != nil {
+				tracker.UpdateStage(st.ID, "SKIPPED", 0)
+			}
+			
 			renderer.RenderStageSkipped(st.ID, reason, flagVerbose)
 			results = append(results, model.StageResult{
 				ID:               st.ID,
@@ -220,7 +274,7 @@ func main() {
 			continue
 		}
 
-		res, _ := runStage(st, runDir, logDir, flagDryRun, flagVerbose, renderer)
+		res, _ := runStage(st, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker)
 		results = append(results, res)
 
 		if res.Status == model.StatusFail {
@@ -233,6 +287,11 @@ func main() {
 				break
 			}
 		}
+	}
+	
+	// Stop animation if it was running
+	if tracker != nil {
+		tracker.Stop()
 	}
 
 	// Build run record
@@ -315,7 +374,7 @@ func makeRunID() string {
 	return fmt.Sprintf("%s_%06d", ts, suffix)
 }
 
-func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer) (model.StageResult, error) {
+func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer, tracker *ui.AnimatedStageTracker) (model.StageResult, error) {
 	res := model.StageResult{
 		ID:               st.ID,
 		Name:             st.Name,
@@ -343,6 +402,11 @@ func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verb
 	start := time.Now().UTC()
 	res.StartTime = start.Format(time.RFC3339)
 	res.Status = model.StatusRunning
+	
+	// Update tracker if animated
+	if tracker != nil {
+		tracker.UpdateStage(st.ID, "RUNNING", 0)
+	}
 
 	logFile, err := os.Create(logPath)
 	if err != nil {
@@ -355,14 +419,51 @@ func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verb
 	cmd := exec.Command("sh", "-c", st.Command)
 	cmd.Dir = st.Workdir
 
-	// Send stdout and stderr to both console and log file
-	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
-	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
+	// Setup output handling
+	if tracker != nil {
+		// Animated mode: capture output and send to tracker
+		stdoutWriter := &lineWriter{tracker: tracker, file: logFile}
+		stderrWriter := &lineWriter{tracker: tracker, file: logFile}
+		cmd.Stdout = stdoutWriter
+		cmd.Stderr = stderrWriter
+	} else {
+		// Non-animated: show on console and log
+		cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
+		cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
+	}
+	
+	// Start ticker to update progress during execution
+	var tickerDone chan struct{}
+	if tracker != nil {
+		tickerDone = make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(100 * time.Millisecond)
+			defer ticker.Stop()
+			startTime := time.Now()
+			
+			for {
+				select {
+				case <-tickerDone:
+					return
+				case <-ticker.C:
+					elapsed := time.Since(startTime).Seconds()
+					tracker.UpdateStage(st.ID, "RUNNING", elapsed)
+				}
+			}
+		}()
+	}
 
 	err = cmd.Run()
+	
+	// Stop ticker
+	if tickerDone != nil {
+		close(tickerDone)
+	}
+	
 	end := time.Now().UTC()
 	res.EndTime = end.Format(time.RFC3339)
 	res.DurationMs = end.Sub(start).Milliseconds()
+	elapsed := end.Sub(start).Seconds()
 
 	exitCode := 0
 	if err != nil {
@@ -374,12 +475,24 @@ func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verb
 		}
 		res.Status = model.StatusFail
 		res.ExitCode = &exitCode
+		
+		// Update tracker with final status
+		if tracker != nil {
+			tracker.UpdateStage(st.ID, "FAIL", elapsed)
+		}
+		
 		renderer.RenderStageComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
 		return res, err
 	}
 
 	res.Status = model.StatusPass
 	res.ExitCode = &exitCode
+	
+	// Update tracker with final status
+	if tracker != nil {
+		tracker.UpdateStage(st.ID, "PASS", elapsed)
+	}
+	
 	renderer.RenderStageComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
 	return res, nil
 }
@@ -391,4 +504,33 @@ func writeRunJSON(runDir string, record model.RunRecord) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+// lineWriter captures output line by line and sends to tracker
+type lineWriter struct {
+	tracker *ui.AnimatedStageTracker
+	file    *os.File
+	buffer  []byte
+}
+
+func (w *lineWriter) Write(p []byte) (n int, err error) {
+	// Write to log file
+	w.file.Write(p)
+	
+	// Add to buffer and extract complete lines
+	w.buffer = append(w.buffer, p...)
+	
+	// Process complete lines
+	for {
+		idx := bytes.IndexByte(w.buffer, '\n')
+		if idx == -1 {
+			break
+		}
+		
+		line := string(w.buffer[:idx])
+		w.tracker.AddLogLine(line)
+		w.buffer = w.buffer[idx+1:]
+	}
+	
+	return len(p), nil
 }
