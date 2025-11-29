@@ -104,6 +104,23 @@ func main() {
 		fmt.Println("WARNING: not in a git repo, using current directory as repo root")
 	}
 	
+	// Auto-generate config.toml if it doesn't exist and no custom config specified
+	if cfg == nil && flagConfig == "" {
+		defaultConfigPath := "config.toml"
+		if err := config.GenerateDefaultConfig(defaultConfigPath, repoRoot); err != nil {
+			if flagVerbose {
+				fmt.Fprintf(os.Stderr, "WARNING: Could not generate config.toml: %v\n", err)
+			}
+		} else {
+			if flagVerbose {
+				fmt.Printf("Generated config.toml with built-in tasks\n")
+			}
+			// Reload config after generating
+			cfg, _ = config.LoadConfig(defaultConfigPath)
+			mergedCfg = config.MergeWithDefaults(cfg)
+		}
+	}
+	
 	// Determine which tasks to use
 	var tasks map[string]config.TaskConfig
 	var taskOrder []string

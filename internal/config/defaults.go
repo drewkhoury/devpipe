@@ -35,6 +35,8 @@ func BuiltInTasks(repoRoot string) map[string]TaskConfig {
 			Workdir:          repoRoot,
 			EstimatedSeconds: 15,
 			Enabled:          boolPtr(true),
+			MetricsFormat:    "artifact",
+			MetricsPath:      "artifacts/build/app.txt",
 		},
 		"unit-tests": {
 			Name:             "Unit Tests",

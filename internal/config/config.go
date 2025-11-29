@@ -164,3 +164,63 @@ func (c *Config) ResolveTaskConfig(id string, taskCfg TaskConfig, repoRoot strin
 func boolPtr(b bool) *bool {
 	return &b
 }
+
+// GenerateDefaultConfig creates a config.toml file with built-in task definitions
+func GenerateDefaultConfig(path string, repoRoot string) error {
+	// Check if file already exists
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("config file already exists: %s", path)
+	}
+	
+	// Build config from built-in tasks
+	builtInTasks := BuiltInTasks(repoRoot)
+	taskOrder := GetTaskOrder()
+	
+	// Create config structure
+	cfg := Config{
+		Defaults: DefaultsConfig{
+			OutputRoot:    ".devpipe",
+			FastThreshold: 300,
+			Git: GitConfig{
+				Mode: "staged_unstaged",
+				Ref:  "main",
+			},
+		},
+		TaskDefaults: TaskDefaultsConfig{
+			Enabled:          boolPtr(true),
+			Workdir:          ".",
+			EstimatedSeconds: 10,
+		},
+		Tasks: make(map[string]TaskConfig),
+	}
+	
+	// Add tasks in order
+	for _, id := range taskOrder {
+		if task, ok := builtInTasks[id]; ok {
+			// Make paths relative
+			task.Command = "./" + filepath.Base(task.Command)
+			task.Workdir = "."
+			cfg.Tasks[id] = task
+		}
+	}
+	
+	// Write to file
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
+	}
+	defer f.Close()
+	
+	// Write header comment
+	fmt.Fprintln(f, "# devpipe configuration file")
+	fmt.Fprintln(f, "# Auto-generated on first run - customize as needed")
+	fmt.Fprintln(f, "")
+	
+	// Encode config as TOML
+	encoder := toml.NewEncoder(f)
+	if err := encoder.Encode(cfg); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+	
+	return nil
+}
