@@ -724,48 +724,84 @@ const runDetailTemplate = `<!DOCTYPE html>
         </header>
         
         <div class="section">
-            <h2>Run Configuration</h2>
+            <h2>Run</h2>
+            
             {{if .Command}}
-            <div class="detail-item" style="margin-bottom: 15px;">
+            <div class="detail-item" style="margin-bottom: 20px;">
                 <div class="detail-label">Command</div>
                 <div class="detail-value mono" style="font-size: 11px; background: #f8f9fa; padding: 8px; border-radius: 4px;">{{.Command}}</div>
             </div>
             {{end}}
-            <div class="task-details">
-                <div class="detail-item">
-                    <div class="detail-label">Config File</div>
-                    <div class="detail-value">
-                        {{if .ConfigPath}}
-                        <a href="config.toml" class="log-link">{{.ConfigPath}}</a>
-                        {{else}}
-                        Built-in tasks
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
+                <div>
+                    <h3 style="font-size: 16px; color: #2c3e50; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #dee2e6;">Configuration</h3>
+                    <div class="task-details" style="grid-template-columns: 1fr;">
+                        <div class="detail-item">
+                            <div class="detail-label">Config File</div>
+                            <div class="detail-value">
+                                {{if .ConfigPath}}
+                                <a href="config.toml" class="log-link">{{.ConfigPath}}</a>
+                                {{else}}
+                                Built-in tasks
+                                {{end}}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Fast Mode</div>
+                            <div class="detail-value">{{if .Flags.Fast}}Yes{{else}}No{{end}}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Fail Fast</div>
+                            <div class="detail-value">{{if .Flags.FailFast}}Yes{{else}}No{{end}}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Dry Run</div>
+                            <div class="detail-value">{{if .Flags.DryRun}}Yes{{else}}No{{end}}</div>
+                        </div>
+                        {{if .Flags.Only}}
+                        <div class="detail-item">
+                            <div class="detail-label">Only</div>
+                            <div class="detail-value mono">{{.Flags.Only}}</div>
+                        </div>
+                        {{end}}
+                        {{if .Flags.Skip}}
+                        <div class="detail-item">
+                            <div class="detail-label">Skip</div>
+                            <div class="detail-value mono">{{range .Flags.Skip}}{{.}} {{end}}</div>
+                        </div>
                         {{end}}
                     </div>
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label">Fast Mode</div>
-                    <div class="detail-value">{{if .Flags.Fast}}Yes{{else}}No{{end}}</div>
+                
+                <div>
+                    <h3 style="font-size: 16px; color: #2c3e50; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #dee2e6;">Git Information</h3>
+                    <div class="task-details" style="grid-template-columns: 1fr;">
+                        <div class="detail-item">
+                            <div class="detail-label">Mode</div>
+                            <div class="detail-value">{{.Git.mode}}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Reference</div>
+                            <div class="detail-value mono">{{.Git.ref}}</div>
+                        </div>
+                        {{if .Git.changedFiles}}
+                        <div class="detail-item">
+                            <div class="detail-label">Changed Files ({{len .Git.changedFiles}})</div>
+                            <div class="detail-value mono" style="font-size: 12px; line-height: 1.8;">
+                                {{range .Git.changedFiles}}
+                                <div>{{.}}</div>
+                                {{end}}
+                            </div>
+                        </div>
+                        {{else}}
+                        <div class="detail-item">
+                            <div class="detail-label">Changed Files</div>
+                            <div class="detail-value">0 files</div>
+                        </div>
+                        {{end}}
+                    </div>
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label">Fail Fast</div>
-                    <div class="detail-value">{{if .Flags.FailFast}}Yes{{else}}No{{end}}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Dry Run</div>
-                    <div class="detail-value">{{if .Flags.DryRun}}Yes{{else}}No{{end}}</div>
-                </div>
-                {{if .Flags.Only}}
-                <div class="detail-item">
-                    <div class="detail-label">Only</div>
-                    <div class="detail-value mono">{{.Flags.Only}}</div>
-                </div>
-                {{end}}
-                {{if .Flags.Skip}}
-                <div class="detail-item">
-                    <div class="detail-label">Skip</div>
-                    <div class="detail-value mono">{{range .Flags.Skip}}{{.}} {{end}}</div>
-                </div>
-                {{end}}
             </div>
         </div>
         
@@ -915,38 +951,6 @@ const runDetailTemplate = `<!DOCTYPE html>
             </details>
         </div>
         {{end}}
-        
-        <div class="section">
-            <h2>Git Information</h2>
-            <div style="display: grid; grid-template-columns: 300px 1fr; gap: 30px;">
-                <div>
-                    <div class="task-details" style="grid-template-columns: 1fr;">
-                        <div class="detail-item">
-                            <div class="detail-label">Mode</div>
-                            <div class="detail-value">{{.Git.mode}}</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">Reference</div>
-                            <div class="detail-value mono">{{.Git.ref}}</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">Changed Files</div>
-                            <div class="detail-value">{{len .Git.changedFiles}} files</div>
-                        </div>
-                    </div>
-                </div>
-                {{if .Git.changedFiles}}
-                <div>
-                    <div class="detail-label">Files Changed</div>
-                    <div class="detail-value mono" style="font-size: 12px; line-height: 1.8; margin-top: 5px;">
-                        {{range .Git.changedFiles}}
-                        <div>{{.}}</div>
-                        {{end}}
-                    </div>
-                </div>
-                {{end}}
-            </div>
-        </div>
         
         <div class="section">
             <h2>Tasks ({{len .TasksWithLogs}})</h2>

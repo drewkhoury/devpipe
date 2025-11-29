@@ -150,9 +150,15 @@ EOF
     echo "[hello-world] SAST OK"
     ;;
 
+  smoke-tests)
+    echo "[hello-world] Running smoke tests (simulated long run)..."
+    sleep 3
+    echo "[hello-world] Smoke tests OK"
+    ;;
+
   e2e-tests)
     echo "[hello-world] Running e2e tests (simulated long run)..."
-    sleep 65
+    sleep 3
     echo "[hello-world] E2E tests OK"
     ;;
 

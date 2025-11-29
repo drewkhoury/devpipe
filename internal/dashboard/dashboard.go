@@ -72,7 +72,8 @@ func GenerateDashboard(outputRoot string) error {
 	for _, run := range runs {
 		detailPath := filepath.Join(outputRoot, "runs", run.RunID, "report.html")
 		if err := writeRunDetailHTML(detailPath, run); err != nil {
-			// Don't fail if one detail page fails
+			// Don't fail if one detail page fails, but log it
+			fmt.Fprintf(os.Stderr, "WARNING: failed to generate report for run %s: %v\n", run.RunID, err)
 			continue
 		}
 	}
