@@ -47,6 +47,7 @@ brews:
     repository:
       owner: drewkhoury
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: https://github.com/drewkhoury/devpipe
     description: Fast, local pipeline runner for development workflows
