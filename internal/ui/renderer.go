@@ -214,6 +214,10 @@ func (r *Renderer) Yellow(s string) string {
 	return r.colors.Yellow(s)
 }
 
+func (r *Renderer) Cyan(s string) string {
+	return r.colors.Cyan(s)
+}
+
 func (r *Renderer) StatusColor(status string) string {
 	return r.colors.StatusColor(status, status)
 }

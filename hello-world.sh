@@ -72,6 +72,10 @@ case "$CMD" in
 
   format)
     echo "[hello-world] Checking formatting..."
+    sleep 5
+    echo "[hello-world] check..."
+    sleep 1
+    echo "[hello-world] check..."
     exit 1
     sleep 3
     echo "[hello-world] Format OK"
@@ -80,6 +84,34 @@ case "$CMD" in
   type-check)
     echo "[hello-world] Type checking..."
     sleep 1
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    echo "[hello-world] Type echo..."
+    sleep 0.25
+    
     echo "[hello-world] Types OK"
     ;;
 

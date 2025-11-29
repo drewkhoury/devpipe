@@ -19,6 +19,7 @@ type TaskDefinition struct {
 	Command          string
 	Workdir          string
 	EstimatedSeconds int
+	IsEstimateGuess  bool   // True if estimate is a default guess (show as "10s?")
 	Wait             bool   // If true, marks end of phase (wait for all previous tasks)
 	MetricsFormat    string // "junit", "eslint", etc.
 	MetricsPath      string // Path to metrics file
@@ -71,16 +72,30 @@ type RunFlags struct {
 	Since    string   `json:"since,omitempty"`
 }
 
+// ConfigValue represents a single configuration value with its source
+type ConfigValue struct {
+	Key      string `json:"key"`
+	Value    string `json:"value"`
+	Source   string `json:"source"`   // "config-file", "cli-flag", "default", "historical"
+	Overrode string `json:"overrode,omitempty"` // What value it replaced, if any
+}
+
+// EffectiveConfig holds the resolved configuration with source tracking
+type EffectiveConfig struct {
+	Values []ConfigValue `json:"values"`
+}
+
 // RunRecord is the top-level JSON written per run
 // Note: GitInfo is imported from the git package
 type RunRecord struct {
-	RunID      string        `json:"runId"`
-	Timestamp  string        `json:"timestamp"`
-	RepoRoot   string        `json:"repoRoot"`
-	OutputRoot string        `json:"outputRoot"`
-	ConfigPath string        `json:"configPath,omitempty"`
-	Command    string        `json:"command,omitempty"` // Full command line that was executed
-	Git        interface{}   `json:"git"` // git.GitInfo
-	Flags      RunFlags      `json:"flags"`
-	Tasks      []TaskResult `json:"tasks"`
+	RunID           string           `json:"runId"`
+	Timestamp       string           `json:"timestamp"`
+	RepoRoot        string           `json:"repoRoot"`
+	OutputRoot      string           `json:"outputRoot"`
+	ConfigPath      string           `json:"configPath,omitempty"`
+	Command         string           `json:"command,omitempty"` // Full command line that was executed
+	Git             interface{}      `json:"git"` // git.GitInfo
+	Flags           RunFlags         `json:"flags"`
+	Tasks           []TaskResult     `json:"tasks"`
+	EffectiveConfig *EffectiveConfig `json:"effectiveConfig,omitempty"`
 }

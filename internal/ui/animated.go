@@ -331,6 +331,9 @@ func (a *AnimatedTaskTracker) renderFullMode() {
 				progress := CalculateTaskProgress(task.ElapsedSeconds, task.EstimatedSeconds)
 				elapsed := FormatDuration(int64(task.ElapsedSeconds * 1000))
 				estimated := FormatDuration(int64(task.EstimatedSeconds * 1000))
+				if task.IsEstimateGuess {
+					estimated = estimated + "?"
+				}
 				
 				// Mini progress bar
 				miniBarWidth := 12

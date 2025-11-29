@@ -64,7 +64,15 @@ func (c *Colors) Gray(s string) string {
 	if !c.enabled {
 		return s
 	}
-	return ColorGray + s + ColorReset
+	return fmt.Sprintf("\033[90m%s\033[0m", s)
+}
+
+// Cyan returns cyan colored text
+func (c *Colors) Cyan(s string) string {
+	if !c.enabled {
+		return s
+	}
+	return fmt.Sprintf("\033[36m%s\033[0m", s)
 }
 
 // Bold returns bold text

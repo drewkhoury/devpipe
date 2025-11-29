@@ -11,6 +11,7 @@ type TaskProgress struct {
 	Type             string // Type of task (quality, correctness, release)
 	Status           string
 	EstimatedSeconds int
+	IsEstimateGuess  bool // True if estimate is a default guess
 	ElapsedSeconds   float64
 	StartTime        time.Time
 }

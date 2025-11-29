@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 	"time"
 	
 	"github.com/drew/devpipe/internal/model"
@@ -112,14 +113,24 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 	
 	type DetailData struct {
 		model.RunRecord
-		TasksWithLogs []TaskWithLog
-		Timezone      string
+		TasksWithLogs    []TaskWithLog
+		Timezone         string
+		RawConfigContent string
 	}
 	
 	data := DetailData{
 		RunRecord:     run,
 		TasksWithLogs: make([]TaskWithLog, 0, len(run.Tasks)),
 		Timezone:      getLocalTimezone(),
+	}
+	
+	// Load raw config file if it exists
+	if run.ConfigPath != "" {
+		// The config.toml should be in the same directory as the report
+		configPath := filepath.Join(filepath.Dir(path), "config.toml")
+		if configData, err := os.ReadFile(configPath); err == nil {
+			data.RawConfigContent = string(configData)
+		}
 	}
 	
 	// Load log previews and artifact info for each task
@@ -146,6 +157,10 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 		"statusSymbol":   statusSymbol,
 		"string":         func(s model.TaskStatus) string { return string(s) },
 		"deref":          func(i *int) int { if i != nil { return *i }; return 0 },
+		"hasPrefix":      func(s, prefix string) bool { return len(s) >= len(prefix) && s[:len(prefix)] == prefix },
+		"trimPrefix":     func(s, prefix string) string { if len(s) >= len(prefix) && s[:len(prefix)] == prefix { return s[len(prefix):] }; return s },
+		"slice":          func() []model.ConfigValue { return []model.ConfigValue{} },
+		"append":         func(slice []model.ConfigValue, item model.ConfigValue) []model.ConfigValue { return append(slice, item) },
 	}).Parse(runDetailTemplate)
 	
 	if err != nil {
@@ -753,6 +768,153 @@ const runDetailTemplate = `<!DOCTYPE html>
                 {{end}}
             </div>
         </div>
+        
+        {{if or .EffectiveConfig .ConfigPath}}
+        <div class="section">
+            <details>
+                <summary style="cursor: pointer; font-weight: 600; color: #2c3e50; font-size: 20px; margin-bottom: 20px;">
+                    <h2 style="display: inline;">⚙️ Configuration</h2>
+                </summary>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    {{if .EffectiveConfig}}
+                    <div>
+                        <div style="border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                            <h3 style="font-weight: 600; color: #2c3e50; font-size: 16px; margin: 0 0 10px 0;">⚙️ Effective Configuration</h3>
+                            <p style="color: #7f8c8d; margin: 15px 0; font-size: 13px;">
+                                Final configuration values used for this run, including their sources and overrides.
+                            </p>
+                        
+                        {{$defaults := slice}}
+                        {{$defaultsGit := slice}}
+                        {{$taskDefaults := slice}}
+                        {{$tasks := slice}}
+                        {{range .EffectiveConfig.Values}}
+                            {{if hasPrefix .Key "defaults.git."}}
+                                {{$defaultsGit = append $defaultsGit .}}
+                            {{else if hasPrefix .Key "defaults."}}
+                                {{$defaults = append $defaults .}}
+                            {{else if hasPrefix .Key "task_defaults."}}
+                                {{$taskDefaults = append $taskDefaults .}}
+                            {{else if hasPrefix .Key "tasks."}}
+                                {{$tasks = append $tasks .}}
+                            {{end}}
+                        {{end}}
+                        
+                        {{if $defaults}}
+                        <div style="margin-top: 20px;">
+                            <h4 style="color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;">Defaults</h4>
+                            <table style="width: 100%; font-size: 13px;">
+                                {{range $defaults}}
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 60%;">{{trimPrefix .Key "defaults."}}</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">{{.Value}}</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        {{if eq .Source "config-file"}}
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        {{else if eq .Source "cli-flag"}}
+                                        <span class="badge" style="background: #cce5ff; color: #004085; font-size: 10px;">🚩 CLI</span>
+                                        {{else if eq .Source "default"}}
+                                        <span class="badge" style="background: #e2e3e5; color: #383d41; font-size: 10px;">⚙️ Default</span>
+                                        {{end}}
+                                        {{if .Overrode}}
+                                        <span style="color: #7f8c8d; font-size: 11px; margin-left: 5px;">(was: {{.Overrode}})</span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                                {{end}}
+                            </table>
+                        </div>
+                        {{end}}
+                        
+                        {{if $defaultsGit}}
+                        <div style="margin-top: 20px;">
+                            <h4 style="color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;">Git Settings</h4>
+                            <table style="width: 100%; font-size: 13px;">
+                                {{range $defaultsGit}}
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 60%;">{{trimPrefix .Key "defaults.git."}}</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">{{.Value}}</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        {{if eq .Source "config-file"}}
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        {{else if eq .Source "cli-flag"}}
+                                        <span class="badge" style="background: #cce5ff; color: #004085; font-size: 10px;">🚩 CLI</span>
+                                        {{else if eq .Source "default"}}
+                                        <span class="badge" style="background: #e2e3e5; color: #383d41; font-size: 10px;">⚙️ Default</span>
+                                        {{end}}
+                                        {{if .Overrode}}
+                                        <span style="color: #7f8c8d; font-size: 11px; margin-left: 5px;">(was: {{.Overrode}})</span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                                {{end}}
+                            </table>
+                        </div>
+                        {{end}}
+                        
+                        {{if $taskDefaults}}
+                        <div style="margin-top: 20px;">
+                            <h4 style="color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;">Task Defaults</h4>
+                            <table style="width: 100%; font-size: 13px;">
+                                {{range $taskDefaults}}
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 60%;">{{trimPrefix .Key "task_defaults."}}</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">{{.Value}}</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        {{if eq .Source "config-file"}}
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        {{else if eq .Source "default"}}
+                                        <span class="badge" style="background: #e2e3e5; color: #383d41; font-size: 10px;">⚙️ Default</span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                                {{end}}
+                            </table>
+                        </div>
+                        {{end}}
+                        
+                        {{if $tasks}}
+                        <div style="margin-top: 20px;">
+                            <h4 style="color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;">Task Overrides</h4>
+                            <table style="width: 100%; font-size: 13px;">
+                                {{range $tasks}}
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 60%;">{{.Key}}</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">{{.Value}}</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        {{if eq .Source "historical"}}
+                                        <span class="badge" style="background: #fff3cd; color: #856404; font-size: 10px;">📊 Historical</span>
+                                        {{else if eq .Source "config-file"}}
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        {{end}}
+                                        {{if .Overrode}}
+                                        <span style="color: #7f8c8d; font-size: 11px; margin-left: 5px;">(was: {{.Overrode}})</span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                                {{end}}
+                            </table>
+                        </div>
+                        {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                    
+                    {{if .ConfigPath}}
+                    <div>
+                        <div style="border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                            <h3 style="font-weight: 600; color: #2c3e50; font-size: 16px; margin: 0 0 10px 0;">📄 Raw Configuration File</h3>
+                            <p style="color: #7f8c8d; margin: 15px 0 10px 0; font-size: 13px;">
+                                Configuration file as it was on disk at the time of the run.
+                            </p>
+                            <pre style="background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 11px; line-height: 1.5; font-family: 'Monaco', 'Menlo', 'Courier New', monospace;">{{.RawConfigContent}}</pre>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </details>
+        </div>
+        {{end}}
         
         <div class="section">
             <h2>Git Information</h2>

@@ -183,6 +183,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load historical averages
+	historicalAvg := loadHistoricalAverages(outputRoot)
+	
 	// Build task definitions
 	var taskDefs []model.TaskDefinition
 	for _, id := range taskOrder {
@@ -202,13 +205,27 @@ func main() {
 			continue
 		}
 		
+		// Use historical average if available, otherwise use configured value
+		estimatedSeconds := resolved.EstimatedSeconds
+		isGuess := false
+		
+		if avgSeconds, hasHistory := historicalAvg[id]; hasHistory {
+			// Always prefer historical average
+			estimatedSeconds = avgSeconds
+			isGuess = false // Historical data, not a guess
+		} else if resolved.EstimatedSeconds == mergedCfg.TaskDefaults.EstimatedSeconds {
+			// Using default value - mark as guess
+			isGuess = true
+		}
+		
 		taskDef := model.TaskDefinition{
 			ID:               id,
 			Name:             resolved.Name,
 			Type:             resolved.Type,
 			Command:          resolved.Command,
 			Workdir:          resolved.Workdir,
-			EstimatedSeconds: resolved.EstimatedSeconds,
+			EstimatedSeconds: estimatedSeconds,
+			IsEstimateGuess:  isGuess,
 			Wait:             resolved.Wait,
 		}
 		
@@ -258,6 +275,7 @@ func main() {
 				Type:             st.Type,
 				Status:           "PENDING",
 				EstimatedSeconds: st.EstimatedSeconds,
+				IsEstimateGuess:  st.IsEstimateGuess,
 				ElapsedSeconds:   0,
 				StartTime:        time.Time{},
 			})
@@ -301,8 +319,11 @@ func main() {
 		g := new(errgroup.Group)
 		g.SetLimit(10) // Max 10 concurrent tasks
 		
-		phaseFailed := false
+		var phaseFailed bool
 		var phaseFailMu sync.Mutex
+		
+		// For sequential output: each task gets a completion channel from the previous task
+		var prevTaskDone chan struct{}
 		
 		for _, st := range phase.Tasks {
 			// Check if should skip due to --fast
@@ -336,8 +357,13 @@ func main() {
 			// Capture task for goroutine
 			task := st
 			
+			// Create a done channel for this task
+			taskDone := make(chan struct{})
+			waitForPrev := prevTaskDone
+			prevTaskDone = taskDone // Next task will wait for this one
+			
 			g.Go(func() error {
-				res, taskBuffer, _ := runTask(task, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker, &outputMu)
+				res, taskBuffer, _ := runTask(task, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker, &outputMu, waitForPrev, taskDone)
 				
 				// Display buffered output sequentially (always, even in animated mode)
 				if taskBuffer != nil && taskBuffer.Len() > 0 {
@@ -409,15 +435,27 @@ func main() {
 	}
 	renderer.RenderSummary(summaries, anyFailed)
 	
+	// Build effective config tracking
+	effectiveConfig := buildEffectiveConfig(cfg, &mergedCfg, flagSince, flagUI, uiModeStr, gitMode, gitRef, historicalAvg)
+	
+	// Determine the actual config path used
+	actualConfigPath := flagConfig
+	if actualConfigPath == "" {
+		// Check if default config.toml exists
+		if _, err := os.Stat("config.toml"); err == nil {
+			actualConfigPath = "config.toml"
+		}
+	}
+	
 	// Write run record and generate dashboard
 	runRecord := model.RunRecord{
-		RunID:      runID,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RepoRoot:   repoRoot,
-		OutputRoot: outputRoot,
-		ConfigPath: flagConfig,
-		Command:    buildCommandString(),
-		Git:        gitInfo,
+		RunID:           runID,
+		Timestamp:       time.Now().UTC().Format(time.RFC3339),
+		RepoRoot:        repoRoot,
+		OutputRoot:      outputRoot,
+		ConfigPath:      actualConfigPath,
+		Command:         buildCommandString(),
+		Git:             gitInfo,
 		Flags: model.RunFlags{
 			Fast:     flagFast,
 			FailFast: flagFailFast,
@@ -428,7 +466,8 @@ func main() {
 			Config:   flagConfig,
 			Since:    flagSince,
 		},
-		Tasks: results,
+		Tasks:           results,
+		EffectiveConfig: effectiveConfig,
 	}
 	if err := writeRunJSON(runDir, runRecord); err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to write run record: %v\n", err)
@@ -450,6 +489,40 @@ func main() {
 	fmt.Print("\033[?25h")
 	
 	os.Exit(overallExitCode)
+}
+
+// loadHistoricalAverages loads task averages from the dashboard summary
+func loadHistoricalAverages(outputRoot string) map[string]int {
+	averages := make(map[string]int)
+	
+	summaryPath := filepath.Join(outputRoot, "summary.json")
+	data, err := os.ReadFile(summaryPath)
+	if err != nil {
+		return averages // No history yet
+	}
+	
+	var summary struct {
+		TaskStats map[string]struct {
+			AvgDuration float64 `json:"avgDuration"`
+		} `json:"taskStats"`
+	}
+	
+	if err := json.Unmarshal(data, &summary); err != nil {
+		return averages
+	}
+	
+	// Convert milliseconds to seconds
+	for taskID, stats := range summary.TaskStats {
+		if stats.AvgDuration > 0 {
+			avgSeconds := int(stats.AvgDuration / 1000)
+			if avgSeconds < 1 {
+				avgSeconds = 1
+			}
+			averages[taskID] = avgSeconds
+		}
+	}
+	
+	return averages
 }
 
 func buildCommandString() string {
@@ -488,6 +561,139 @@ func containsSpace(s string) bool {
 		}
 	}
 	return false
+}
+
+// buildEffectiveConfig creates a detailed breakdown of configuration values and their sources
+func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSince, flagUI, uiModeStr, gitMode, gitRef string, historicalAvg map[string]int) *model.EffectiveConfig {
+	defaults := config.GetDefaults()
+	var values []model.ConfigValue
+	
+	// Helper to add a config value
+	addValue := func(key, value, source, overrode string) {
+		values = append(values, model.ConfigValue{
+			Key:      key,
+			Value:    value,
+			Source:   source,
+			Overrode: overrode,
+		})
+	}
+	
+	// Output Root
+	if cfg != nil && cfg.Defaults.OutputRoot != "" {
+		addValue("defaults.outputRoot", mergedCfg.Defaults.OutputRoot, "config-file", "")
+	} else {
+		addValue("defaults.outputRoot", mergedCfg.Defaults.OutputRoot, "default", "")
+	}
+	
+	// Fast Threshold
+	if cfg != nil && cfg.Defaults.FastThreshold != 0 {
+		addValue("defaults.fastThreshold", fmt.Sprintf("%d", mergedCfg.Defaults.FastThreshold), "config-file", "")
+	} else {
+		addValue("defaults.fastThreshold", fmt.Sprintf("%d", mergedCfg.Defaults.FastThreshold), "default", "")
+	}
+	
+	// UI Mode
+	var uiSource, uiOverrode string
+	if flagUI != "basic" {
+		uiSource = "cli-flag"
+		if cfg != nil && cfg.Defaults.UIMode != "" {
+			uiOverrode = cfg.Defaults.UIMode
+		} else {
+			uiOverrode = defaults.Defaults.UIMode
+		}
+	} else if cfg != nil && cfg.Defaults.UIMode != "" {
+		uiSource = "config-file"
+	} else {
+		uiSource = "default"
+	}
+	addValue("defaults.uiMode", uiModeStr, uiSource, uiOverrode)
+	
+	// Animation Refresh
+	if cfg != nil && cfg.Defaults.AnimationRefreshMs != 0 {
+		addValue("defaults.animationRefreshMs", fmt.Sprintf("%d", mergedCfg.Defaults.AnimationRefreshMs), "config-file", "")
+	} else {
+		addValue("defaults.animationRefreshMs", fmt.Sprintf("%d", mergedCfg.Defaults.AnimationRefreshMs), "default", "")
+	}
+	
+	// Git Mode
+	var gitModeSource, gitModeOverrode string
+	if flagSince != "" {
+		gitModeSource = "cli-flag"
+		if cfg != nil && cfg.Defaults.Git.Mode != "" {
+			gitModeOverrode = cfg.Defaults.Git.Mode
+		} else {
+			gitModeOverrode = defaults.Defaults.Git.Mode
+		}
+	} else if cfg != nil && cfg.Defaults.Git.Mode != "" {
+		gitModeSource = "config-file"
+	} else {
+		gitModeSource = "default"
+	}
+	addValue("defaults.git.mode", gitMode, gitModeSource, gitModeOverrode)
+	
+	// Git Ref
+	var gitRefSource, gitRefOverrode string
+	if flagSince != "" {
+		gitRefSource = "cli-flag"
+		if cfg != nil && cfg.Defaults.Git.Ref != "" {
+			gitRefOverrode = cfg.Defaults.Git.Ref
+		} else {
+			gitRefOverrode = defaults.Defaults.Git.Ref
+		}
+	} else if cfg != nil && cfg.Defaults.Git.Ref != "" {
+		gitRefSource = "config-file"
+	} else {
+		gitRefSource = "default"
+	}
+	addValue("defaults.git.ref", gitRef, gitRefSource, gitRefOverrode)
+	
+	// Task Defaults
+	if cfg != nil && cfg.TaskDefaults.Enabled != nil {
+		addValue("task_defaults.enabled", fmt.Sprintf("%t", *mergedCfg.TaskDefaults.Enabled), "config-file", "")
+	} else {
+		addValue("task_defaults.enabled", fmt.Sprintf("%t", *mergedCfg.TaskDefaults.Enabled), "default", "")
+	}
+	
+	if cfg != nil && cfg.TaskDefaults.Workdir != "" {
+		addValue("task_defaults.workdir", mergedCfg.TaskDefaults.Workdir, "config-file", "")
+	} else {
+		addValue("task_defaults.workdir", mergedCfg.TaskDefaults.Workdir, "default", "")
+	}
+	
+	if cfg != nil && cfg.TaskDefaults.EstimatedSeconds != 0 {
+		addValue("task_defaults.estimatedSeconds", fmt.Sprintf("%d", mergedCfg.TaskDefaults.EstimatedSeconds), "config-file", "")
+	} else {
+		addValue("task_defaults.estimatedSeconds", fmt.Sprintf("%d", mergedCfg.TaskDefaults.EstimatedSeconds), "default", "")
+	}
+	
+	// Task-specific overrides (show if historical data was used)
+	if len(historicalAvg) > 0 {
+		for taskID, avgSeconds := range historicalAvg {
+			var configSeconds int
+			if cfg != nil {
+				if taskCfg, ok := cfg.Tasks[taskID]; ok && taskCfg.EstimatedSeconds != 0 {
+					configSeconds = taskCfg.EstimatedSeconds
+				} else {
+					configSeconds = mergedCfg.TaskDefaults.EstimatedSeconds
+				}
+			} else {
+				configSeconds = defaults.TaskDefaults.EstimatedSeconds
+			}
+			
+			if avgSeconds != configSeconds {
+				addValue(
+					fmt.Sprintf("tasks.%s.estimatedSeconds", taskID),
+					fmt.Sprintf("%d", avgSeconds),
+					"historical",
+					fmt.Sprintf("%d", configSeconds),
+				)
+			}
+		}
+	}
+	
+	return &model.EffectiveConfig{
+		Values: values,
+	}
 }
 
 // Phase represents a group of tasks that can run in parallel
@@ -560,7 +766,7 @@ func makeRunID() string {
 	return fmt.Sprintf("%s_%06d", ts, suffix)
 }
 
-func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer, tracker *ui.AnimatedTaskTracker, outputMu *sync.Mutex) (model.TaskResult, *bytes.Buffer, error) {
+func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer, tracker *ui.AnimatedTaskTracker, outputMu *sync.Mutex, waitForPrev chan struct{}, taskDone chan struct{}) (model.TaskResult, *bytes.Buffer, error) {
 	res := model.TaskResult{
 		ID:               st.ID,
 		Name:             st.Name,
@@ -586,15 +792,28 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		return res, &taskOutputBuffer, nil
 	}
 
-	// Buffer the RUN message (non-animated mode only)
+	// Wait for our turn to display output (non-animated mode only)
 	if tracker == nil {
+		// Wait for previous task to finish (if there is one)
+		if waitForPrev != nil {
+			<-waitForPrev
+		}
+		
+		// Now we can stream output
+		if verbose {
+			fmt.Printf("[%-15s] %s    %s\n", st.ID, renderer.Blue("RUN"), st.Command)
+		} else {
+			fmt.Printf("[%-15s] %s\n", st.ID, renderer.Blue("RUN"))
+		}
+	} else {
+		// Animated mode: buffer the RUN message with a blank line before it
+		renderer.RenderTaskStart(st.ID, st.Command, verbose)
+		taskOutputBuffer.WriteString("\n") // Blank line before task
 		if verbose {
 			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] %s    %s\n", st.ID, renderer.Blue("RUN"), st.Command))
 		} else {
 			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] %s\n", st.ID, renderer.Blue("RUN")))
 		}
-	} else {
-		renderer.RenderTaskStart(st.ID, st.Command, verbose)
 	}
 
 	start := time.Now().UTC()
@@ -620,12 +839,19 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 	// Setup output handling
 	var bufferMu sync.Mutex
 	
-	// Always buffer output for sequential display (even in animated mode)
-	// Only write to log file, don't stream to tracker during parallel execution
-	stdoutWriter := &lineWriter{taskID: st.ID, file: logFile, outputBuffer: &taskOutputBuffer, mu: &bufferMu}
-	stderrWriter := &lineWriter{taskID: st.ID, file: logFile, outputBuffer: &taskOutputBuffer, mu: &bufferMu}
-	cmd.Stdout = stdoutWriter
-	cmd.Stderr = stderrWriter
+	if tracker != nil {
+		// Animated mode: buffer output for sequential display
+		stdoutWriter := &lineWriter{taskID: st.ID, file: logFile, outputBuffer: &taskOutputBuffer, mu: &bufferMu, renderer: renderer}
+		stderrWriter := &lineWriter{taskID: st.ID, file: logFile, outputBuffer: &taskOutputBuffer, mu: &bufferMu, renderer: renderer}
+		cmd.Stdout = stdoutWriter
+		cmd.Stderr = stderrWriter
+	} else {
+		// Non-animated mode: stream output directly (we already have the turn)
+		stdoutWriter := &lineWriter{taskID: st.ID, file: logFile, console: os.Stdout, renderer: renderer}
+		stderrWriter := &lineWriter{taskID: st.ID, file: logFile, console: os.Stderr, renderer: renderer}
+		cmd.Stdout = stdoutWriter
+		cmd.Stderr = stderrWriter
+	}
 
 	// Start ticker to update progress during execution
 	var tickerDone chan struct{}
@@ -675,9 +901,15 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		if tracker != nil {
 			tracker.UpdateTask(st.ID, "FAIL", elapsed)
 			renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
+			
+			// Also buffer the failure message for the output section
+			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] ✗ %s (%dms)\n", st.ID, renderer.Red("FAIL"), res.DurationMs))
 		} else {
-			// Buffer the failure message with color
-			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] ✗ %s (%dms)\n\n", st.ID, renderer.Red("FAIL"), res.DurationMs))
+			// Stream the failure message with color
+			fmt.Printf("[%-15s] ✗ %s (%dms)\n\n", st.ID, renderer.Red("FAIL"), res.DurationMs)
+			
+			// Signal that this task is done streaming
+			close(taskDone)
 		}
 		return res, &taskOutputBuffer, err
 	}
@@ -731,8 +963,8 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 	if tracker != nil {
 		tracker.UpdateTask(st.ID, string(res.Status), elapsed)
 		renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
-	} else {
-		// Buffer the completion message for non-animated mode with colors
+		
+		// Also buffer the completion message for the output section
 		symbol := "•"
 		var statusText string
 		
@@ -754,7 +986,33 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		} else {
 			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] %s %s (%dms)\n", st.ID, symbol, statusText, res.DurationMs))
 		}
-		taskOutputBuffer.WriteString("\n") // Blank line after task
+	} else {
+		// Stream the completion message for non-animated mode with colors
+		symbol := "•"
+		var statusText string
+		
+		if res.Status == model.StatusPass {
+			symbol = "✓"
+			statusText = renderer.Green(string(res.Status))
+		} else if res.Status == model.StatusFail {
+			symbol = "✗"
+			statusText = renderer.Red(string(res.Status))
+		} else if res.Status == model.StatusSkipped {
+			symbol = "⊘"
+			statusText = renderer.Yellow(string(res.Status))
+		} else {
+			statusText = string(res.Status)
+		}
+		
+		if verbose && exitCode != 0 {
+			fmt.Printf("[%-15s] %s %s (exit %d, %dms)\n", st.ID, symbol, statusText, exitCode, res.DurationMs)
+		} else {
+			fmt.Printf("[%-15s] %s %s (%dms)\n", st.ID, symbol, statusText, res.DurationMs)
+		}
+		fmt.Println() // Blank line after task
+		
+		// Signal that this task is done streaming
+		close(taskDone)
 	}
 	
 	return res, &taskOutputBuffer, nil
@@ -835,6 +1093,8 @@ type lineWriter struct {
 	buffer        []byte
 	outputBuffer  *bytes.Buffer // Buffer all output until task completes
 	mu            *sync.Mutex   // Protect outputBuffer
+	console       *os.File      // For streaming output directly
+	renderer      *ui.Renderer  // For colorizing output
 }
 
 func (w *lineWriter) Write(p []byte) (n int, err error) {
@@ -864,6 +1124,9 @@ func (w *lineWriter) Write(p []byte) (n int, err error) {
 			w.outputBuffer.WriteString(prefixedLine)
 			w.outputBuffer.WriteString("\n")
 			w.mu.Unlock()
+		} else if w.console != nil {
+			// Stream output directly
+			fmt.Fprintln(w.console, prefixedLine)
 		}
 		
 		w.buffer = w.buffer[idx+1:]
