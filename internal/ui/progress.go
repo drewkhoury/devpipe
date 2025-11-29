@@ -4,19 +4,19 @@ import (
 	"time"
 )
 
-// StageProgress represents the progress of a single stage
-type StageProgress struct {
+// TaskProgress represents the progress of a single task
+type TaskProgress struct {
 	ID               string
 	Name             string
-	Group            string
+	Type             string // Type of task (quality, correctness, release)
 	Status           string
 	EstimatedSeconds int
 	ElapsedSeconds   float64
 	StartTime        time.Time
 }
 
-// CalculateStageProgress returns the progress percentage for a stage (0-100)
-func CalculateStageProgress(elapsed float64, estimated int) float64 {
+// CalculateTaskProgress returns the progress percentage for a task (0-100)
+func CalculateTaskProgress(elapsed float64, estimated int) float64 {
 	if estimated == 0 {
 		return 0
 	}
@@ -28,31 +28,31 @@ func CalculateStageProgress(elapsed float64, estimated int) float64 {
 	return progress
 }
 
-// CalculateOverallProgress calculates overall pipeline progress based on stage weights
-func CalculateOverallProgress(stages []StageProgress) float64 {
-	if len(stages) == 0 {
+// CalculateOverallProgress calculates overall pipeline progress based on task weights
+func CalculateOverallProgress(tasks []TaskProgress) float64 {
+	if len(tasks) == 0 {
 		return 0
 	}
 	
 	totalWeight := 0
 	completedWeight := 0
 	
-	for _, stage := range stages {
-		weight := stage.EstimatedSeconds
+	for _, task := range tasks {
+		weight := task.EstimatedSeconds
 		if weight == 0 {
 			weight = 10 // Default weight
 		}
 		
 		totalWeight += weight
 		
-		switch stage.Status {
+		switch task.Status {
 		case "PASS", "FAIL", "SKIPPED":
-			// Stage complete
+			// Task complete
 			completedWeight += weight
 		case "RUNNING":
-			// Stage in progress
-			stageProgress := CalculateStageProgress(stage.ElapsedSeconds, stage.EstimatedSeconds)
-			completedWeight += int(float64(weight) * (stageProgress / 100.0))
+			// Task in progress
+			taskProgress := CalculateTaskProgress(task.ElapsedSeconds, task.EstimatedSeconds)
+			completedWeight += int(float64(weight) * (taskProgress / 100.0))
 		case "PENDING":
 			// Not started yet
 			completedWeight += 0

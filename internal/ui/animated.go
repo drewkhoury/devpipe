@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// AnimatedStageTracker tracks live progress of stages
-type AnimatedStageTracker struct {
-	stages       []StageProgress
+// AnimatedTaskTracker tracks live progress of tasks
+type AnimatedTaskTracker struct {
+	tasks        []TaskProgress
 	mu           sync.RWMutex
 	done         chan struct{}
 	renderer     *Renderer
@@ -22,29 +22,29 @@ type AnimatedStageTracker struct {
 	refreshMs    int
 }
 
-// NewAnimatedStageTracker creates a new animated stage tracker
-func NewAnimatedStageTracker(renderer *Renderer, stages []StageProgress, headerLines int, refreshMs int) *AnimatedStageTracker {
+// NewAnimatedTaskTracker creates a new animated task tracker
+func NewAnimatedTaskTracker(renderer *Renderer, tasks []TaskProgress, headerLines int, refreshMs int) *AnimatedTaskTracker {
 	termHeight := GetTerminalHeight()
 	
 	// Calculate animation lines more accurately
 	var animLines int
 	if renderer.mode == UIModeFull {
-		// Full mode: overall progress (2 lines) + grouped stages
+		// Full mode: overall progress (2 lines) + grouped tasks
 		animLines = 2 // Overall progress + blank
 		
 		// Count lines per group
 		groups := make(map[string]int)
-		for _, stage := range stages {
-			groups[stage.Group]++
+		for _, task := range tasks {
+			groups[task.Type]++
 		}
 		
-		// Each group: header (1) + stages (N) + footer (1) + blank (1)
+		// Each group: header (1) + tasks (N) + footer (1) + blank (1)
 		for _, count := range groups {
 			animLines += 3 + count // header + stages + footer + blank
 		}
 	} else {
-		// Basic mode: progress bar + blank + stages + blank
-		animLines = 2 + len(stages) + 1
+		// Basic mode: progress bar + blank + tasks + blank
+		animLines = 2 + len(tasks) + 1
 	}
 	
 	// Reserve space for logs (rest of terminal minus header, animation, log header, and summary)
@@ -59,8 +59,8 @@ func NewAnimatedStageTracker(renderer *Renderer, stages []StageProgress, headerL
 		refreshMs = 500 // Default to 500ms if invalid
 	}
 	
-	return &AnimatedStageTracker{
-		stages:      stages,
+	return &AnimatedTaskTracker{
+		tasks:       tasks,
 		done:        make(chan struct{}),
 		renderer:    renderer,
 		headerLines: headerLines,
@@ -74,7 +74,7 @@ func NewAnimatedStageTracker(renderer *Renderer, stages []StageProgress, headerL
 }
 
 // Start begins the animation loop
-func (a *AnimatedStageTracker) Start() error {
+func (a *AnimatedTaskTracker) Start() error {
 	// Test if terminal supports animation
 	if err := a.testRender(); err != nil {
 		return fmt.Errorf("animation not supported: %w", err)
@@ -85,7 +85,7 @@ func (a *AnimatedStageTracker) Start() error {
 }
 
 // Stop stops the animation loop
-func (a *AnimatedStageTracker) Stop() {
+func (a *AnimatedTaskTracker) Stop() {
 	// Always restore cursor, even if something goes wrong
 	defer fmt.Print("\033[?25h") // Show cursor again
 	
@@ -96,7 +96,7 @@ func (a *AnimatedStageTracker) Stop() {
 }
 
 // testRender tests if terminal supports ANSI escape codes
-func (a *AnimatedStageTracker) testRender() error {
+func (a *AnimatedTaskTracker) testRender() error {
 	defer func() {
 		if r := recover(); r != nil {
 			// Rendering panicked
@@ -110,22 +110,22 @@ func (a *AnimatedStageTracker) testRender() error {
 	return nil
 }
 
-// UpdateStage updates a stage's progress
-func (a *AnimatedStageTracker) UpdateStage(id string, status string, elapsed float64) {
+// UpdateTask updates a stage's progress
+func (a *AnimatedTaskTracker) UpdateTask(id string, status string, elapsed float64) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	
-	for i := range a.stages {
-		if a.stages[i].ID == id {
-			a.stages[i].Status = status
-			a.stages[i].ElapsedSeconds = elapsed
+	for i := range a.tasks {
+		if a.tasks[i].ID == id {
+			a.tasks[i].Status = status
+			a.tasks[i].ElapsedSeconds = elapsed
 			break
 		}
 	}
 }
 
 // AddLogLine adds a log line to the display
-func (a *AnimatedStageTracker) AddLogLine(line string) {
+func (a *AnimatedTaskTracker) AddLogLine(line string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	
@@ -138,7 +138,7 @@ func (a *AnimatedStageTracker) AddLogLine(line string) {
 }
 
 // animationLoop continuously updates the display
-func (a *AnimatedStageTracker) animationLoop() {
+func (a *AnimatedTaskTracker) animationLoop() {
 	// Use configured refresh rate
 	ticker := time.NewTicker(time.Duration(a.refreshMs) * time.Millisecond)
 	defer ticker.Stop()
@@ -154,7 +154,7 @@ func (a *AnimatedStageTracker) animationLoop() {
 }
 
 // render draws the current state
-func (a *AnimatedStageTracker) render() {
+func (a *AnimatedTaskTracker) render() {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	
@@ -196,19 +196,19 @@ func (a *AnimatedStageTracker) render() {
 
 // calculateLines calculates how many lines we need to clear
 // This should return a FIXED number based on maxLogLines, not actual log count
-func (a *AnimatedStageTracker) calculateLines() int {
+func (a *AnimatedTaskTracker) calculateLines() int {
 	if a.renderer.mode == UIModeFull {
 		// Full mode: overall progress + grouped stages + log box (fixed size)
 		lines := 2 // Overall progress bar + blank line
 		
-		// Group stages
-		groups := make(map[string][]StageProgress)
-		for _, stage := range a.stages {
-			groups[stage.Group] = append(groups[stage.Group], stage)
+		// Group tasks
+		groups := make(map[string][]TaskProgress)
+		for _, task := range a.tasks {
+			groups[task.Type] = append(groups[task.Type], task)
 		}
 		
-		for _, stages := range groups {
-			lines += 2 + len(stages) + 1 // Header + stages + footer + blank
+		for _, taskList := range groups {
+			lines += 2 + len(taskList) + 1 // Header + tasks + footer + blank
 		}
 		
 		// Add FIXED log box lines (always reserve maxLogLines)
@@ -216,15 +216,15 @@ func (a *AnimatedStageTracker) calculateLines() int {
 		
 		return lines
 	} else {
-		// Basic mode: progress bar + blank + stages + blank + log header + FIXED log lines
-		return 2 + len(a.stages) + 1 + 1 + a.maxLogLines
+		// Basic mode: progress bar + blank + tasks + blank + log header + FIXED log lines
+		return 2 + len(a.tasks) + 1 + 1 + a.maxLogLines
 	}
 }
 
 // renderBasicMode renders the basic animated mode
-func (a *AnimatedStageTracker) renderBasicMode() {
+func (a *AnimatedTaskTracker) renderBasicMode() {
 	// Calculate overall progress
-	overallProgress := CalculateOverallProgress(a.stages)
+	overallProgress := CalculateOverallProgress(a.tasks)
 	
 	// Render progress bar
 	barWidth := 40
@@ -233,31 +233,31 @@ func (a *AnimatedStageTracker) renderBasicMode() {
 	}
 	
 	completed := 0
-	for _, stage := range a.stages {
-		if stage.Status == "PASS" || stage.Status == "FAIL" || stage.Status == "SKIPPED" {
+	for _, task := range a.tasks {
+		if task.Status == "PASS" || task.Status == "FAIL" || task.Status == "SKIPPED" {
 			completed++
 		}
 	}
 	
 	bar := a.renderer.colors.ProgressBar(int(overallProgress), 100, barWidth)
-	fmt.Printf("%s (%d/%d stages)\n\n", bar, completed, len(a.stages))
+	fmt.Printf("%s (%d/%d tasks)\n\n", bar, completed, len(a.tasks))
 	
-	// Render stage list
-	for _, stage := range a.stages {
-		symbol := a.renderer.colors.StatusSymbol(stage.Status)
+	// Render task list
+	for _, task := range a.tasks {
+		symbol := a.renderer.colors.StatusSymbol(task.Status)
 		
-		switch stage.Status {
+		switch task.Status {
 		case "PASS", "FAIL", "SKIPPED":
-			statusText := a.renderer.colors.StatusColor(stage.Status, stage.Status)
-			fmt.Printf("%s %-15s %s\n", symbol, stage.ID, statusText)
+			statusText := a.renderer.colors.StatusColor(task.Status, task.Status)
+			fmt.Printf("%s %-15s %s\n", symbol, task.ID, statusText)
 		case "RUNNING":
-			progress := CalculateStageProgress(stage.ElapsedSeconds, stage.EstimatedSeconds)
+			progress := CalculateTaskProgress(task.ElapsedSeconds, task.EstimatedSeconds)
 			progressText := fmt.Sprintf("%.0f%%", progress)
-			fmt.Printf("%s %-15s %s %s\n", symbol, stage.ID, 
+			fmt.Printf("%s %-15s %s %s\n", symbol, task.ID, 
 				a.renderer.colors.Blue("running..."), 
 				a.renderer.colors.Gray(progressText))
 		case "PENDING":
-			fmt.Printf("%s %-15s %s\n", symbol, stage.ID, a.renderer.colors.Gray("pending"))
+			fmt.Printf("%s %-15s %s\n", symbol, task.ID, a.renderer.colors.Gray("pending"))
 		}
 	}
 	
@@ -276,9 +276,9 @@ func (a *AnimatedStageTracker) renderBasicMode() {
 }
 
 // renderFullMode renders the full animated mode with grouped stages
-func (a *AnimatedStageTracker) renderFullMode() {
+func (a *AnimatedTaskTracker) renderFullMode() {
 	// Calculate overall progress
-	overallProgress := CalculateOverallProgress(a.stages)
+	overallProgress := CalculateOverallProgress(a.tasks)
 	
 	// Render overall progress bar
 	barWidth := 40
@@ -289,57 +289,57 @@ func (a *AnimatedStageTracker) renderFullMode() {
 	bar := a.renderer.colors.ProgressBar(int(overallProgress), 100, barWidth)
 	fmt.Printf("Overall: %s\n\n", bar)
 	
-	// Group stages by group
-	groups := make(map[string][]StageProgress)
+	// Group tasks by type
+	groups := make(map[string][]TaskProgress)
 	groupOrder := []string{}
 	seen := make(map[string]bool)
 	
-	for _, stage := range a.stages {
-		if !seen[stage.Group] {
-			groupOrder = append(groupOrder, stage.Group)
-			seen[stage.Group] = true
+	for _, task := range a.tasks {
+		if !seen[task.Type] {
+			groupOrder = append(groupOrder, task.Type)
+			seen[task.Type] = true
 		}
-		groups[stage.Group] = append(groups[stage.Group], stage)
+		groups[task.Type] = append(groups[task.Type], task)
 	}
 	
 	// Render each group
 	for _, groupName := range groupOrder {
-		stages := groups[groupName]
+		taskList := groups[groupName]
 		
 		// Group header
 		headerText := fmt.Sprintf("─ %s ", strings.Title(groupName))
 		padding := strings.Repeat("─", a.renderer.width-len(headerText)-2)
 		fmt.Printf("┌%s%s┐\n", headerText, padding)
 		
-		// Stages in group
-		for _, stage := range stages {
-			symbol := a.renderer.colors.StatusSymbol(stage.Status)
+		// Tasks in group
+		for _, task := range taskList {
+			symbol := a.renderer.colors.StatusSymbol(task.Status)
 			
-			switch stage.Status {
+			switch task.Status {
 			case "PASS":
-				duration := FormatDuration(int64(stage.ElapsedSeconds * 1000))
-				fmt.Printf("│ %s %-12s %s\n", symbol, stage.ID, 
+				duration := FormatDuration(int64(task.ElapsedSeconds * 1000))
+				fmt.Printf("│ %s %-12s %s\n", symbol, task.ID, 
 					a.renderer.colors.Green(duration))
 			case "FAIL":
-				duration := FormatDuration(int64(stage.ElapsedSeconds * 1000))
-				fmt.Printf("│ %s %-12s %s\n", symbol, stage.ID, 
+				duration := FormatDuration(int64(task.ElapsedSeconds * 1000))
+				fmt.Printf("│ %s %-12s %s\n", symbol, task.ID, 
 					a.renderer.colors.Red(duration))
 			case "SKIPPED":
-				fmt.Printf("│ %s %-12s %s\n", symbol, stage.ID, 
+				fmt.Printf("│ %s %-12s %s\n", symbol, task.ID, 
 					a.renderer.colors.Yellow("skipped"))
 			case "RUNNING":
-				progress := CalculateStageProgress(stage.ElapsedSeconds, stage.EstimatedSeconds)
-				elapsed := FormatDuration(int64(stage.ElapsedSeconds * 1000))
-				estimated := FormatDuration(int64(stage.EstimatedSeconds * 1000))
+				progress := CalculateTaskProgress(task.ElapsedSeconds, task.EstimatedSeconds)
+				elapsed := FormatDuration(int64(task.ElapsedSeconds * 1000))
+				estimated := FormatDuration(int64(task.EstimatedSeconds * 1000))
 				
 				// Mini progress bar
 				miniBarWidth := 12
 				miniBar := a.renderer.colors.ProgressBar(int(progress), 100, miniBarWidth)
 				
-				fmt.Printf("│ %s %-12s %s / %s   %s\n", symbol, stage.ID, 
+				fmt.Printf("│ %s %-12s %s / %s   %s\n", symbol, task.ID, 
 					elapsed, estimated, miniBar)
 			case "PENDING":
-				fmt.Printf("│ %s %-12s %s\n", symbol, stage.ID, 
+				fmt.Printf("│ %s %-12s %s\n", symbol, task.ID, 
 					a.renderer.colors.Gray("pending"))
 			}
 		}

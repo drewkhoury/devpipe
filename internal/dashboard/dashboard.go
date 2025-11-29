@@ -15,7 +15,7 @@ import (
 type Summary struct {
 	TotalRuns      int            `json:"totalRuns"`
 	RecentRuns     []RunSummary   `json:"recentRuns"`
-	StageStats     map[string]StageStats `json:"stageStats"`
+	TaskStats      map[string]TaskStats `json:"taskStats"`
 	LastGenerated  string         `json:"lastGenerated"`
 }
 
@@ -28,11 +28,11 @@ type RunSummary struct {
 	PassCount  int    `json:"passCount"`
 	FailCount  int    `json:"failCount"`
 	SkipCount  int    `json:"skipCount"`
-	TotalStages int   `json:"totalStages"`
+	TotalTasks int    `json:"totalTasks"`
 }
 
-// StageStats holds statistics for a specific stage across runs
-type StageStats struct {
+// TaskStats holds statistics for a specific task across runs
+type TaskStats struct {
 	ID            string  `json:"id"`
 	Name          string  `json:"name"`
 	TotalRuns     int     `json:"totalRuns"`
@@ -123,12 +123,12 @@ func aggregateRuns(runs []model.RunRecord) Summary {
 	summary := Summary{
 		TotalRuns:     len(runs),
 		RecentRuns:    []RunSummary{},
-		StageStats:    make(map[string]StageStats),
+		TaskStats:     make(map[string]TaskStats),
 		LastGenerated: time.Now().UTC().Format(time.RFC3339),
 	}
 	
-	// Track stage statistics
-	stageDurations := make(map[string][]int64)
+	// Track task statistics
+	taskDurations := make(map[string][]int64)
 	
 	// Process each run
 	for i, run := range runs {
@@ -138,18 +138,18 @@ func aggregateRuns(runs []model.RunRecord) Summary {
 			summary.RecentRuns = append(summary.RecentRuns, runSummary)
 		}
 		
-		// Aggregate stage stats
-		for _, stage := range run.Tasks {
-			stats, exists := summary.StageStats[stage.ID]
+		// Aggregate task stats
+		for _, task := range run.Tasks {
+			stats, exists := summary.TaskStats[task.ID]
 			if !exists {
-				stats = StageStats{
-					ID:   stage.ID,
-					Name: stage.Name,
+				stats = TaskStats{
+					ID:   task.ID,
+					Name: task.Name,
 				}
 			}
 			
 			stats.TotalRuns++
-			switch stage.Status {
+			switch task.Status {
 			case model.StatusPass:
 				stats.PassCount++
 			case model.StatusFail:
@@ -159,29 +159,29 @@ func aggregateRuns(runs []model.RunRecord) Summary {
 			}
 			
 			// Track duration for average
-			if !stage.Skipped {
-				stageDurations[stage.ID] = append(stageDurations[stage.ID], stage.DurationMs)
+			if !task.Skipped {
+				taskDurations[task.ID] = append(taskDurations[task.ID], task.DurationMs)
 			}
 			
 			// Update last status (from most recent run)
 			if i == 0 {
-				stats.LastStatus = string(stage.Status)
+				stats.LastStatus = string(task.Status)
 			}
 			
-			summary.StageStats[stage.ID] = stats
+			summary.TaskStats[task.ID] = stats
 		}
 	}
 	
 	// Calculate average durations
-	for id, durations := range stageDurations {
+	for id, durations := range taskDurations {
 		if len(durations) > 0 {
 			var sum int64
 			for _, d := range durations {
 				sum += d
 			}
-			stats := summary.StageStats[id]
+			stats := summary.TaskStats[id]
 			stats.AvgDuration = float64(sum) / float64(len(durations))
-			summary.StageStats[id] = stats
+			summary.TaskStats[id] = stats
 		}
 	}
 	
@@ -193,16 +193,16 @@ func summarizeRun(run model.RunRecord) RunSummary {
 	summary := RunSummary{
 		RunID:       run.RunID,
 		Timestamp:   run.Timestamp,
-		TotalStages: len(run.Tasks),
+		TotalTasks:  len(run.Tasks),
 	}
 	
 	anyFailed := false
 	var totalDuration int64
 	
-	for _, stage := range run.Tasks {
-		totalDuration += stage.DurationMs
+	for _, task := range run.Tasks {
+		totalDuration += task.DurationMs
 		
-		switch stage.Status {
+		switch task.Status {
 		case model.StatusPass:
 			summary.PassCount++
 		case model.StatusFail:
@@ -217,7 +217,7 @@ func summarizeRun(run model.RunRecord) RunSummary {
 	
 	if anyFailed {
 		summary.Status = "FAIL"
-	} else if summary.SkipCount == summary.TotalStages {
+	} else if summary.SkipCount == summary.TotalTasks {
 		summary.Status = "SKIPPED"
 	} else {
 		summary.Status = "PASS"

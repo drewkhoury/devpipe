@@ -12,9 +12,9 @@ help:
 	@echo "Demo commands (for testing):"
 	@echo "  make demo           - Run basic pipeline"
 	@echo "  make demo-verbose   - Run with verbose output"
-	@echo "  make demo-fast      - Run with --fast (skip long stages)"
+	@echo "  make demo-fast      - Run with --fast (skip long tasks)"
 	@echo "  make demo-fail-fast - Run with --fail-fast"
-	@echo "  make demo-only      - Run only unit-tests stage"
+	@echo "  make demo-only      - Run only unit-tests task"
 	@echo "  make demo-skip      - Run pipeline, skip lint and format"
 	@echo "  make demo-dry-run   - Dry run (don't execute commands)"
 	@echo ""
@@ -55,7 +55,7 @@ demo-verbose: build
 	./devpipe --verbose
 
 demo-fast: build
-	@echo "Running pipeline with --fast (skips stages >= 300s)..."
+	@echo "Running pipeline with --fast (skips tasks >= 300s)..."
 	./devpipe --fast --verbose
 
 demo-fail-fast: build
@@ -63,7 +63,7 @@ demo-fail-fast: build
 	./devpipe --fail-fast --verbose
 
 demo-only: build
-	@echo "Running only unit-tests stage..."
+	@echo "Running only unit-tests task..."
 	./devpipe --only unit-tests --verbose
 
 demo-skip: build
@@ -114,7 +114,7 @@ test-fail-fast: build
 	@echo "=========================================="
 	@echo "TEST: --fail-fast should stop on first failure"
 	@echo "=========================================="
-	@echo "Making format stage fail..."
+	@echo "Making format task fail..."
 	@echo ""
 	@DEVPIPE_TEST_FAIL=format ./devpipe --fail-fast --verbose; \
 	EXIT_CODE=$$?; \
@@ -124,16 +124,16 @@ test-fail-fast: build
 		exit 1; \
 	fi
 	@echo ""
-	@echo "Checking that stages after format did NOT run..."
+	@echo "Checking that tasks after format did NOT run..."
 	@LATEST_RUN=$$(find .devpipe/runs -name "run.json" -type f -print0 | xargs -0 ls -t | head -1); \
 	if [ -f "$$LATEST_RUN" ]; then \
 		STAGES_RUN=$$(cat "$$LATEST_RUN" | grep -o '"id"' | wc -l | tr -d ' '); \
 		if [ $$STAGES_RUN -gt 2 ]; then \
-			echo "❌ FAIL: Expected only 2 stages (lint, format), but $$STAGES_RUN ran"; \
+			echo "❌ FAIL: Expected only 2 tasks (lint, format), but $$STAGES_RUN ran"; \
 			cat "$$LATEST_RUN" | grep '"id"'; \
 			exit 1; \
 		fi; \
-		echo "✅ PASS: Only $$STAGES_RUN stages ran (lint passed, format failed, rest skipped)"; \
+		echo "✅ PASS: Only $$STAGES_RUN tasks ran (lint passed, format failed, rest skipped)"; \
 	else \
 		echo "❌ FAIL: No run.json found"; \
 		exit 1; \
@@ -144,7 +144,7 @@ test-continue-on-fail: build
 	@echo "=========================================="
 	@echo "TEST: Without --fail-fast, pipeline should continue"
 	@echo "=========================================="
-	@echo "Making format stage fail (no --fail-fast)..."
+	@echo "Making format task fail (no --fail-fast)..."
 	@echo ""
 	@DEVPIPE_TEST_FAIL=format ./devpipe --verbose; \
 	EXIT_CODE=$$?; \
@@ -154,16 +154,16 @@ test-continue-on-fail: build
 		exit 1; \
 	fi
 	@echo ""
-	@echo "Checking that all stages ran despite failure..."
+	@echo "Checking that all tasks ran despite failure..."
 	@LATEST_RUN=$$(find .devpipe/runs -name "run.json" -type f -print0 | xargs -0 ls -t | head -1); \
 	if [ -f "$$LATEST_RUN" ]; then \
 		STAGES_RUN=$$(cat "$$LATEST_RUN" | grep -o '"id"' | wc -l | tr -d ' '); \
 		if [ $$STAGES_RUN -ne 6 ]; then \
-			echo "❌ FAIL: Expected all 6 stages to run, but only $$STAGES_RUN ran"; \
+			echo "❌ FAIL: Expected all 6 tasks to run, but only $$STAGES_RUN ran"; \
 			cat "$$LATEST_RUN" | grep '"id"'; \
 			exit 1; \
 		fi; \
-		echo "✅ PASS: All $$STAGES_RUN stages ran (format failed, but pipeline continued)"; \
+		echo "✅ PASS: All $$STAGES_RUN tasks ran (format failed, but pipeline continued)"; \
 	else \
 		echo "❌ FAIL: No run.json found"; \
 		exit 1; \

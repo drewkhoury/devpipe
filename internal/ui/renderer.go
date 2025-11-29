@@ -93,8 +93,8 @@ func (r *Renderer) renderBasicHeader(runID, repoRoot string, gitMode string, cha
 	fmt.Println() // Blank line after header
 }
 
-// RenderStageStart renders when a stage starts
-func (r *Renderer) RenderStageStart(id, command string, verbose bool) {
+// RenderTaskStart renders when a stage starts
+func (r *Renderer) RenderTaskStart(id, command string, verbose bool) {
 	// In animated mode, don't print anything yet
 	if r.animated {
 		return
@@ -107,8 +107,8 @@ func (r *Renderer) RenderStageStart(id, command string, verbose bool) {
 	}
 }
 
-// RenderStageComplete renders when a stage completes
-func (r *Renderer) RenderStageComplete(id, status string, exitCode *int, durationMs int64, verbose bool) {
+// RenderTaskComplete renders when a stage completes
+func (r *Renderer) RenderTaskComplete(id, status string, exitCode *int, durationMs int64, verbose bool) {
 	// In animated mode, don't print anything (animation handles it)
 	if r.animated {
 		return
@@ -125,8 +125,8 @@ func (r *Renderer) RenderStageComplete(id, status string, exitCode *int, duratio
 	fmt.Println() // Blank line after stage
 }
 
-// RenderStageSkipped renders when a stage is skipped
-func (r *Renderer) RenderStageSkipped(id, reason string, verbose bool) {
+// RenderTaskSkipped renders when a stage is skipped
+func (r *Renderer) RenderTaskSkipped(id, reason string, verbose bool) {
 	// In animated mode, don't print anything (animation handles it)
 	if r.animated {
 		return
@@ -142,7 +142,7 @@ func (r *Renderer) RenderStageSkipped(id, reason string, verbose bool) {
 }
 
 // RenderSummary renders the final summary
-func (r *Renderer) RenderSummary(results []StageSummary, anyFailed bool) {
+func (r *Renderer) RenderSummary(results []TaskSummary, anyFailed bool) {
 	// Add blank line before summary if animated (animation already on screen)
 	if r.animated {
 		fmt.Println()
@@ -160,15 +160,15 @@ func (r *Renderer) RenderSummary(results []StageSummary, anyFailed bool) {
 	
 	fmt.Println()
 	if anyFailed {
-		fmt.Println(r.colors.Red("devpipe: one or more stages failed"))
+		fmt.Println(r.colors.Red("devpipe: one or more tasks failed"))
 	} else {
-		fmt.Println(r.colors.Green("devpipe: all stages passed or were skipped"))
+		fmt.Println(r.colors.Green("devpipe: all tasks passed or were skipped"))
 	}
 	fmt.Println() // Blank line at very end
 }
 
-// StageSummary represents a stage result for the summary
-type StageSummary struct {
+// TaskSummary represents a task result for the summary
+type TaskSummary struct {
 	ID         string
 	Status     string
 	DurationMs int64
@@ -189,10 +189,10 @@ func (r *Renderer) RenderProgress(current, total int) {
 	fmt.Printf("\n%s (%d/%d stages)\n\n", bar, current, total)
 }
 
-// CreateAnimatedTracker creates an animated stage tracker
-func (r *Renderer) CreateAnimatedTracker(stages []StageProgress, headerLines int, refreshMs int) *AnimatedStageTracker {
+// CreateAnimatedTracker creates an animated task tracker
+func (r *Renderer) CreateAnimatedTracker(tasks []TaskProgress, headerLines int, refreshMs int) *AnimatedTaskTracker {
 	if !r.animated {
 		return nil
 	}
-	return NewAnimatedStageTracker(r, stages, headerLines, refreshMs)
+	return NewAnimatedTaskTracker(r, tasks, headerLines, refreshMs)
 }

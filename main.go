@@ -54,15 +54,15 @@ func main() {
 	
 	flag.StringVar(&flagConfig, "config", "", "Path to config file (default: config.toml)")
 	flag.StringVar(&flagSince, "since", "", "Git ref to compare against (overrides config)")
-	flag.StringVar(&flagOnly, "only", "", "Run only a single stage by id")
+	flag.StringVar(&flagOnly, "only", "", "Run only a single task by id")
 	flag.StringVar(&flagUI, "ui", "basic", "UI mode: basic, full")
 	flag.BoolVar(&flagNoColor, "no-color", false, "Disable colored output")
 	flag.BoolVar(&flagAnimated, "animated", false, "Show live progress animation (experimental)")
-	flag.Var(&flagSkipVals, "skip", "Skip a stage by id (can be specified multiple times)")
-	flag.BoolVar(&flagFailFast, "fail-fast", false, "Stop on first stage failure")
+	flag.Var(&flagSkipVals, "skip", "Skip a task by id (can be specified multiple times)")
+	flag.BoolVar(&flagFailFast, "fail-fast", false, "Stop on first task failure")
 	flag.BoolVar(&flagDryRun, "dry-run", false, "Do not execute commands, simulate only")
 	flag.BoolVar(&flagVerbose, "verbose", false, "Verbose logging")
-	flag.BoolVar(&flagFast, "fast", false, "Skip long running stages")
+	flag.BoolVar(&flagFast, "fast", false, "Skip long running tasks")
 	flag.Parse()
 	
 	// Load configuration first to get UI mode
@@ -218,7 +218,7 @@ func main() {
 	renderer.RenderHeader(runID, repoRoot, gitMode, len(gitInfo.ChangedFiles))
 	
 	// Setup animation if enabled
-	var tracker *ui.AnimatedStageTracker
+	var tracker *ui.AnimatedTaskTracker
 	
 	// Ensure cursor is restored on exit (in case of panic or early exit)
 	defer func() {
@@ -229,12 +229,12 @@ func main() {
 	
 	if renderer.IsAnimated() {
 		// Build task progress list
-		var stageProgress []ui.StageProgress
+		var taskProgress []ui.TaskProgress
 		for _, st := range filteredTasks {
-			stageProgress = append(stageProgress, ui.StageProgress{
+			taskProgress = append(taskProgress, ui.TaskProgress{
 				ID:               st.ID,
 				Name:             st.Name,
-				Group:            st.Type,
+				Type:             st.Type,
 				Status:           "PENDING",
 				EstimatedSeconds: st.EstimatedSeconds,
 				ElapsedSeconds:   0,
@@ -248,7 +248,7 @@ func main() {
 			headerLines = 4
 		}
 		
-		tracker = renderer.CreateAnimatedTracker(stageProgress, headerLines, mergedCfg.Defaults.AnimationRefreshMs)
+		tracker = renderer.CreateAnimatedTracker(taskProgress, headerLines, mergedCfg.Defaults.AnimationRefreshMs)
 		if tracker != nil {
 			if err := tracker.Start(); err != nil {
 				// Animation failed, fall back to non-animated
@@ -269,10 +269,10 @@ func main() {
 			
 			// Update tracker if animated
 			if tracker != nil {
-				tracker.UpdateStage(st.ID, "SKIPPED", 0)
+				tracker.UpdateTask(st.ID, "SKIPPED", 0)
 			}
 			
-			renderer.RenderStageSkipped(st.ID, reason, flagVerbose)
+			renderer.RenderTaskSkipped(st.ID, reason, flagVerbose)
 			results = append(results, model.TaskResult{
 				ID:               st.ID,
 				Name:             st.Name,
@@ -288,7 +288,7 @@ func main() {
 			continue
 		}
 
-		res, _ := runStage(st, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker)
+		res, _ := runTask(st, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker)
 		results = append(results, res)
 
 		if res.Status == model.StatusFail {
@@ -309,9 +309,9 @@ func main() {
 	}
 
 	// Render summary
-	var summaries []ui.StageSummary
+	var summaries []ui.TaskSummary
 	for _, r := range results {
-		summaries = append(summaries, ui.StageSummary{
+		summaries = append(summaries, ui.TaskSummary{
 			ID:         r.ID,
 			Status:     string(r.Status),
 			DurationMs: r.DurationMs,
@@ -326,6 +326,7 @@ func main() {
 		RepoRoot:   repoRoot,
 		OutputRoot: outputRoot,
 		ConfigPath: flagConfig,
+		Command:    buildCommandString(),
 		Git:        gitInfo,
 		Flags: model.RunFlags{
 			Fast:     flagFast,
@@ -343,12 +344,57 @@ func main() {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to write run record: %v\n", err)
 	}
 	
+	// Copy config file to run directory
+	if err := copyConfigToRun(runDir, flagConfig, &mergedCfg); err != nil {
+		if flagVerbose {
+			fmt.Fprintf(os.Stderr, "WARNING: failed to copy config: %v\n", err)
+		}
+	}
+	
 	// Generate dashboard
 	if err := dashboard.GenerateDashboard(outputRoot); err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to generate dashboard: %v\n", err)
 	}
 	
 	os.Exit(overallExitCode)
+}
+
+func buildCommandString() string {
+	// Get username and hostname
+	username := os.Getenv("USER")
+	if username == "" {
+		username = os.Getenv("USERNAME") // Windows fallback
+	}
+	hostname, _ := os.Hostname()
+	
+	// Get current working directory
+	cwd, _ := os.Getwd()
+	
+	// Build command line from os.Args
+	cmdLine := ""
+	for i, arg := range os.Args {
+		if i > 0 {
+			cmdLine += " "
+		}
+		// Quote arguments that contain spaces
+		if len(arg) > 0 && (arg[0] == '-' || !containsSpace(arg)) {
+			cmdLine += arg
+		} else {
+			cmdLine += `"` + arg + `"`
+		}
+	}
+	
+	// Format like: drew@drews-MBP devpipe % ./devpipe --config ...
+	return fmt.Sprintf("%s@%s %s %% %s", username, hostname, filepath.Base(cwd), cmdLine)
+}
+
+func containsSpace(s string) bool {
+	for _, c := range s {
+		if c == ' ' {
+			return true
+		}
+	}
+	return false
 }
 
 func filterTasks(tasks []model.TaskDefinition, only string, skip sliceFlag, fast bool, fastThreshold int, verbose bool) []model.TaskDefinition {
@@ -389,7 +435,7 @@ func makeRunID() string {
 	return fmt.Sprintf("%s_%06d", ts, suffix)
 }
 
-func runStage(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer, tracker *ui.AnimatedStageTracker) (model.TaskResult, error) {
+func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer, tracker *ui.AnimatedTaskTracker) (model.TaskResult, error) {
 	res := model.TaskResult{
 		ID:               st.ID,
 		Name:             st.Name,
@@ -405,14 +451,14 @@ func runStage(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbo
 	res.LogPath = logPath
 
 	if dryRun {
-		renderer.RenderStageSkipped(st.ID, "dry-run", verbose)
+		renderer.RenderTaskSkipped(st.ID, "dry-run", verbose)
 		res.Status = model.StatusSkipped
 		res.Skipped = true
 		res.SkipReason = "dry-run"
 		return res, nil
 	}
 
-	renderer.RenderStageStart(st.ID, st.Command, verbose)
+	renderer.RenderTaskStart(st.ID, st.Command, verbose)
 
 	start := time.Now().UTC()
 	res.StartTime = start.Format(time.RFC3339)
@@ -420,7 +466,7 @@ func runStage(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbo
 	
 	// Update tracker if animated
 	if tracker != nil {
-		tracker.UpdateStage(st.ID, "RUNNING", 0)
+		tracker.UpdateTask(st.ID, "RUNNING", 0)
 	}
 
 	logFile, err := os.Create(logPath)
@@ -462,7 +508,7 @@ func runStage(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbo
 					return
 				case <-ticker.C:
 					elapsed := time.Since(startTime).Seconds()
-					tracker.UpdateStage(st.ID, "RUNNING", elapsed)
+					tracker.UpdateTask(st.ID, "RUNNING", elapsed)
 				}
 			}
 		}()
@@ -493,10 +539,10 @@ func runStage(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbo
 		
 		// Update tracker with final status
 		if tracker != nil {
-			tracker.UpdateStage(st.ID, "FAIL", elapsed)
+			tracker.UpdateTask(st.ID, "FAIL", elapsed)
 		}
 		
-		renderer.RenderStageComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
+		renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
 		return res, err
 	}
 
@@ -508,7 +554,7 @@ func runStage(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbo
 		if verbose {
 			fmt.Printf("[%-15s] Parsing metrics: format=%s, path=%s\n", st.ID, st.MetricsFormat, st.MetricsPath)
 		}
-		res.Metrics = parseStageMetrics(st, verbose)
+		res.Metrics = parseTaskMetrics(st, verbose)
 		if verbose && res.Metrics != nil {
 			fmt.Printf("[%-15s] Metrics parsed successfully: %+v\n", st.ID, res.Metrics.Data)
 		}
@@ -547,10 +593,10 @@ func runStage(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbo
 	
 	// Update tracker with final status
 	if tracker != nil {
-		tracker.UpdateStage(st.ID, string(res.Status), elapsed)
+		tracker.UpdateTask(st.ID, string(res.Status), elapsed)
 	}
 	
-	renderer.RenderStageComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
+	renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
 	return res, nil
 }
 
@@ -563,8 +609,8 @@ func writeRunJSON(runDir string, record model.RunRecord) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// parseStageMetrics parses metrics for a completed stage
-func parseStageMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics {
+// parseTaskMetrics parses metrics for a completed stage
+func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics {
 	// Build full path to metrics file
 	metricsPath := filepath.Join(st.Workdir, st.MetricsPath)
 	
@@ -623,7 +669,7 @@ func copyConfigToRun(runDir, configPath string, mergedCfg *config.Config) error 
 
 // lineWriter captures output line by line and sends to tracker
 type lineWriter struct {
-	tracker *ui.AnimatedStageTracker
+	tracker *ui.AnimatedTaskTracker
 	file    *os.File
 	buffer  []byte
 }

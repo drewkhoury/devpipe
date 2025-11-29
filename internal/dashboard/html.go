@@ -103,7 +103,7 @@ func statusSymbol(status string) string {
 // writeRunDetailHTML generates a detail page for a single run
 func writeRunDetailHTML(path string, run model.RunRecord) error {
 	// Prepare data with log previews
-	type StageWithLog struct {
+	type TaskWithLog struct {
 		model.TaskResult
 		LogPreview   []string
 		ArtifactPath string
@@ -112,31 +112,31 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 	
 	type DetailData struct {
 		model.RunRecord
-		StagesWithLogs []StageWithLog
-		Timezone       string
+		TasksWithLogs []TaskWithLog
+		Timezone      string
 	}
 	
 	data := DetailData{
-		RunRecord:      run,
-		StagesWithLogs: make([]StageWithLog, 0, len(run.Tasks)),
-		Timezone:       getLocalTimezone(),
+		RunRecord:     run,
+		TasksWithLogs: make([]TaskWithLog, 0, len(run.Tasks)),
+		Timezone:      getLocalTimezone(),
 	}
 	
-	// Load log previews and artifact info for each stage
-	for _, stage := range run.Tasks {
-		stageWithLog := StageWithLog{
-			TaskResult: stage,
-			LogPreview:  readLastLines(stage.LogPath, 10),
+	// Load log previews and artifact info for each task
+	for _, task := range run.Tasks {
+		taskWithLog := TaskWithLog{
+			TaskResult: task,
+			LogPreview: readLastLines(task.LogPath, 10),
 		}
 		
 		// Check for artifact file (stored in metrics for artifact format)
-		if stage.Metrics != nil && stage.Metrics.SummaryFormat == "artifact" {
-			// The artifact path should be in the workdir + metrics path from stage definition
+		if task.Metrics != nil && task.Metrics.SummaryFormat == "artifact" {
+			// The artifact path should be in the workdir + metrics path from task definition
 			// We need to reconstruct it from the run record
-			// For now, check if we can get it from the stage's workdir
+			// For now, check if we can get it from the task's workdir
 		}
 		
-		data.StagesWithLogs = append(data.StagesWithLogs, stageWithLog)
+		data.TasksWithLogs = append(data.TasksWithLogs, taskWithLog)
 	}
 	
 	tmpl, err := template.New("rundetail").Funcs(template.FuncMap{
@@ -373,8 +373,8 @@ const dashboardTemplate = `<!DOCTYPE html>
                 <div class="stat-label">Total Runs</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{{len .StageStats}}</div>
-                <div class="stat-label">Stages</div>
+                <div class="stat-value">{{len .TaskStats}}</div>
+                <div class="stat-label">Tasks</div>
             </div>
         </div>
         
@@ -414,19 +414,19 @@ const dashboardTemplate = `<!DOCTYPE html>
         </div>
         
         <div class="section">
-            <h2>Stage Statistics</h2>
-            {{if .StageStats}}
+            <h2>Task Statistics</h2>
+            {{if .TaskStats}}
             <table>
                 <thead>
                     <tr>
-                        <th>Stage</th>
+                        <th>Task</th>
                         <th>Total Runs</th>
                         <th>Pass Rate</th>
                         <th>Avg Duration</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {{range .StageStats}}
+                    {{range .TaskStats}}
                     <tr>
                         <td><strong>{{.Name}}</strong> <span class="mono" style="color: #7f8c8d;">({{.ID}})</span></td>
                         <td>{{.TotalRuns}}</td>
@@ -446,7 +446,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             {{else}}
             <div class="empty-state">
                 <div class="empty-state-icon">📊</div>
-                <p>No stage statistics available yet.</p>
+                <p>No task statistics available yet.</p>
             </div>
             {{end}}
         </div>
@@ -547,34 +547,34 @@ const runDetailTemplate = `<!DOCTYPE html>
             color: #2c3e50;
         }
         
-        .stage-card {
+        .task-card {
             border: 1px solid #dee2e6;
             border-radius: 6px;
             padding: 20px;
             margin-bottom: 15px;
         }
         
-        .stage-header {
+        .task-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
         }
         
-        .stage-title {
+        .task-title {
             font-size: 18px;
             font-weight: 600;
             color: #2c3e50;
         }
         
-        .stage-id {
+        .task-id {
             font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
             font-size: 13px;
             color: #7f8c8d;
             margin-left: 10px;
         }
         
-        .stage-details {
+        .task-details {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
@@ -710,14 +710,20 @@ const runDetailTemplate = `<!DOCTYPE html>
         
         <div class="section">
             <h2>Run Configuration</h2>
-            <div class="stage-details">
+            {{if .Command}}
+            <div class="detail-item" style="margin-bottom: 15px;">
+                <div class="detail-label">Command</div>
+                <div class="detail-value mono" style="font-size: 11px; background: #f8f9fa; padding: 8px; border-radius: 4px;">{{.Command}}</div>
+            </div>
+            {{end}}
+            <div class="task-details">
                 <div class="detail-item">
                     <div class="detail-label">Config File</div>
                     <div class="detail-value">
                         {{if .ConfigPath}}
                         <a href="config.toml" class="log-link">{{.ConfigPath}}</a>
                         {{else}}
-                        Built-in stages
+                        Built-in tasks
                         {{end}}
                     </div>
                 </div>
@@ -752,7 +758,7 @@ const runDetailTemplate = `<!DOCTYPE html>
             <h2>Git Information</h2>
             <div style="display: grid; grid-template-columns: 300px 1fr; gap: 30px;">
                 <div>
-                    <div class="stage-details" style="grid-template-columns: 1fr;">
+                    <div class="task-details" style="grid-template-columns: 1fr;">
                         <div class="detail-item">
                             <div class="detail-label">Mode</div>
                             <div class="detail-value">{{.Git.mode}}</div>
@@ -781,23 +787,23 @@ const runDetailTemplate = `<!DOCTYPE html>
         </div>
         
         <div class="section">
-            <h2>Stages ({{len .StagesWithLogs}})</h2>
-            {{range .StagesWithLogs}}
-            <div class="stage-card">
-                <div class="stage-header">
+            <h2>Tasks ({{len .TasksWithLogs}})</h2>
+            {{range .TasksWithLogs}}
+            <div class="task-card">
+                <div class="task-header">
                     <div>
-                        <span class="stage-title">{{.Name}}</span>
-                        <span class="stage-id">({{.ID}})</span>
+                        <span class="task-title">{{.Name}}</span>
+                        <span class="task-id">({{.ID}})</span>
                     </div>
                     <span class="badge badge-{{.Status | string | statusClass}}">
                         {{.Status | string | statusSymbol}} {{.Status}}
                     </span>
                 </div>
                 
-                <div class="stage-details">
+                <div class="task-details">
                     <div class="detail-item">
-                        <div class="detail-label">Group</div>
-                        <div class="detail-value">{{.Group}}</div>
+                        <div class="detail-label">Type</div>
+                        <div class="detail-value">{{.Type}}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Duration</div>

@@ -64,48 +64,48 @@ type = "correctness"
 command = "./hello-world.sh e2e-tests"
 estimatedSeconds = 600
 
-# You can disable stages
+# You can disable tasks
 # enabled = false
 
-# You can override workdir per stage
+# You can override workdir per task
 # workdir = "./frontend"
 
 # Example: Real project configuration
 # [tasks.eslint]
 # name = "ESLint"
-# group = "quality"
+# type = "quality"
 # command = "npm run lint"
 # workdir = "."
 # estimatedSeconds = 10
 
 # [tasks.prettier]
 # name = "Prettier"
-# group = "quality"
+# type = "quality"
 # command = "npm run format:check"
 # estimatedSeconds = 5
 
 # [tasks.typescript]
 # name = "TypeScript"
-# group = "correctness"
+# type = "correctness"
 # command = "npm run type-check"
 # estimatedSeconds = 15
 
 # [tasks.jest]
 # name = "Jest Tests"
-# group = "correctness"
+# type = "correctness"
 # command = "npm test"
 # estimatedSeconds = 30
 
 # [tasks.build-frontend]
 # name = "Build Frontend"
-# group = "release"
+# type = "release"
 # command = "npm run build"
 # workdir = "./frontend"
 # estimatedSeconds = 60
 
 # [tasks.build-backend]
 # name = "Build Backend"
-# group = "release"
+# type = "release"
 # command = "go build -o bin/server ./cmd/server"
 # workdir = "./backend"
 # estimatedSeconds = 20
