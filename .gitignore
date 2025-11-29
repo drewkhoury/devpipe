@@ -7,8 +7,8 @@ devpipe
 # Test artifacts from hello-world.sh
 artifacts/
 
-# Test config file
-config.tmp.toml
+# Test config file (anywhere in repo)
+**/config.tmp.toml
 
 # Go build artifacts
 *.exe

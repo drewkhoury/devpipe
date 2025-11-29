@@ -5,13 +5,13 @@ fastThreshold = 300
 [defaults.git]
 mode = "staged"
 
-[stage_defaults]
+[task_defaults]
 enabled = true
 workdir = "."
 estimatedSeconds = 10
 
-[stages.lint]
+[tasks.lint]
 name = "Lint"
-group = "quality"
+type = "quality"
 command = "./hello-world.sh lint"
 estimatedSeconds = 5
