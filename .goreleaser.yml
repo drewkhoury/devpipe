@@ -47,7 +47,7 @@ brews:
     repository:
       owner: drewkhoury
       name: homebrew-tap
-    folder: Formula
+    directory: Formula
     homepage: https://github.com/drewkhoury/devpipe
     description: Fast, local pipeline runner for development workflows
     license: Apache-2.0
