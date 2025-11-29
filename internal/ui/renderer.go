@@ -93,7 +93,7 @@ func (r *Renderer) renderBasicHeader(runID, repoRoot string, gitMode string, cha
 	fmt.Println() // Blank line after header
 }
 
-// RenderTaskStart renders when a stage starts
+// RenderTaskStart renders when a task starts
 func (r *Renderer) RenderTaskStart(id, command string, verbose bool) {
 	// In animated mode, don't print anything yet
 	if r.animated {
@@ -107,7 +107,7 @@ func (r *Renderer) RenderTaskStart(id, command string, verbose bool) {
 	}
 }
 
-// RenderTaskComplete renders when a stage completes
+// RenderTaskComplete renders when a task completes
 func (r *Renderer) RenderTaskComplete(id, status string, exitCode *int, durationMs int64, verbose bool) {
 	// In animated mode, don't print anything (animation handles it)
 	if r.animated {
@@ -122,10 +122,10 @@ func (r *Renderer) RenderTaskComplete(id, status string, exitCode *int, duration
 	} else {
 		fmt.Printf("[%-15s] %s %s (%dms)\n", id, symbol, statusText, durationMs)
 	}
-	fmt.Println() // Blank line after stage
+	fmt.Println() // Blank line after task
 }
 
-// RenderTaskSkipped renders when a stage is skipped
+// RenderTaskSkipped renders when a task is skipped
 func (r *Renderer) RenderTaskSkipped(id, reason string, verbose bool) {
 	// In animated mode, don't print anything (animation handles it)
 	if r.animated {
@@ -138,7 +138,7 @@ func (r *Renderer) RenderTaskSkipped(id, reason string, verbose bool) {
 	} else {
 		fmt.Printf("[%-15s] %s %s\n", id, symbol, r.colors.Yellow("SKIPPED"))
 	}
-	fmt.Println() // Blank line after skipped stage
+	fmt.Println() // Blank line after skipped task
 }
 
 // RenderSummary renders the final summary

@@ -110,7 +110,7 @@ func (a *AnimatedTaskTracker) testRender() error {
 	return nil
 }
 
-// UpdateTask updates a stage's progress
+// UpdateTask updates a task's progress
 func (a *AnimatedTaskTracker) UpdateTask(id string, status string, elapsed float64) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

@@ -562,7 +562,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		// Validate artifact if metrics path specified
 		artifactPath := filepath.Join(st.Workdir, st.MetricsPath)
 		if info, err := os.Stat(artifactPath); err != nil || info.Size() == 0 {
-			// Artifact missing or empty - fail the stage
+			// Artifact missing or empty - fail the task
 			res.Status = model.StatusFail
 			if verbose {
 				if err != nil {
@@ -609,7 +609,7 @@ func writeRunJSON(runDir string, record model.RunRecord) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// parseTaskMetrics parses metrics for a completed stage
+// parseTaskMetrics parses metrics for a completed task
 func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics {
 	// Build full path to metrics file
 	metricsPath := filepath.Join(st.Workdir, st.MetricsPath)
