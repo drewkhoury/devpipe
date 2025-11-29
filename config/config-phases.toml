@@ -3,6 +3,7 @@
 [defaults]
 outputRoot = ".devpipe"
 fastThreshold = 300
+animatedGroupBy = "phase"  # Group animated UI by "phase" or "type"
 
 [defaults.git]
 mode = "staged_unstaged"

@@ -190,11 +190,11 @@ func (r *Renderer) RenderProgress(current, total int) {
 }
 
 // CreateAnimatedTracker creates an animated task tracker
-func (r *Renderer) CreateAnimatedTracker(tasks []TaskProgress, headerLines int, refreshMs int) *AnimatedTaskTracker {
+func (r *Renderer) CreateAnimatedTracker(tasks []TaskProgress, headerLines int, refreshMs int, groupBy string) *AnimatedTaskTracker {
 	if !r.animated {
 		return nil
 	}
-	return NewAnimatedTaskTracker(r, tasks, headerLines, refreshMs)
+	return NewAnimatedTaskTracker(r, tasks, headerLines, refreshMs, groupBy)
 }
 
 // Color helper methods

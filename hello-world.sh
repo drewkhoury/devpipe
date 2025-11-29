@@ -23,18 +23,18 @@ fi
 case "$CMD" in
   lint)
     echo "[hello-world] Linting sources..."
-    sleep 1
+    sleep 0.25
     echo "[hello-world] Linting is happening..."
-    sleep 1
+    sleep 0.25
     echo "[hello-world] Linting is happening (6 lines)..."
     echo "[hello-world] Linting is happening (6 lines)..."
     echo "[hello-world] Linting is happening (6 lines)..."
     echo "[hello-world] Linting is happening (6 lines)..."
     echo "[hello-world] Linting is happening (6 lines)..."
     echo "[hello-world] Linting is happening (6 lines)..."
-    sleep 1
+    sleep 0.25
     echo "[hello-world] Linting is happening..."
-    sleep 1
+    sleep 0.25
     echo "[hello-world] Linting is happening (lots of lines)..."
     echo "[hello-world] Linting is happening (lots of lines)..."
     echo "[hello-world] Linting is happening (lots of lines)..."
@@ -64,15 +64,15 @@ case "$CMD" in
     echo "[hello-world] Linting is happening (lots of lines)..."
     echo "[hello-world] Linting is happening (lots of lines)..."
     echo "[hello-world] Linting is happening (lots of lines)..."       
-    sleep 1
+    sleep 0.25
     echo "[hello-world] Linting is happening (1 line)..."       
-    sleep 1
+    sleep 0.25
     echo "[hello-world] Lint OK"
     ;;
 
   format)
     echo "[hello-world] Checking formatting..."
-    sleep 5
+    sleep 0.25
     echo "[hello-world] check..."
     sleep 1
     echo "[hello-world] check..."

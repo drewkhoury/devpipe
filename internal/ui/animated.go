@@ -20,10 +20,12 @@ type AnimatedTaskTracker struct {
 	termHeight   int
 	animLines    int
 	refreshMs    int
+	groupBy      string // "type" or "phase"
+	maxIDWidth   int    // Calculated once at init for consistent alignment
 }
 
 // NewAnimatedTaskTracker creates a new animated task tracker
-func NewAnimatedTaskTracker(renderer *Renderer, tasks []TaskProgress, headerLines int, refreshMs int) *AnimatedTaskTracker {
+func NewAnimatedTaskTracker(renderer *Renderer, tasks []TaskProgress, headerLines int, refreshMs int, groupBy string) *AnimatedTaskTracker {
 	termHeight := GetTerminalHeight()
 	
 	// Calculate animation lines more accurately
@@ -59,6 +61,19 @@ func NewAnimatedTaskTracker(renderer *Renderer, tasks []TaskProgress, headerLine
 		refreshMs = 500 // Default to 500ms if invalid
 	}
 	
+	// Validate groupBy
+	if groupBy != "type" && groupBy != "phase" {
+		groupBy = "type" // Default to type if invalid
+	}
+	
+	// Calculate max task ID width once for consistent alignment
+	maxIDWidth := 12
+	for _, task := range tasks {
+		if len(task.ID) > maxIDWidth {
+			maxIDWidth = len(task.ID)
+		}
+	}
+	
 	return &AnimatedTaskTracker{
 		tasks:       tasks,
 		done:        make(chan struct{}),
@@ -70,6 +85,8 @@ func NewAnimatedTaskTracker(renderer *Renderer, tasks []TaskProgress, headerLine
 		termHeight:  termHeight,
 		animLines:   animLines,
 		refreshMs:   refreshMs,
+		groupBy:     groupBy,
+		maxIDWidth:  maxIDWidth,
 	}
 }
 
@@ -201,10 +218,16 @@ func (a *AnimatedTaskTracker) calculateLines() int {
 		// Full mode: overall progress + grouped stages + log box (fixed size)
 		lines := 2 // Overall progress bar + blank line
 		
-		// Group tasks
+		// Group tasks using the same logic as rendering
 		groups := make(map[string][]TaskProgress)
 		for _, task := range a.tasks {
-			groups[task.Type] = append(groups[task.Type], task)
+			var groupKey string
+			if a.groupBy == "phase" {
+				groupKey = fmt.Sprintf("Phase %d", task.Phase)
+			} else {
+				groupKey = task.Type
+			}
+			groups[groupKey] = append(groups[groupKey], task)
 		}
 		
 		for _, taskList := range groups {
@@ -289,17 +312,24 @@ func (a *AnimatedTaskTracker) renderFullMode() {
 	bar := a.renderer.colors.ProgressBar(int(overallProgress), 100, barWidth)
 	fmt.Printf("Overall: %s\n\n", bar)
 	
-	// Group tasks by type
+	// Group tasks by type or phase
 	groups := make(map[string][]TaskProgress)
 	groupOrder := []string{}
 	seen := make(map[string]bool)
 	
 	for _, task := range a.tasks {
-		if !seen[task.Type] {
-			groupOrder = append(groupOrder, task.Type)
-			seen[task.Type] = true
+		var groupKey string
+		if a.groupBy == "phase" {
+			groupKey = fmt.Sprintf("Phase %d", task.Phase)
+		} else {
+			groupKey = task.Type
 		}
-		groups[task.Type] = append(groups[task.Type], task)
+		
+		if !seen[groupKey] {
+			groupOrder = append(groupOrder, groupKey)
+			seen[groupKey] = true
+		}
+		groups[groupKey] = append(groups[groupKey], task)
 	}
 	
 	// Render each group
@@ -315,17 +345,19 @@ func (a *AnimatedTaskTracker) renderFullMode() {
 		for _, task := range taskList {
 			symbol := a.renderer.colors.StatusSymbol(task.Status)
 			
+			// Build the content line
+			var content string
 			switch task.Status {
 			case "PASS":
 				duration := FormatDuration(int64(task.ElapsedSeconds * 1000))
-				fmt.Printf("│ %s %-12s %s\n", symbol, task.ID, 
+				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, task.ID, 
 					a.renderer.colors.Green(duration))
 			case "FAIL":
 				duration := FormatDuration(int64(task.ElapsedSeconds * 1000))
-				fmt.Printf("│ %s %-12s %s\n", symbol, task.ID, 
+				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, task.ID, 
 					a.renderer.colors.Red(duration))
 			case "SKIPPED":
-				fmt.Printf("│ %s %-12s %s\n", symbol, task.ID, 
+				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, task.ID, 
 					a.renderer.colors.Yellow("skipped"))
 			case "RUNNING":
 				progress := CalculateTaskProgress(task.ElapsedSeconds, task.EstimatedSeconds)
@@ -339,12 +371,15 @@ func (a *AnimatedTaskTracker) renderFullMode() {
 				miniBarWidth := 12
 				miniBar := a.renderer.colors.ProgressBar(int(progress), 100, miniBarWidth)
 				
-				fmt.Printf("│ %s %-12s %s / %s   %s\n", symbol, task.ID, 
+				content = fmt.Sprintf("%s %-*s %s / %s   %s", symbol, a.maxIDWidth, task.ID, 
 					elapsed, estimated, miniBar)
 			case "PENDING":
-				fmt.Printf("│ %s %-12s %s\n", symbol, task.ID, 
+				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, task.ID, 
 					a.renderer.colors.Gray("pending"))
 			}
+			
+			// Print with consistent width
+			fmt.Printf("│ %s\n", content)
 		}
 		
 		// Group footer

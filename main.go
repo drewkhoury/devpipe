@@ -265,20 +265,26 @@ func main() {
 		}
 	}()
 	
+	// Group tasks into phases based on wait markers
+	phases := groupTasksIntoPhases(filteredTasks)
+	
 	if renderer.IsAnimated() {
-		// Build task progress list
+		// Build task progress list with phase information
 		var taskProgress []ui.TaskProgress
-		for _, st := range filteredTasks {
-			taskProgress = append(taskProgress, ui.TaskProgress{
-				ID:               st.ID,
-				Name:             st.Name,
-				Type:             st.Type,
-				Status:           "PENDING",
-				EstimatedSeconds: st.EstimatedSeconds,
-				IsEstimateGuess:  st.IsEstimateGuess,
-				ElapsedSeconds:   0,
-				StartTime:        time.Time{},
-			})
+		for phaseIdx, phase := range phases {
+			for _, st := range phase.Tasks {
+				taskProgress = append(taskProgress, ui.TaskProgress{
+					ID:               st.ID,
+					Name:             st.Name,
+					Type:             st.Type,
+					Phase:            phaseIdx + 1, // 1-indexed phases
+					Status:           "PENDING",
+					EstimatedSeconds: st.EstimatedSeconds,
+					IsEstimateGuess:  st.IsEstimateGuess,
+					ElapsedSeconds:   0,
+					StartTime:        time.Time{},
+				})
+			}
 		}
 		
 		// Calculate header lines
@@ -287,7 +293,7 @@ func main() {
 			headerLines = 4
 		}
 		
-		tracker = renderer.CreateAnimatedTracker(taskProgress, headerLines, mergedCfg.Defaults.AnimationRefreshMs)
+		tracker = renderer.CreateAnimatedTracker(taskProgress, headerLines, mergedCfg.Defaults.AnimationRefreshMs, mergedCfg.Defaults.AnimatedGroupBy)
 		if tracker != nil {
 			if err := tracker.Start(); err != nil {
 				// Animation failed, fall back to non-animated
@@ -298,9 +304,6 @@ func main() {
 			}
 		}
 	}
-
-	// Group tasks into phases based on wait markers
-	phases := groupTasksIntoPhases(filteredTasks)
 	
 	if flagVerbose && len(phases) > 1 {
 		fmt.Printf("Executing %d phases with parallel tasks\n", len(phases))
