@@ -14,6 +14,8 @@ Fast, local pipeline runner for development workflows.
 - 📊 **Metrics & Dashboard** - JUnit/artifact parsing, HTML reports
 - 🎯 **Flexible** - Run all, skip some, or target specific tasks
 
+![devpipe in action](devpipe.png)
+
 ## Quick Start
 
 In a rush? Skip to [Examples](#examples) once you have `devpipe` installed.
