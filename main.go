@@ -17,7 +17,9 @@ import (
 	"time"
 
 	"github.com/drew/devpipe/internal/config"
+	"github.com/drew/devpipe/internal/dashboard"
 	"github.com/drew/devpipe/internal/git"
+	"github.com/drew/devpipe/internal/metrics"
 	"github.com/drew/devpipe/internal/model"
 	"github.com/drew/devpipe/internal/ui"
 )
@@ -181,14 +183,26 @@ func main() {
 			continue
 		}
 		
-		stageDefs = append(stageDefs, model.StageDefinition{
+		stageDef := model.StageDefinition{
 			ID:               id,
 			Name:             resolved.Name,
 			Group:            resolved.Group,
 			Command:          resolved.Command,
 			Workdir:          resolved.Workdir,
 			EstimatedSeconds: resolved.EstimatedSeconds,
-		})
+		}
+		
+		// Add metrics config if present
+		if resolved.MetricsFormat != "" {
+			stageDef.MetricsFormat = resolved.MetricsFormat
+			stageDef.MetricsPath = resolved.MetricsPath
+			if flagVerbose {
+				fmt.Printf("[%-15s] Metrics config: format=%s, path=%s\n", 
+					id, stageDef.MetricsFormat, stageDef.MetricsPath)
+			}
+		}
+		
+		stageDefs = append(stageDefs, stageDef)
 	}
 
 	// Apply CLI filters
@@ -321,6 +335,21 @@ func main() {
 		if overallExitCode == 0 {
 			overallExitCode = 1
 		}
+	}
+	
+	// Copy config file to run directory
+	if err := copyConfigToRun(runDir, flagConfig, &mergedCfg); err != nil {
+		if flagVerbose {
+			fmt.Fprintf(os.Stderr, "WARNING: failed to copy config: %v\n", err)
+		}
+	}
+	
+	// Generate dashboard
+	if err := dashboard.GenerateDashboard(outputRoot); err != nil {
+		if flagVerbose {
+			fmt.Fprintf(os.Stderr, "WARNING: failed to generate dashboard: %v\n", err)
+		}
+		// Don't fail the pipeline if dashboard generation fails
 	}
 
 	// Final summary
@@ -488,9 +517,51 @@ func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verb
 	res.Status = model.StatusPass
 	res.ExitCode = &exitCode
 	
+	// Parse metrics if configured
+	if st.MetricsFormat != "" && st.MetricsPath != "" {
+		if verbose {
+			fmt.Printf("[%-15s] Parsing metrics: format=%s, path=%s\n", st.ID, st.MetricsFormat, st.MetricsPath)
+		}
+		res.Metrics = parseStageMetrics(st, verbose)
+		if verbose && res.Metrics != nil {
+			fmt.Printf("[%-15s] Metrics parsed successfully: %+v\n", st.ID, res.Metrics.Data)
+		}
+		
+		// Validate artifact if metrics path specified
+		artifactPath := filepath.Join(st.Workdir, st.MetricsPath)
+		if info, err := os.Stat(artifactPath); err != nil || info.Size() == 0 {
+			// Artifact missing or empty - fail the stage
+			res.Status = model.StatusFail
+			if verbose {
+				if err != nil {
+					fmt.Printf("[%-15s] Artifact validation FAILED: file not found: %s\n", st.ID, artifactPath)
+				} else {
+					fmt.Printf("[%-15s] Artifact validation FAILED: file is empty: %s\n", st.ID, artifactPath)
+				}
+			}
+		} else {
+			// Artifact exists and has size - store info in metrics
+			if res.Metrics == nil {
+				res.Metrics = &model.StageMetrics{
+					Kind:          "artifact",
+					SummaryFormat: "artifact",
+					Data:          make(map[string]interface{}),
+				}
+			}
+			res.Metrics.Data["path"] = artifactPath
+			res.Metrics.Data["size"] = info.Size()
+			
+			if verbose {
+				fmt.Printf("[%-15s] Artifact validation PASSED: %s (%d bytes)\n", st.ID, artifactPath, info.Size())
+			}
+		}
+	} else if verbose {
+		fmt.Printf("[%-15s] No metrics configured (format=%s, path=%s)\n", st.ID, st.MetricsFormat, st.MetricsPath)
+	}
+	
 	// Update tracker with final status
 	if tracker != nil {
-		tracker.UpdateStage(st.ID, "PASS", elapsed)
+		tracker.UpdateStage(st.ID, string(res.Status), elapsed)
 	}
 	
 	renderer.RenderStageComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
@@ -504,6 +575,64 @@ func writeRunJSON(runDir string, record model.RunRecord) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+// parseStageMetrics parses metrics for a completed stage
+func parseStageMetrics(st model.StageDefinition, verbose bool) *model.StageMetrics {
+	// Build full path to metrics file
+	metricsPath := filepath.Join(st.Workdir, st.MetricsPath)
+	
+	// Check if file exists
+	if _, err := os.Stat(metricsPath); os.IsNotExist(err) {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[%-15s] Metrics file not found: %s\n", st.ID, metricsPath)
+		}
+		return nil
+	}
+	
+	// Parse based on format
+	switch st.MetricsFormat {
+	case "junit":
+		m, err := metrics.ParseJUnitXML(metricsPath)
+		if err != nil {
+			if verbose {
+				fmt.Fprintf(os.Stderr, "[%-15s] Failed to parse JUnit XML: %v\n", st.ID, err)
+			}
+			return nil
+		}
+		return m
+	default:
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[%-15s] Unknown metrics format: %s\n", st.ID, st.MetricsFormat)
+		}
+		return nil
+	}
+}
+
+// copyConfigToRun copies the config file to the run directory
+func copyConfigToRun(runDir, configPath string, mergedCfg *config.Config) error {
+	destPath := filepath.Join(runDir, "config.toml")
+	
+	// If no config path specified, try default location
+	if configPath == "" {
+		configPath = "config.toml"
+	}
+	
+	// If config file exists, copy it
+	if _, err := os.Stat(configPath); err == nil {
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(destPath, data, 0644)
+	}
+	
+	// Otherwise, write the merged config as JSON (built-in + defaults)
+	data, err := json.MarshalIndent(mergedCfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(runDir, "config.json"), data, 0644)
 }
 
 // lineWriter captures output line by line and sends to tracker

@@ -72,14 +72,21 @@ case "$CMD" in
 
   format)
     echo "[hello-world] Checking formatting..."
+    exit 1
     sleep 3
     echo "[hello-world] Format OK"
     ;;
 
   type-check)
     echo "[hello-world] Type checking..."
-    sleep 3
+    sleep 1
     echo "[hello-world] Types OK"
+    ;;
+
+  contract-tests)
+    echo "[hello-world] Contract testing..."
+    sleep 1
+    echo "[hello-world] Contracts OK"
     ;;
 
   build)
@@ -105,9 +112,15 @@ EOF
     echo "[hello-world] Unit tests OK, junit at artifacts/test/junit.xml"
     ;;
 
+  sast-tests)
+    echo "[hello-world] SAST testing..."
+    sleep 3
+    echo "[hello-world] SAST OK"
+    ;;
+
   e2e-tests)
     echo "[hello-world] Running e2e tests (simulated long run)..."
-    sleep 600
+    sleep 65
     echo "[hello-world] E2E tests OK"
     ;;
 

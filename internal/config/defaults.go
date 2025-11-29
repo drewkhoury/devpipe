@@ -43,6 +43,8 @@ func BuiltInStages(repoRoot string) map[string]StageConfig {
 			Workdir:          repoRoot,
 			EstimatedSeconds: 20,
 			Enabled:          boolPtr(true),
+			MetricsFormat:    "junit",
+			MetricsPath:      "artifacts/test/junit.xml",
 		},
 		"e2e-tests": {
 			Name:             "E2E Tests",

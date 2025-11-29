@@ -51,12 +51,16 @@ name = "Build"
 group = "release"
 command = "./hello-world.sh build"
 estimatedSeconds = 15
+metricsFormat = "artifact"
+metricsPath = "artifacts/build/app.txt"
 
 [stages.unit-tests]
 name = "Unit Tests"
 group = "correctness"
 command = "./hello-world.sh unit-tests"
 estimatedSeconds = 20
+metricsFormat = "junit"
+metricsPath = "artifacts/test/junit.xml"
 
 [stages.e2e-tests]
 name = "E2E Tests"

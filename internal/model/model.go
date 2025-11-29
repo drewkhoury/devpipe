@@ -19,24 +19,43 @@ type StageDefinition struct {
 	Command          string
 	Workdir          string
 	EstimatedSeconds int
+	MetricsFormat    string // "junit", "eslint", etc.
+	MetricsPath      string // Path to metrics file
 }
 
 // StageResult is the per-stage record written into run.json
 type StageResult struct {
-	ID               string      `json:"id"`
-	Name             string      `json:"name"`
-	Group            string      `json:"group"`
-	Status           StageStatus `json:"status"`
-	ExitCode         *int        `json:"exitCode,omitempty"`
-	Skipped          bool        `json:"skipped"`
-	SkipReason       string      `json:"skipReason,omitempty"`
-	Command          string      `json:"command"`
-	Workdir          string      `json:"workdir"`
-	LogPath          string      `json:"logPath"`
-	StartTime        string      `json:"startTime,omitempty"`
-	EndTime          string      `json:"endTime,omitempty"`
-	DurationMs       int64       `json:"durationMs"`
-	EstimatedSeconds int         `json:"estimatedSeconds"`
+	ID               string       `json:"id"`
+	Name             string       `json:"name"`
+	Group            string       `json:"group"`
+	Status           StageStatus  `json:"status"`
+	ExitCode         *int         `json:"exitCode,omitempty"`
+	Skipped          bool         `json:"skipped"`
+	SkipReason       string       `json:"skipReason,omitempty"`
+	Command          string       `json:"command"`
+	Workdir          string       `json:"workdir"`
+	LogPath          string       `json:"logPath"`
+	StartTime        string       `json:"startTime,omitempty"`
+	EndTime          string       `json:"endTime,omitempty"`
+	DurationMs       int64        `json:"durationMs"`
+	EstimatedSeconds int          `json:"estimatedSeconds"`
+	Metrics          *StageMetrics `json:"metrics,omitempty"`
+}
+
+// StageMetrics holds parsed metrics from stage artifacts
+type StageMetrics struct {
+	Kind          string                 `json:"kind"` // "test", "lint", "coverage", "build"
+	SummaryFormat string                 `json:"summaryFormat,omitempty"` // "junit", "eslint", "sarif"
+	Data          map[string]interface{} `json:"data,omitempty"`
+}
+
+// TestMetrics holds test-specific metrics
+type TestMetrics struct {
+	Tests    int     `json:"tests"`
+	Failures int     `json:"failures"`
+	Errors   int     `json:"errors"`
+	Skipped  int     `json:"skipped"`
+	Time     float64 `json:"time"`
 }
 
 // RunFlags captures CLI flags for run.json

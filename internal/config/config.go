@@ -45,6 +45,8 @@ type StageConfig struct {
 	Workdir          string `toml:"workdir"`
 	EstimatedSeconds int    `toml:"estimatedSeconds"`
 	Enabled          *bool  `toml:"enabled"`
+	MetricsFormat    string `toml:"metricsFormat"` // "junit", "eslint", "sarif"
+	MetricsPath      string `toml:"metricsPath"`   // Path to metrics file (relative to workdir)
 }
 
 // LoadConfig loads configuration from a TOML file
