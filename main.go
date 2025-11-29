@@ -10,10 +10,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -244,6 +244,7 @@ func main() {
 	defer func() {
 		if tracker != nil {
 			fmt.Print("\033[?25h") // Show cursor
+			fmt.Println() // Add newline to ensure clean exit
 		}
 	}()
 	
@@ -289,6 +290,7 @@ func main() {
 	
 	// Execute phases sequentially, tasks within each phase in parallel
 	var resultsMu sync.Mutex
+	var outputMu sync.Mutex // For sequential output display
 	
 	for phaseIdx, phase := range phases {
 		if flagVerbose && len(phases) > 1 {
@@ -335,7 +337,23 @@ func main() {
 			task := st
 			
 			g.Go(func() error {
-				res, _ := runTask(task, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker)
+				res, taskBuffer, _ := runTask(task, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker, &outputMu)
+				
+				// Display buffered output sequentially (always, even in animated mode)
+				if taskBuffer != nil && taskBuffer.Len() > 0 {
+					outputMu.Lock()
+					if tracker != nil {
+						// In animated mode, send buffered output to tracker
+						lines := strings.Split(strings.TrimRight(taskBuffer.String(), "\n"), "\n")
+						for _, line := range lines {
+							tracker.AddLogLine(line)
+						}
+					} else {
+						// In non-animated mode, print directly
+						fmt.Print(taskBuffer.String())
+					}
+					outputMu.Unlock()
+				}
 				
 				resultsMu.Lock()
 				results = append(results, res)
@@ -427,6 +445,9 @@ func main() {
 	if err := dashboard.GenerateDashboard(outputRoot); err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to generate dashboard: %v\n", err)
 	}
+	
+	// Final cursor restoration (belt and suspenders)
+	fmt.Print("\033[?25h")
 	
 	os.Exit(overallExitCode)
 }
@@ -539,7 +560,7 @@ func makeRunID() string {
 	return fmt.Sprintf("%s_%06d", ts, suffix)
 }
 
-func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer, tracker *ui.AnimatedTaskTracker) (model.TaskResult, error) {
+func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer, tracker *ui.AnimatedTaskTracker, outputMu *sync.Mutex) (model.TaskResult, *bytes.Buffer, error) {
 	res := model.TaskResult{
 		ID:               st.ID,
 		Name:             st.Name,
@@ -550,19 +571,31 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		LogPath:          "",
 		EstimatedSeconds: st.EstimatedSeconds,
 	}
+	
+	// Create a buffer to capture all output for this task
+	var taskOutputBuffer bytes.Buffer
 
 	logPath := filepath.Join(logDir, fmt.Sprintf("%s.log", st.ID))
 	res.LogPath = logPath
 
 	if dryRun {
-		renderer.RenderTaskSkipped(st.ID, "dry-run", verbose)
 		res.Status = model.StatusSkipped
 		res.Skipped = true
 		res.SkipReason = "dry-run"
-		return res, nil
+		// Don't render anything yet - will be shown when displayed
+		return res, &taskOutputBuffer, nil
 	}
 
-	renderer.RenderTaskStart(st.ID, st.Command, verbose)
+	// Buffer the RUN message (non-animated mode only)
+	if tracker == nil {
+		if verbose {
+			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] %s    %s\n", st.ID, renderer.Blue("RUN"), st.Command))
+		} else {
+			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] %s\n", st.ID, renderer.Blue("RUN")))
+		}
+	} else {
+		renderer.RenderTaskStart(st.ID, st.Command, verbose)
+	}
 
 	start := time.Now().UTC()
 	res.StartTime = start.Format(time.RFC3339)
@@ -577,7 +610,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: cannot create log file %s: %v\n", logPath, err)
 		res.Status = model.StatusFail
-		return res, err
+		return res, &taskOutputBuffer, err
 	}
 	defer logFile.Close()
 
@@ -585,17 +618,14 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 	cmd.Dir = st.Workdir
 
 	// Setup output handling
-	if tracker != nil {
-		// Animated mode: capture output and send to tracker
-		stdoutWriter := &lineWriter{tracker: tracker, file: logFile}
-		stderrWriter := &lineWriter{tracker: tracker, file: logFile}
-		cmd.Stdout = stdoutWriter
-		cmd.Stderr = stderrWriter
-	} else {
-		// Non-animated: show on console and log
-		cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
-		cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
-	}
+	var bufferMu sync.Mutex
+	
+	// Always buffer output for sequential display (even in animated mode)
+	// Only write to log file, don't stream to tracker during parallel execution
+	stdoutWriter := &lineWriter{taskID: st.ID, file: logFile, outputBuffer: &taskOutputBuffer, mu: &bufferMu}
+	stderrWriter := &lineWriter{taskID: st.ID, file: logFile, outputBuffer: &taskOutputBuffer, mu: &bufferMu}
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
 
 	// Start ticker to update progress during execution
 	var tickerDone chan struct{}
@@ -644,10 +674,12 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		// Update tracker with final status
 		if tracker != nil {
 			tracker.UpdateTask(st.ID, "FAIL", elapsed)
+			renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
+		} else {
+			// Buffer the failure message with color
+			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] ✗ %s (%dms)\n\n", st.ID, renderer.Red("FAIL"), res.DurationMs))
 		}
-		
-		renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
-		return res, err
+		return res, &taskOutputBuffer, err
 	}
 
 	res.Status = model.StatusPass
@@ -698,10 +730,34 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 	// Update tracker with final status
 	if tracker != nil {
 		tracker.UpdateTask(st.ID, string(res.Status), elapsed)
+		renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
+	} else {
+		// Buffer the completion message for non-animated mode with colors
+		symbol := "•"
+		var statusText string
+		
+		if res.Status == model.StatusPass {
+			symbol = "✓"
+			statusText = renderer.Green(string(res.Status))
+		} else if res.Status == model.StatusFail {
+			symbol = "✗"
+			statusText = renderer.Red(string(res.Status))
+		} else if res.Status == model.StatusSkipped {
+			symbol = "⊘"
+			statusText = renderer.Yellow(string(res.Status))
+		} else {
+			statusText = string(res.Status)
+		}
+		
+		if verbose && exitCode != 0 {
+			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] %s %s (exit %d, %dms)\n", st.ID, symbol, statusText, exitCode, res.DurationMs))
+		} else {
+			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] %s %s (%dms)\n", st.ID, symbol, statusText, res.DurationMs))
+		}
+		taskOutputBuffer.WriteString("\n") // Blank line after task
 	}
 	
-	renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
-	return res, nil
+	return res, &taskOutputBuffer, nil
 }
 
 func writeRunJSON(runDir string, record model.RunRecord) error {
@@ -773,13 +829,16 @@ func copyConfigToRun(runDir, configPath string, mergedCfg *config.Config) error 
 
 // lineWriter captures output line by line and sends to tracker
 type lineWriter struct {
-	tracker *ui.AnimatedTaskTracker
-	file    *os.File
-	buffer  []byte
+	tracker       *ui.AnimatedTaskTracker
+	taskID        string
+	file          *os.File
+	buffer        []byte
+	outputBuffer  *bytes.Buffer // Buffer all output until task completes
+	mu            *sync.Mutex   // Protect outputBuffer
 }
 
 func (w *lineWriter) Write(p []byte) (n int, err error) {
-	// Write to log file
+	// Write to log file (unprefixed)
 	w.file.Write(p)
 	
 	// Add to buffer and extract complete lines
@@ -793,7 +852,20 @@ func (w *lineWriter) Write(p []byte) (n int, err error) {
 		}
 		
 		line := string(w.buffer[:idx])
-		w.tracker.AddLogLine(line)
+		
+		// Prefix line with task ID
+		prefixedLine := fmt.Sprintf("[%-15s] %s", w.taskID, line)
+		
+		if w.tracker != nil {
+			w.tracker.AddLogLine(prefixedLine)
+		} else if w.outputBuffer != nil {
+			// Buffer output for sequential display
+			w.mu.Lock()
+			w.outputBuffer.WriteString(prefixedLine)
+			w.outputBuffer.WriteString("\n")
+			w.mu.Unlock()
+		}
+		
 		w.buffer = w.buffer[idx+1:]
 	}
 	

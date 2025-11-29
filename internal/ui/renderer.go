@@ -196,3 +196,24 @@ func (r *Renderer) CreateAnimatedTracker(tasks []TaskProgress, headerLines int, 
 	}
 	return NewAnimatedTaskTracker(r, tasks, headerLines, refreshMs)
 }
+
+// Color helper methods
+func (r *Renderer) Blue(s string) string {
+	return r.colors.Blue(s)
+}
+
+func (r *Renderer) Green(s string) string {
+	return r.colors.Green(s)
+}
+
+func (r *Renderer) Red(s string) string {
+	return r.colors.Red(s)
+}
+
+func (r *Renderer) Yellow(s string) string {
+	return r.colors.Yellow(s)
+}
+
+func (r *Renderer) StatusColor(status string) string {
+	return r.colors.StatusColor(status, status)
+}
