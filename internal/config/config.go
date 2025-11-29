@@ -10,9 +10,9 @@ import (
 
 // Config represents the complete devpipe configuration
 type Config struct {
-	Defaults      DefaultsConfig              `toml:"defaults"`
-	StageDefaults StageDefaultsConfig         `toml:"stage_defaults"`
-	Stages        map[string]StageConfig      `toml:"stages"`
+	Defaults      DefaultsConfig            `toml:"defaults"`
+	TaskDefaults  TaskDefaultsConfig        `toml:"task_defaults"`
+	Tasks         map[string]TaskConfig     `toml:"tasks"`
 }
 
 // DefaultsConfig holds global defaults
@@ -30,17 +30,17 @@ type GitConfig struct {
 	Ref  string `toml:"ref"`  // used when mode = "ref"
 }
 
-// StageDefaultsConfig holds default values for all stages
-type StageDefaultsConfig struct {
+// TaskDefaultsConfig holds default values for all tasks
+type TaskDefaultsConfig struct {
 	Enabled          *bool  `toml:"enabled"`
 	Workdir          string `toml:"workdir"`
 	EstimatedSeconds int    `toml:"estimatedSeconds"`
 }
 
-// StageConfig represents a single stage configuration
-type StageConfig struct {
+// TaskConfig represents a single task configuration
+type TaskConfig struct {
 	Name             string `toml:"name"`
-	Group            string `toml:"group"`
+	Type             string `toml:"type"`
 	Command          string `toml:"command"`
 	Workdir          string `toml:"workdir"`
 	EstimatedSeconds int    `toml:"estimatedSeconds"`
@@ -83,12 +83,12 @@ func GetDefaults() Config {
 				Ref:  "HEAD",
 			},
 		},
-		StageDefaults: StageDefaultsConfig{
+		TaskDefaults: TaskDefaultsConfig{
 			Enabled:          boolPtr(true),
 			Workdir:          ".",
 			EstimatedSeconds: 10,
 		},
-		Stages: make(map[string]StageConfig),
+		Tasks: make(map[string]TaskConfig),
 	}
 }
 
@@ -120,45 +120,45 @@ func MergeWithDefaults(cfg *Config) Config {
 		cfg.Defaults.Git.Ref = defaults.Defaults.Git.Ref
 	}
 
-	// Merge stage defaults
-	if cfg.StageDefaults.Enabled == nil {
-		cfg.StageDefaults.Enabled = defaults.StageDefaults.Enabled
+	// Merge task defaults
+	if cfg.TaskDefaults.Enabled == nil {
+		cfg.TaskDefaults.Enabled = defaults.TaskDefaults.Enabled
 	}
-	if cfg.StageDefaults.Workdir == "" {
-		cfg.StageDefaults.Workdir = defaults.StageDefaults.Workdir
+	if cfg.TaskDefaults.Workdir == "" {
+		cfg.TaskDefaults.Workdir = defaults.TaskDefaults.Workdir
 	}
-	if cfg.StageDefaults.EstimatedSeconds == 0 {
-		cfg.StageDefaults.EstimatedSeconds = defaults.StageDefaults.EstimatedSeconds
+	if cfg.TaskDefaults.EstimatedSeconds == 0 {
+		cfg.TaskDefaults.EstimatedSeconds = defaults.TaskDefaults.EstimatedSeconds
 	}
 
 	return *cfg
 }
 
-// ResolveStageConfig resolves a stage config by applying defaults
-func (c *Config) ResolveStageConfig(id string, stageCfg StageConfig, repoRoot string) StageConfig {
-	// Apply stage defaults
-	if stageCfg.Workdir == "" {
-		if c.StageDefaults.Workdir != "" {
-			stageCfg.Workdir = c.StageDefaults.Workdir
+// ResolveTaskConfig resolves a task config by applying defaults
+func (c *Config) ResolveTaskConfig(id string, taskCfg TaskConfig, repoRoot string) TaskConfig {
+	// Apply task defaults
+	if taskCfg.Workdir == "" {
+		if c.TaskDefaults.Workdir != "" {
+			taskCfg.Workdir = c.TaskDefaults.Workdir
 		} else {
-			stageCfg.Workdir = "."
+			taskCfg.Workdir = "."
 		}
 	}
 
 	// Make workdir absolute relative to repo root
-	if !filepath.IsAbs(stageCfg.Workdir) {
-		stageCfg.Workdir = filepath.Join(repoRoot, stageCfg.Workdir)
+	if !filepath.IsAbs(taskCfg.Workdir) {
+		taskCfg.Workdir = filepath.Join(repoRoot, taskCfg.Workdir)
 	}
 
-	if stageCfg.EstimatedSeconds == 0 {
-		stageCfg.EstimatedSeconds = c.StageDefaults.EstimatedSeconds
+	if taskCfg.EstimatedSeconds == 0 {
+		taskCfg.EstimatedSeconds = c.TaskDefaults.EstimatedSeconds
 	}
 
-	if stageCfg.Enabled == nil {
-		stageCfg.Enabled = c.StageDefaults.Enabled
+	if taskCfg.Enabled == nil {
+		taskCfg.Enabled = c.TaskDefaults.Enabled
 	}
 
-	return stageCfg
+	return taskCfg
 }
 
 func boolPtr(b bool) *bool {

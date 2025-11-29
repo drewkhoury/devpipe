@@ -139,7 +139,7 @@ func aggregateRuns(runs []model.RunRecord) Summary {
 		}
 		
 		// Aggregate stage stats
-		for _, stage := range run.Stages {
+		for _, stage := range run.Tasks {
 			stats, exists := summary.StageStats[stage.ID]
 			if !exists {
 				stats = StageStats{
@@ -193,13 +193,13 @@ func summarizeRun(run model.RunRecord) RunSummary {
 	summary := RunSummary{
 		RunID:       run.RunID,
 		Timestamp:   run.Timestamp,
-		TotalStages: len(run.Stages),
+		TotalStages: len(run.Tasks),
 	}
 	
 	anyFailed := false
 	var totalDuration int64
 	
-	for _, stage := range run.Stages {
+	for _, stage := range run.Tasks {
 		totalDuration += stage.DurationMs
 		
 		switch stage.Status {

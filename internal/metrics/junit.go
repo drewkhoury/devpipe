@@ -19,7 +19,7 @@ type JUnitTestSuite struct {
 }
 
 // ParseJUnitXML parses a JUnit XML file and returns metrics
-func ParseJUnitXML(path string) (*model.StageMetrics, error) {
+func ParseJUnitXML(path string) (*model.TaskMetrics, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func ParseJUnitXML(path string) (*model.StageMetrics, error) {
 		return nil, err
 	}
 
-	return &model.StageMetrics{
+	return &model.TaskMetrics{
 		Kind:          "test", // Inferred from format
 		SummaryFormat: "junit",
 		Data: map[string]interface{}{

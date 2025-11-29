@@ -104,7 +104,7 @@ func statusSymbol(status string) string {
 func writeRunDetailHTML(path string, run model.RunRecord) error {
 	// Prepare data with log previews
 	type StageWithLog struct {
-		model.StageResult
+		model.TaskResult
 		LogPreview   []string
 		ArtifactPath string
 		ArtifactSize int64
@@ -118,14 +118,14 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 	
 	data := DetailData{
 		RunRecord:      run,
-		StagesWithLogs: make([]StageWithLog, 0, len(run.Stages)),
+		StagesWithLogs: make([]StageWithLog, 0, len(run.Tasks)),
 		Timezone:       getLocalTimezone(),
 	}
 	
 	// Load log previews and artifact info for each stage
-	for _, stage := range run.Stages {
+	for _, stage := range run.Tasks {
 		stageWithLog := StageWithLog{
-			StageResult: stage,
+			TaskResult: stage,
 			LogPreview:  readLastLines(stage.LogPath, 10),
 		}
 		
@@ -144,7 +144,7 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 		"formatTime":     formatTime,
 		"statusClass":    statusClass,
 		"statusSymbol":   statusSymbol,
-		"string":         func(s model.StageStatus) string { return string(s) },
+		"string":         func(s model.TaskStatus) string { return string(s) },
 		"deref":          func(i *int) int { if i != nil { return *i }; return 0 },
 	}).Parse(runDetailTemplate)
 	

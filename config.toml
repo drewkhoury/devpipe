@@ -5,7 +5,7 @@
 # Where to store pipeline runs
 outputRoot = ".devpipe"
 
-# Threshold in seconds for --fast flag (skip stages >= this value)
+# Threshold in seconds for --fast flag (skip tasks >= this value)
 fastThreshold = 300
 
 [defaults.git]
@@ -18,98 +18,98 @@ mode = "staged_unstaged"
 # Reference to compare against (used when mode = "ref")
 ref = "main"
 
-[stage_defaults]
-# Default values for all stages
+[task_defaults]
+# Default values for all tasks
 enabled = true
 workdir = "."
 estimatedSeconds = 10
 
-# Define your stages
-# Each stage must have at minimum: command
-# Optional: name, group, workdir, estimatedSeconds, enabled
+# Define your tasks
+# Each task must have at minimum: command
+# Optional: name, type, workdir, estimatedSeconds, enabled
 
-[stages.lint]
+[tasks.lint]
 name = "Lint"
-group = "quality"
+type = "quality"
 command = "./hello-world.sh lint"
 estimatedSeconds = 5
 
-[stages.format]
+[tasks.format]
 name = "Format"
-group = "quality"
+type = "quality"
 command = "./hello-world.sh format"
 estimatedSeconds = 5
 
-[stages.type-check]
+[tasks.type-check]
 name = "Type Check"
-group = "correctness"
+type = "correctness"
 command = "./hello-world.sh type-check"
 estimatedSeconds = 10
 
-[stages.build]
+[tasks.build]
 name = "Build"
-group = "release"
+type = "release"
 command = "./hello-world.sh build"
 estimatedSeconds = 15
 metricsFormat = "artifact"
 metricsPath = "artifacts/build/app.txt"
 
-[stages.unit-tests]
+[tasks.unit-tests]
 name = "Unit Tests"
-group = "correctness"
+type = "correctness"
 command = "./hello-world.sh unit-tests"
 estimatedSeconds = 20
 metricsFormat = "junit"
 metricsPath = "artifacts/test/junit.xml"
 
-[stages.e2e-tests]
+[tasks.e2e-tests]
 name = "E2E Tests"
-group = "correctness"
+type = "correctness"
 command = "./hello-world.sh e2e-tests"
 estimatedSeconds = 600
 
-# You can disable stages
+# You can disable tasks
 # enabled = false
 
-# You can override workdir per stage
+# You can override workdir per task
 # workdir = "./frontend"
 
 # Example: Real project configuration
-# [stages.eslint]
+# [tasks.eslint]
 # name = "ESLint"
-# group = "quality"
+# type = "quality"
 # command = "npm run lint"
 # workdir = "."
 # estimatedSeconds = 10
 
-# [stages.prettier]
+# [tasks.prettier]
 # name = "Prettier"
-# group = "quality"
+# type = "quality"
 # command = "npm run format:check"
 # estimatedSeconds = 5
 
-# [stages.typescript]
+# [tasks.typescript]
 # name = "TypeScript"
-# group = "correctness"
+# type = "correctness"
 # command = "npm run type-check"
 # estimatedSeconds = 15
 
-# [stages.jest]
+# [tasks.jest]
 # name = "Jest Tests"
-# group = "correctness"
+# type = "correctness"
 # command = "npm test"
 # estimatedSeconds = 30
 
-# [stages.build-frontend]
+# [tasks.build-frontend]
 # name = "Build Frontend"
-# group = "release"
+# type = "release"
 # command = "npm run build"
 # workdir = "./frontend"
 # estimatedSeconds = 60
 
-# [stages.build-backend]
+# [tasks.build-backend]
 # name = "Build Backend"
-# group = "release"
+# type = "release"
 # command = "go build -o bin/server ./cmd/server"
 # workdir = "./backend"
 # estimatedSeconds = 20

@@ -104,38 +104,38 @@ func main() {
 		fmt.Println("WARNING: not in a git repo, using current directory as repo root")
 	}
 	
-	// Determine which stages to use
-	var stages map[string]config.StageConfig
-	var stageOrder []string
+	// Determine which tasks to use
+	var tasks map[string]config.TaskConfig
+	var taskOrder []string
 	
-	if cfg == nil || len(cfg.Stages) == 0 {
-		// No config file or no stages defined, use built-in
+	if cfg == nil || len(cfg.Tasks) == 0 {
+		// No config file or no tasks defined, use built-in
 		if flagVerbose {
-			fmt.Println("No config file found, using built-in stages")
+			fmt.Println("No config file found, using built-in tasks")
 		}
-		stages = config.BuiltInStages(repoRoot)
-		stageOrder = config.GetStageOrder()
+		tasks = config.BuiltInTasks(repoRoot)
+		taskOrder = config.GetTaskOrder()
 	} else {
-		// Use stages from config
-		stages = mergedCfg.Stages
-		// Use the built-in order if stages match, otherwise alphabetical
-		builtInOrder := config.GetStageOrder()
+		// Use tasks from config
+		tasks = mergedCfg.Tasks
+		// Use the built-in order if tasks match, otherwise alphabetical
+		builtInOrder := config.GetTaskOrder()
 		for _, id := range builtInOrder {
-			if _, exists := stages[id]; exists {
-				stageOrder = append(stageOrder, id)
+			if _, exists := tasks[id]; exists {
+				taskOrder = append(taskOrder, id)
 			}
 		}
-		// Add any additional stages not in built-in order
-		for id := range stages {
+		// Add any additional tasks not in built-in order
+		for id := range tasks {
 			found := false
-			for _, existing := range stageOrder {
+			for _, existing := range taskOrder {
 				if existing == id {
 					found = true
 					break
 				}
 			}
 			if !found {
-				stageOrder = append(stageOrder, id)
+				taskOrder = append(taskOrder, id)
 			}
 		}
 	}
@@ -164,16 +164,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Build stage definitions
-	var stageDefs []model.StageDefinition
-	for _, id := range stageOrder {
-		stageCfg, ok := stages[id]
+	// Build task definitions
+	var taskDefs []model.TaskDefinition
+	for _, id := range taskOrder {
+		taskCfg, ok := tasks[id]
 		if !ok {
 			continue
 		}
 		
 		// Resolve with defaults
-		resolved := mergedCfg.ResolveStageConfig(id, stageCfg, repoRoot)
+		resolved := mergedCfg.ResolveTaskConfig(id, taskCfg, repoRoot)
 		
 		// Skip if disabled
 		if resolved.Enabled != nil && !*resolved.Enabled {
@@ -183,10 +183,10 @@ func main() {
 			continue
 		}
 		
-		stageDef := model.StageDefinition{
+		taskDef := model.TaskDefinition{
 			ID:               id,
 			Name:             resolved.Name,
-			Group:            resolved.Group,
+			Type:             resolved.Type,
 			Command:          resolved.Command,
 			Workdir:          resolved.Workdir,
 			EstimatedSeconds: resolved.EstimatedSeconds,
@@ -194,23 +194,22 @@ func main() {
 		
 		// Add metrics config if present
 		if resolved.MetricsFormat != "" {
-			stageDef.MetricsFormat = resolved.MetricsFormat
-			stageDef.MetricsPath = resolved.MetricsPath
+			taskDef.MetricsFormat = resolved.MetricsFormat
+			taskDef.MetricsPath = resolved.MetricsPath
 			if flagVerbose {
-				fmt.Printf("[%-15s] Metrics config: format=%s, path=%s\n", 
-					id, stageDef.MetricsFormat, stageDef.MetricsPath)
+				fmt.Printf("[%-15s] Metrics configured: format=%s, path=%s\n", id, resolved.MetricsFormat, resolved.MetricsPath)
 			}
 		}
 		
-		stageDefs = append(stageDefs, stageDef)
+		taskDefs = append(taskDefs, taskDef)
 	}
 
 	// Apply CLI filters
-	filteredStages := filterStages(stageDefs, flagOnly, flagSkipVals, flagFast, mergedCfg.Defaults.FastThreshold, flagVerbose)
+	filteredTasks := filterTasks(taskDefs, flagOnly, flagSkipVals, flagFast, mergedCfg.Defaults.FastThreshold, flagVerbose)
 
-	// Run stages
+	// Run tasks
 	var (
-		results         []model.StageResult
+		results         []model.TaskResult
 		overallExitCode int
 		anyFailed       bool
 	)
@@ -229,13 +228,13 @@ func main() {
 	}()
 	
 	if renderer.IsAnimated() {
-		// Build stage progress list
+		// Build task progress list
 		var stageProgress []ui.StageProgress
-		for _, st := range filteredStages {
+		for _, st := range filteredTasks {
 			stageProgress = append(stageProgress, ui.StageProgress{
 				ID:               st.ID,
 				Name:             st.Name,
-				Group:            st.Group,
+				Group:            st.Type,
 				Status:           "PENDING",
 				EstimatedSeconds: st.EstimatedSeconds,
 				ElapsedSeconds:   0,
@@ -261,7 +260,8 @@ func main() {
 		}
 	}
 
-	for _, st := range filteredStages {
+	// Execute tasks
+	for _, st := range filteredTasks {
 		// Check if should skip due to --fast
 		longRunning := st.EstimatedSeconds >= mergedCfg.Defaults.FastThreshold
 		if flagFast && longRunning && flagOnly == "" {
@@ -273,10 +273,10 @@ func main() {
 			}
 			
 			renderer.RenderStageSkipped(st.ID, reason, flagVerbose)
-			results = append(results, model.StageResult{
+			results = append(results, model.TaskResult{
 				ID:               st.ID,
 				Name:             st.Name,
-				Group:            st.Group,
+				Type:             st.Type,
 				Status:           model.StatusSkipped,
 				Skipped:          true,
 				SkipReason:       "skipped by --fast",
@@ -302,17 +302,27 @@ func main() {
 			}
 		}
 	}
-	
+
 	// Stop animation if it was running
 	if tracker != nil {
 		tracker.Stop()
 	}
 
-	// Build run record
-	now := time.Now().UTC().Format(time.RFC3339)
+	// Render summary
+	var summaries []ui.StageSummary
+	for _, r := range results {
+		summaries = append(summaries, ui.StageSummary{
+			ID:         r.ID,
+			Status:     string(r.Status),
+			DurationMs: r.DurationMs,
+		})
+	}
+	renderer.RenderSummary(summaries, anyFailed)
+	
+	// Write run record and generate dashboard
 	runRecord := model.RunRecord{
 		RunID:      runID,
-		Timestamp:  now,
+		Timestamp:  time.Now().UTC().Format(time.RFC3339),
 		RepoRoot:   repoRoot,
 		OutputRoot: outputRoot,
 		ConfigPath: flagConfig,
@@ -327,63 +337,39 @@ func main() {
 			Config:   flagConfig,
 			Since:    flagSince,
 		},
-		Stages: results,
+		Tasks: results,
 	}
-
 	if err := writeRunJSON(runDir, runRecord); err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: failed to write run.json: %v\n", err)
-		if overallExitCode == 0 {
-			overallExitCode = 1
-		}
-	}
-	
-	// Copy config file to run directory
-	if err := copyConfigToRun(runDir, flagConfig, &mergedCfg); err != nil {
-		if flagVerbose {
-			fmt.Fprintf(os.Stderr, "WARNING: failed to copy config: %v\n", err)
-		}
+		fmt.Fprintf(os.Stderr, "WARNING: failed to write run record: %v\n", err)
 	}
 	
 	// Generate dashboard
 	if err := dashboard.GenerateDashboard(outputRoot); err != nil {
-		if flagVerbose {
-			fmt.Fprintf(os.Stderr, "WARNING: failed to generate dashboard: %v\n", err)
-		}
-		// Don't fail the pipeline if dashboard generation fails
+		fmt.Fprintf(os.Stderr, "WARNING: failed to generate dashboard: %v\n", err)
 	}
-
-	// Final summary
-	var summaries []ui.StageSummary
-	for _, r := range results {
-		summaries = append(summaries, ui.StageSummary{
-			ID:         r.ID,
-			Status:     string(r.Status),
-			DurationMs: r.DurationMs,
-		})
-	}
-	renderer.RenderSummary(summaries, anyFailed)
+	
 	os.Exit(overallExitCode)
 }
 
-func filterStages(stages []model.StageDefinition, only string, skip sliceFlag, fast bool, fastThreshold int, verbose bool) []model.StageDefinition {
+func filterTasks(tasks []model.TaskDefinition, only string, skip sliceFlag, fast bool, fastThreshold int, verbose bool) []model.TaskDefinition {
 	skipSet := map[string]struct{}{}
 	for _, id := range skip {
 		skipSet[id] = struct{}{}
 	}
 
-	var out []model.StageDefinition
+	var out []model.TaskDefinition
 	if only != "" {
-		for _, s := range stages {
+		for _, s := range tasks {
 			if s.ID == only {
 				out = append(out, s)
 				return out
 			}
 		}
-		fmt.Fprintf(os.Stderr, "ERROR: --only stage id %q not found\n", only)
+		fmt.Fprintf(os.Stderr, "ERROR: --only task id %q not found\n", only)
 		os.Exit(1)
 	}
 
-	for _, s := range stages {
+	for _, s := range tasks {
 		if _, ok := skipSet[s.ID]; ok {
 			if verbose {
 				fmt.Printf("[%-15s] SKIP requested by --skip\n", s.ID)
@@ -403,11 +389,11 @@ func makeRunID() string {
 	return fmt.Sprintf("%s_%06d", ts, suffix)
 }
 
-func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer, tracker *ui.AnimatedStageTracker) (model.StageResult, error) {
-	res := model.StageResult{
+func runStage(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbose bool, renderer *ui.Renderer, tracker *ui.AnimatedStageTracker) (model.TaskResult, error) {
+	res := model.TaskResult{
 		ID:               st.ID,
 		Name:             st.Name,
-		Group:            st.Group,
+		Type:             st.Type,
 		Status:           model.StatusPending,
 		Command:          st.Command,
 		Workdir:          st.Workdir,
@@ -460,7 +446,7 @@ func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verb
 		cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
 		cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
 	}
-	
+
 	// Start ticker to update progress during execution
 	var tickerDone chan struct{}
 	if tracker != nil {
@@ -469,7 +455,7 @@ func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verb
 			ticker := time.NewTicker(100 * time.Millisecond)
 			defer ticker.Stop()
 			startTime := time.Now()
-			
+
 			for {
 				select {
 				case <-tickerDone:
@@ -483,12 +469,12 @@ func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verb
 	}
 
 	err = cmd.Run()
-	
+
 	// Stop ticker
 	if tickerDone != nil {
 		close(tickerDone)
 	}
-	
+
 	end := time.Now().UTC()
 	res.EndTime = end.Format(time.RFC3339)
 	res.DurationMs = end.Sub(start).Milliseconds()
@@ -542,7 +528,7 @@ func runStage(st model.StageDefinition, runDir, logDir string, dryRun bool, verb
 		} else {
 			// Artifact exists and has size - store info in metrics
 			if res.Metrics == nil {
-				res.Metrics = &model.StageMetrics{
+				res.Metrics = &model.TaskMetrics{
 					Kind:          "artifact",
 					SummaryFormat: "artifact",
 					Data:          make(map[string]interface{}),
@@ -578,7 +564,7 @@ func writeRunJSON(runDir string, record model.RunRecord) error {
 }
 
 // parseStageMetrics parses metrics for a completed stage
-func parseStageMetrics(st model.StageDefinition, verbose bool) *model.StageMetrics {
+func parseStageMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics {
 	// Build full path to metrics file
 	metricsPath := filepath.Join(st.Workdir, st.MetricsPath)
 	

@@ -1,21 +1,21 @@
 package model
 
-// StageStatus represents the status of a stage
-type StageStatus string
+// TaskStatus represents the status of a task
+type TaskStatus string
 
 const (
-	StatusPending StageStatus = "PENDING"
-	StatusRunning StageStatus = "RUNNING"
-	StatusPass    StageStatus = "PASS"
-	StatusFail    StageStatus = "FAIL"
-	StatusSkipped StageStatus = "SKIPPED"
+	StatusPending TaskStatus = "PENDING"
+	StatusRunning TaskStatus = "RUNNING"
+	StatusPass    TaskStatus = "PASS"
+	StatusFail    TaskStatus = "FAIL"
+	StatusSkipped TaskStatus = "SKIPPED"
 )
 
-// StageDefinition is the resolved definition of a stage ready to execute
-type StageDefinition struct {
+// TaskDefinition is the resolved definition of a task ready to execute
+type TaskDefinition struct {
 	ID               string
 	Name             string
-	Group            string
+	Type             string
 	Command          string
 	Workdir          string
 	EstimatedSeconds int
@@ -23,12 +23,12 @@ type StageDefinition struct {
 	MetricsPath      string // Path to metrics file
 }
 
-// StageResult is the per-stage record written into run.json
-type StageResult struct {
+// TaskResult is the per-task record written into run.json
+type TaskResult struct {
 	ID               string       `json:"id"`
 	Name             string       `json:"name"`
-	Group            string       `json:"group"`
-	Status           StageStatus  `json:"status"`
+	Type             string       `json:"type"`
+	Status           TaskStatus   `json:"status"`
 	ExitCode         *int         `json:"exitCode,omitempty"`
 	Skipped          bool         `json:"skipped"`
 	SkipReason       string       `json:"skipReason,omitempty"`
@@ -39,11 +39,11 @@ type StageResult struct {
 	EndTime          string       `json:"endTime,omitempty"`
 	DurationMs       int64        `json:"durationMs"`
 	EstimatedSeconds int          `json:"estimatedSeconds"`
-	Metrics          *StageMetrics `json:"metrics,omitempty"`
+	Metrics          *TaskMetrics `json:"metrics,omitempty"`
 }
 
-// StageMetrics holds parsed metrics from stage artifacts
-type StageMetrics struct {
+// TaskMetrics holds parsed metrics from task artifacts
+type TaskMetrics struct {
 	Kind          string                 `json:"kind"` // "test", "lint", "coverage", "build"
 	SummaryFormat string                 `json:"summaryFormat,omitempty"` // "junit", "eslint", "sarif"
 	Data          map[string]interface{} `json:"data,omitempty"`
@@ -80,5 +80,5 @@ type RunRecord struct {
 	ConfigPath string        `json:"configPath,omitempty"`
 	Git        interface{}   `json:"git"` // git.GitInfo
 	Flags      RunFlags      `json:"flags"`
-	Stages     []StageResult `json:"stages"`
+	Tasks      []TaskResult `json:"tasks"`
 }
