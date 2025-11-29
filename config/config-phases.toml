@@ -11,7 +11,6 @@ mode = "staged_unstaged"
 [task_defaults]
 enabled = true
 workdir = "."
-estimatedSeconds = 10
 
 # Phase 1: Quality checks (parallel)
 [tasks.phase-quality]
@@ -22,13 +21,11 @@ desc = "Lint and format validation"
 name = "Lint"
 type = "quality"
 command = "./hello-world.sh lint"
-estimatedSeconds = 6
 
 [tasks.format]
 name = "Format"
 type = "quality"
 command = "./hello-world.sh format"
-estimatedSeconds = 3
 
 # Phase 2: Build (after quality checks pass)
 [tasks.phase-build]
@@ -39,7 +36,6 @@ desc = "Build the application artifact"
 name = "Build"
 type = "release"
 command = "./hello-world.sh build"
-estimatedSeconds = 3
 metricsFormat = "artifact"
 metricsPath = "artifacts/build/app.txt"
 
@@ -52,7 +48,6 @@ desc = "Run all test suites"
 name = "Unit Tests"
 type = "correctness"
 command = "./hello-world.sh unit-tests"
-estimatedSeconds = 3
 metricsFormat = "junit"
 metricsPath = "artifacts/test/junit.xml"
 
@@ -60,4 +55,3 @@ metricsPath = "artifacts/test/junit.xml"
 name = "E2E Tests"
 type = "correctness"
 command = "./hello-world.sh e2e-tests"
-estimatedSeconds = 600

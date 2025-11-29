@@ -31,42 +31,38 @@ func CalculateTaskProgress(elapsed float64, estimated int) float64 {
 	return progress
 }
 
-// CalculateOverallProgress calculates overall pipeline progress based on task weights
+// CalculateOverallProgress calculates overall pipeline progress based on task completion
 func CalculateOverallProgress(tasks []TaskProgress) float64 {
 	if len(tasks) == 0 {
 		return 0
 	}
 	
-	totalWeight := 0
-	completedWeight := 0
+	completed := 0
+	running := 0
+	total := len(tasks)
 	
 	for _, task := range tasks {
-		weight := task.EstimatedSeconds
-		if weight == 0 {
-			weight = 10 // Default weight
-		}
-		
-		totalWeight += weight
-		
 		switch task.Status {
 		case "PASS", "FAIL", "SKIPPED":
-			// Task complete
-			completedWeight += weight
+			// Task complete - counts as 1.0
+			completed++
 		case "RUNNING":
-			// Task in progress
+			// Task in progress - counts as partial based on elapsed vs estimated
 			taskProgress := CalculateTaskProgress(task.ElapsedSeconds, task.EstimatedSeconds)
-			completedWeight += int(float64(weight) * (taskProgress / 100.0))
+			running += int(taskProgress)
 		case "PENDING":
-			// Not started yet
-			completedWeight += 0
+			// Not started yet - counts as 0
 		}
 	}
 	
-	if totalWeight == 0 {
-		return 0
+	// Calculate percentage: (completed tasks + running progress) / total tasks
+	totalProgress := float64(completed*100+running) / float64(total)
+	
+	if totalProgress > 100 {
+		return 100
 	}
 	
-	return (float64(completedWeight) / float64(totalWeight)) * 100
+	return totalProgress
 }
 
 // FormatDuration formats a duration in milliseconds to a human-readable string

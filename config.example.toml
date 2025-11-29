@@ -1,0 +1,96 @@
+# devpipe configuration file
+# Full documentation: https://github.com/drewkhoury/devpipe
+
+# ============================================================================
+# Global Defaults
+# ============================================================================
+[defaults]
+# Directory for run outputs, logs, and metrics
+outputRoot = ".devpipe"
+
+# Tasks longer than this (in seconds) are skipped when using --fast flag
+fastThreshold = 300
+
+# UI mode: "basic" (simple text) or "full" (detailed output with more info)
+uiMode = "basic"
+
+# Dashboard refresh rate in milliseconds (used with --dashboard flag for live progress updates)
+# Valid range: 20-2000ms (lower = more CPU usage, recommended: 100-1000ms)
+animationRefreshMs = 500
+
+# Group tasks in animated dashboard by "phase" or "type"
+animatedGroupBy = "phase"
+
+# Git integration - determines which files are considered "changed"
+[defaults.git]
+# Mode options:
+#   "staged"          - Only staged files (git diff --cached)
+#   "staged_unstaged" - Staged + unstaged files (git diff HEAD)
+#   "ref"             - Compare against a specific ref (git diff <ref>)
+mode = "staged_unstaged"
+
+# Git ref to compare against (only used when mode = "ref")
+# Examples: "main", "origin/main", "HEAD~1"
+ref = "HEAD"
+
+# ============================================================================
+# Task Defaults
+# ============================================================================
+[task_defaults]
+# Whether tasks are enabled by default (can be overridden per-task)
+enabled = true
+
+# Default working directory for all tasks (relative to repo root)
+workdir = "."
+
+# ============================================================================
+# Phase 1: Quality Checks
+# ============================================================================
+# Phase tasks (prefixed with "phase-") create boundaries - all tasks under a phase run in parallel
+[tasks.phase-quality]
+desc = "Quality Checks"
+
+[tasks.lint]
+name = "Lint"
+command = "echo 'Running linter...'"
+type = "check"
+
+[tasks.format]
+name = "Format Check"
+command = "echo 'Checking code formatting...'"
+type = "check"
+
+# ============================================================================
+# Phase 2: Build
+# ============================================================================
+[tasks.phase-build]
+desc = "Build"
+
+[tasks.build]
+name = "Build"
+command = "echo 'Building application...'"
+type = "build"
+
+# ============================================================================
+# Task Configuration Reference
+# ============================================================================
+# Each task can have the following fields:
+#
+# command (required)  - Shell command to execute
+# name                - Display name for the task
+# desc                - Description (used for phase headers)
+# type                - Task type for grouping (e.g., "check", "build", "test")
+# workdir             - Working directory (relative to repo root)
+# enabled             - Whether this task is enabled
+# metricsFormat       - Metrics format: "junit" or "artifact"
+# metricsPath         - Path to metrics file (relative to workdir)
+#
+# Example with all options:
+# [tasks.example]
+# command = "npm run test"
+# name = "Unit Tests"
+# type = "test"
+# workdir = "."
+# enabled = true
+# metricsFormat = "junit"
+# metricsPath = "test-results/junit.xml"

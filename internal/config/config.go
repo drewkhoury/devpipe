@@ -34,36 +34,40 @@ type GitConfig struct {
 
 // TaskDefaultsConfig holds default values for all tasks
 type TaskDefaultsConfig struct {
-	Enabled          *bool  `toml:"enabled"`
-	Workdir          string `toml:"workdir"`
-	EstimatedSeconds int    `toml:"estimatedSeconds"`
+	Enabled *bool  `toml:"enabled"`
+	Workdir string `toml:"workdir"`
 }
 
 // TaskConfig represents a single task configuration
 type TaskConfig struct {
-	Name             string `toml:"name"`
-	Desc             string `toml:"desc"`          // Description (used for phase headers)
-	Type             string `toml:"type"`
-	Command          string `toml:"command"`
-	Workdir          string `toml:"workdir"`
-	EstimatedSeconds int    `toml:"estimatedSeconds"`
-	Enabled          *bool  `toml:"enabled"`
-	Wait             bool   `toml:"wait"`           // If true, wait for all previous tasks to complete before continuing
-	MetricsFormat    string `toml:"metricsFormat"` // "junit", "eslint", "sarif"
-	MetricsPath      string `toml:"metricsPath"`   // Path to metrics file (relative to workdir)
+	Name          string `toml:"name"`
+	Desc          string `toml:"desc"` // Description (used for phase headers)
+	Type          string `toml:"type"`
+	Command       string `toml:"command"`
+	Workdir       string `toml:"workdir"`
+	Enabled       *bool  `toml:"enabled"`
+	Wait          bool   `toml:"wait"`          // Internal use only: set automatically by phase headers
+	MetricsFormat string `toml:"metricsFormat"` // "junit", "eslint", "sarif"
+	MetricsPath   string `toml:"metricsPath"`   // Path to metrics file (relative to workdir)
 }
 
 // LoadConfig loads configuration from a TOML file
 // Returns nil if file doesn't exist (use built-in defaults)
 func LoadConfig(path string) (*Config, []string, map[string]PhaseInfo, error) {
 	// If no path specified, look for config.toml in current directory
+	explicitPath := path != ""
 	if path == "" {
 		path = "config.toml"
 	}
 
 	// Check if file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, nil, nil, nil // No config file, use defaults
+		// If user explicitly specified a config file, fail
+		if explicitPath {
+			return nil, nil, nil, fmt.Errorf("config file not found: %s", path)
+		}
+		// Otherwise, return nil to allow auto-generation
+		return nil, nil, nil, nil
 	}
 
 	var cfg Config
@@ -95,9 +99,8 @@ func GetDefaults() Config {
 			},
 		},
 		TaskDefaults: TaskDefaultsConfig{
-			Enabled:          boolPtr(true),
-			Workdir:          ".",
-			EstimatedSeconds: 10,
+			Enabled: boolPtr(true),
+			Workdir: ".",
 		},
 		Tasks: make(map[string]TaskConfig),
 	}
@@ -141,9 +144,6 @@ func MergeWithDefaults(cfg *Config) Config {
 	if cfg.TaskDefaults.Workdir == "" {
 		cfg.TaskDefaults.Workdir = defaults.TaskDefaults.Workdir
 	}
-	if cfg.TaskDefaults.EstimatedSeconds == 0 {
-		cfg.TaskDefaults.EstimatedSeconds = defaults.TaskDefaults.EstimatedSeconds
-	}
 
 	return *cfg
 }
@@ -162,10 +162,6 @@ func (c *Config) ResolveTaskConfig(id string, taskCfg TaskConfig, repoRoot strin
 	// Make workdir absolute relative to repo root
 	if !filepath.IsAbs(taskCfg.Workdir) {
 		taskCfg.Workdir = filepath.Join(repoRoot, taskCfg.Workdir)
-	}
-
-	if taskCfg.EstimatedSeconds == 0 {
-		taskCfg.EstimatedSeconds = c.TaskDefaults.EstimatedSeconds
 	}
 
 	if taskCfg.Enabled == nil {
@@ -283,43 +279,11 @@ func extractQuotedValue(s string) string {
 	return s
 }
 
-// GenerateDefaultConfig creates a config.toml file with built-in task definitions
+// GenerateDefaultConfig creates a minimal config.toml file
 func GenerateDefaultConfig(path string, repoRoot string) error {
 	// Check if file already exists
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("config file already exists: %s", path)
-	}
-	
-	// Build config from built-in tasks
-	builtInTasks := BuiltInTasks(repoRoot)
-	taskOrder := GetTaskOrder()
-	
-	// Create config structure
-	cfg := Config{
-		Defaults: DefaultsConfig{
-			OutputRoot:    ".devpipe",
-			FastThreshold: 300,
-			Git: GitConfig{
-				Mode: "staged_unstaged",
-				Ref:  "main",
-			},
-		},
-		TaskDefaults: TaskDefaultsConfig{
-			Enabled:          boolPtr(true),
-			Workdir:          ".",
-			EstimatedSeconds: 10,
-		},
-		Tasks: make(map[string]TaskConfig),
-	}
-	
-	// Add tasks in order
-	for _, id := range taskOrder {
-		if task, ok := builtInTasks[id]; ok {
-			// Make paths relative
-			task.Command = "./" + filepath.Base(task.Command)
-			task.Workdir = "."
-			cfg.Tasks[id] = task
-		}
 	}
 	
 	// Write to file
@@ -329,14 +293,27 @@ func GenerateDefaultConfig(path string, repoRoot string) error {
 	}
 	defer f.Close()
 	
-	// Write header comment
-	fmt.Fprintln(f, "# devpipe configuration file")
-	fmt.Fprintln(f, "# Auto-generated on first run - customize as needed")
-	fmt.Fprintln(f, "")
+	// Write minimal, runnable config
+	content := `# devpipe configuration file
+# Full reference: https://github.com/drewkhoury/devpipe/blob/main/config.example.toml
+
+[tasks.lint]
+name = "Lint"
+command = "echo 'Running linter...'"
+type = "check"
+
+[tasks.format]
+name = "Format Check"
+command = "echo 'Checking code formatting...'"
+type = "check"
+
+[tasks.build]
+name = "Build"
+command = "echo 'Building application...'"
+type = "build"
+`
 	
-	// Encode config as TOML
-	encoder := toml.NewEncoder(f)
-	if err := encoder.Encode(cfg); err != nil {
+	if _, err := f.WriteString(content); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 	

@@ -133,17 +133,26 @@ func main() {
 	// Auto-generate config.toml if it doesn't exist and no custom config specified
 	if cfg == nil && flagConfig == "" {
 		defaultConfigPath := "config.toml"
-		if err := config.GenerateDefaultConfig(defaultConfigPath, repoRoot); err != nil {
-			if flagVerbose {
-				fmt.Fprintf(os.Stderr, "WARNING: Could not generate config.toml: %v\n", err)
+		
+		// Prompt user to create config
+		fmt.Printf("No config.toml found. Create one with example tasks? (y/n): ")
+		var response string
+		fmt.Scanln(&response)
+		
+		if response == "y" || response == "Y" || response == "yes" || response == "Yes" {
+			if err := config.GenerateDefaultConfig(defaultConfigPath, repoRoot); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR: Could not generate config.toml: %v\n", err)
+				os.Exit(1)
 			}
-		} else {
-			if flagVerbose {
-				fmt.Printf("Generated config.toml with built-in tasks\n")
-			}
+			fmt.Printf("✓ Created config.toml - edit it to customize your tasks\n")
+			fmt.Printf("  Full reference: https://github.com/drewkhoury/devpipe/blob/main/config.example.toml\n\n")
+			
 			// Reload config after generating
 			cfg, configTaskOrder, phaseNames, _ = config.LoadConfig(defaultConfigPath)
 			mergedCfg = config.MergeWithDefaults(cfg)
+		} else {
+			fmt.Fprintf(os.Stderr, "ERROR: No config.toml found. Create one or specify with --config flag\n")
+			os.Exit(1)
 		}
 	}
 	
@@ -249,17 +258,14 @@ func main() {
 			continue
 		}
 		
-		// Use historical average if available, otherwise use configured value
-		estimatedSeconds := resolved.EstimatedSeconds
-		isGuess := false
+		// Use historical average if available, otherwise use 10s default
+		estimatedSeconds := 10
+		isGuess := true
 		
 		if avgSeconds, hasHistory := historicalAvg[id]; hasHistory {
 			// Always prefer historical average
 			estimatedSeconds = avgSeconds
 			isGuess = false // Historical data, not a guess
-		} else if resolved.EstimatedSeconds == mergedCfg.TaskDefaults.EstimatedSeconds {
-			// Using default value - mark as guess
-			isGuess = true
 		}
 		
 		taskDef := model.TaskDefinition{
@@ -487,14 +493,23 @@ func main() {
 		}
 	}
 
-	// Stop animation if it was running
-	if tracker != nil {
-		tracker.Stop()
-	}
-
-	// Calculate total pipeline duration
+	// Calculate total pipeline duration BEFORE the pause
 	pipelineDuration := time.Since(pipelineStart)
 	totalMs := pipelineDuration.Milliseconds()
+
+	// Stop animation if it was running
+	if tracker != nil {
+		// Do a final render to show completed state
+		time.Sleep(100 * time.Millisecond)
+		
+		tracker.Stop()
+		
+		// Show completion message and wait for user input
+		fmt.Print(renderer.Green("✓ Done") + " - Press Enter to continue...")
+		
+		// Wait for Enter key
+		fmt.Scanln()
+	}
 
 	// Render summary
 	var summaries []ui.TaskSummary
@@ -506,6 +521,11 @@ func main() {
 		})
 	}
 	renderer.RenderSummary(summaries, anyFailed, totalMs)
+	
+	// Show where to find logs and reports
+	fmt.Println()
+	fmt.Printf("📁 Run logs:  %s\n", filepath.Join(outputRoot, "runs", runID, "logs"))
+	fmt.Printf("📊 Dashboard: %s\n", filepath.Join(outputRoot, "report.html"))
 	
 	// Build effective config tracking
 	effectiveConfig := buildEffectiveConfig(cfg, &mergedCfg, flagSince, flagUI, uiModeStr, gitMode, gitRef, historicalAvg)
@@ -730,37 +750,6 @@ func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSinc
 		addValue("task_defaults.workdir", mergedCfg.TaskDefaults.Workdir, "config-file", "")
 	} else {
 		addValue("task_defaults.workdir", mergedCfg.TaskDefaults.Workdir, "default", "")
-	}
-	
-	if cfg != nil && cfg.TaskDefaults.EstimatedSeconds != 0 {
-		addValue("task_defaults.estimatedSeconds", fmt.Sprintf("%d", mergedCfg.TaskDefaults.EstimatedSeconds), "config-file", "")
-	} else {
-		addValue("task_defaults.estimatedSeconds", fmt.Sprintf("%d", mergedCfg.TaskDefaults.EstimatedSeconds), "default", "")
-	}
-	
-	// Task-specific overrides (show if historical data was used)
-	if len(historicalAvg) > 0 {
-		for taskID, avgSeconds := range historicalAvg {
-			var configSeconds int
-			if cfg != nil {
-				if taskCfg, ok := cfg.Tasks[taskID]; ok && taskCfg.EstimatedSeconds != 0 {
-					configSeconds = taskCfg.EstimatedSeconds
-				} else {
-					configSeconds = mergedCfg.TaskDefaults.EstimatedSeconds
-				}
-			} else {
-				configSeconds = defaults.TaskDefaults.EstimatedSeconds
-			}
-			
-			if avgSeconds != configSeconds {
-				addValue(
-					fmt.Sprintf("tasks.%s.estimatedSeconds", taskID),
-					fmt.Sprintf("%d", avgSeconds),
-					"historical",
-					fmt.Sprintf("%d", configSeconds),
-				)
-			}
-		}
 	}
 	
 	return &model.EffectiveConfig{

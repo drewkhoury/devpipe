@@ -2,11 +2,13 @@
 
 Fast, local pipeline runner for development workflows.
 
+`devpipe` reads your config.toml and runs the tasks you specify.
+
 ## Features
 
 - 🚀 **Single binary** - No dependencies, just download and run
 - 🎨 **Beautiful UI** - Animated progress, colored output, grouping
-- ⚙️ **Phase-based execution** - Organize tasks into sequential phases
+- ⚙️ **Phase-based execution** - Organize tasks into sequential phases, running all tasks in a phase in parallel
 - 📝 **TOML configuration** - Simple, readable config files
 - 🔀 **Git integration** - Run checks on staged, unstaged, or ref-based changes
 - 📊 **Metrics & Dashboard** - JUnit/artifact parsing, HTML reports
@@ -14,29 +16,30 @@ Fast, local pipeline runner for development workflows.
 
 ## Quick Start
 
+In a rush? Skip to [Examples](#examples) once you have `devpipe` installed.
+
 ### Install
 
-Download the latest release:
+**Homebrew (macOS/Linux):**
 
 ```bash
-# Download latest release (choose your platform)
-# macOS Apple Silicon (M1/M2/M3)
-curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-darwin-arm64 -o devpipe
+brew install drewkhoury/tap/devpipe
+```
 
-# macOS Intel
-curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-darwin-amd64 -o devpipe
+**Direct download:**
 
-# Linux x86_64
-curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-linux-amd64 -o devpipe
-
-# Linux ARM64
-curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-linux-arm64 -o devpipe
-
-# Make executable
+```bash
+# Set PLATFORM to: darwin-arm64, darwin-amd64, linux-amd64, or linux-arm64
+#  darwin-arm64 (macOS Apple Silicon)
+#  darwin-amd64 (macOS Intel)
+#  linux-amd64 (Linux x86_64)
+#  linux-arm64 (Linux ARM64)
+PLATFORM=darwin-arm64
+curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe_*_${PLATFORM}.tar.gz | tar xz
 chmod +x devpipe
 ```
 
-Or build from source:
+**Build from source:**
 
 ```bash
 git clone https://github.com/drewkhoury/devpipe
@@ -46,35 +49,101 @@ make build
 
 ## Configuration
 
-Uses `config.toml` from the current directory by default. If no config file is specified and `config.toml` doesn't exist, devpipe will auto-generate one with example tasks.
+`devpipe` expects `config.toml` from the current directory by default. If no config file is specified and `config.toml` doesn't exist, devpipe will auto-generate one with example tasks.
+
+You can get started by running `devpipe` with no arguments.
 
 Example `config.toml`:
 
 ```toml
-[defaults]
-animatedGroupBy = "phase"  # or "type"
+[tasks.lint]
+command = "npm run lint"
 
-[defaults.git]
-mode = "staged_unstaged"
+[tasks.test]
+command = "npm test"
 
-[task_defaults]
-enabled = true
-workdir = "."
+[tasks.build]
+command = "npm run build"
+```
+
+### Configuration Reference
+
+See [config.example.toml](config.example.toml) for a full example.
+
+#### [defaults] Section
+
+Global configuration options.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `outputRoot` | string | No | `.devpipe` | Directory for run outputs and logs |
+| `fastThreshold` | int | No | `300` | Tasks longer than this (seconds) are skipped with `--fast` |
+| `uiMode` | string | No | `basic` | UI mode: `basic` or `full` |
+| `animationRefreshMs` | int | No | `500` | Dashboard refresh rate in milliseconds |
+| `animatedGroupBy` | string | No | `phase` | Group tasks by `phase` or `type` in dashboard |
+
+#### [defaults.git] Section
+
+Git integration settings.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `mode` | string | No | `staged_unstaged` | Git mode: `staged`, `staged_unstaged`, or `ref` |
+| `ref` | string | No | `HEAD` | Git ref to compare against when mode is `ref` |
+
+#### [task_defaults] Section
+
+Set default values for `enabled` and `workdir` that apply to all tasks unless overridden. See `[tasks.<task-id>]` section for field descriptions.
+
+#### [tasks.\<task-id\>] Section
+
+Individual task configuration. Task ID must be unique.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `command` | string | **Yes** | - | Shell command to execute |
+| `name` | string | No | - | Display name for the task |
+| `desc` | string | No | - | Description |
+| `type` | string | No | - | Task type for grouping (e.g., `check`, `build`, `test`) |
+| `workdir` | string | No | `.` | Working directory for this task |
+| `enabled` | bool | No | `true` | Whether this task is enabled |
+| `metricsFormat` | string | No | - | Metrics format: `junit`, `artifact` |
+| `metricsPath` | string | No | - | Path to metrics file (relative to workdir) |
+
+#### Phase Headers
+
+Use `[tasks.phase-<name>]` to create phase headers. Tasks under a phase header run in parallel. Phases execute sequentially.
+
+You can add comments to make it easier to identify phases in the config at a glance (though these are not required).
+
+```toml
+
+[tasks.phase-quality]
+##################################
 
 [tasks.lint]
-name = "Lint"
-type = "check"
 command = "npm run lint"
 
 [tasks.format]
-name = "Format Check"
-type = "check"
 command = "npm run format:check"
+
+[tasks.phase-build]
+##################################
+
+[tasks.build]
+command = "npm run build"
+
+[tasks.phase-test]
+##################################
+
+[tasks.unit-tests]
+command = "npm run test:unit"
+
+[tasks.e2e-tests]
+command = "npm run test:e2e"
 ```
 
-## Phases
-
-Tasks can be organized into phases using `[tasks.phase-*]` headers. All tasks under a phase header run in parallel, and phases execute sequentially:
+Parallel execution:
 
 ```
 Phase 1: Quality Checks
@@ -89,9 +158,29 @@ Phase 3: Tests
 └─ e2e-tests (parallel)
 ```
 
-## UI Modes
+## Modes
 
-### Dashboard Mode
+### UI Modes
+
+`basic` mode provides simple text output with status symbols. It's the default UI mode.
+
+```bash
+./devpipe
+```
+
+Simple text output with status symbols:
+- ✓ PASS (green)
+- ✗ FAIL (red)
+- ⊘ SKIPPED (yellow)
+
+`full` mode provides borders, and better visuals, and more detailed formatting.
+
+
+### Dashboard & Full UI Modes
+
+Dashboard mode provides a live progress view, with animated progress bars and detailed task information.
+
+This can be used with any UI mode (basic or full).
 
 ```bash
 ./devpipe --dashboard -ui full
@@ -109,48 +198,79 @@ Overall: ███████████████████████�
 ┌─ Quality Checks ──────────────────────────────────────┐
 │ ✓ lint         1s                         
 │ ✓ format       1s                         
-└─────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────┘
 
 ┌─ Build ───────────────────────────────────────────────┐
 │ ✓ build        3s                         
-└─────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────┘
 
 ┌─ Tests ───────────────────────────────────────────────┐
 │ ✓ unit-tests   2s                         
 │ ✓ e2e-tests    5s                          
-└─────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────┘
 ```
 
-### Basic Mode
+## CLI Reference
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `devpipe` | Run the pipeline with default or specified config |
+| `devpipe validate [files...]` | Validate one or more config files |
+| `devpipe help` | Show help information |
+
+### Run Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config <path>` | Path to config file | `config.toml` |
+| `--since <ref>` | Git ref to compare against (overrides config) | - |
+| `--only <task-id>` | Run only a single task by id | - |
+| `--skip <task-id>` | Skip a task by id (repeatable) | - |
+| `--ui <mode>` | UI mode: `basic`, `full` | `basic` |
+| `--dashboard` | Show dashboard with live progress | `false` |
+| `--fail-fast` | Stop on first task failure | `false` |
+| `--fast` | Skip long-running tasks (> fastThreshold) | `false` |
+| `--dry-run` | Do not execute commands, simulate only | `false` |
+| `--verbose` | Show verbose output (always logged to pipeline.log) | `false` |
+| `--no-color` | Disable colored output | `false` |
+
+### Validate Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config <path>` | Path to config file to validate (supports multiple files) | `config.toml` |
+
+See [CONFIG-VALIDATION.md](CONFIG-VALIDATION.md) for more details.
+
+### Examples
 
 ```bash
-./devpipe
-```
+# Run with default config
+devpipe
 
-Simple text output with status symbols:
-- ✓ PASS (green)
-- ✗ FAIL (red)
-- ⊘ SKIPPED (yellow)
+# Run with custom config
+devpipe --config config/custom.toml
 
-## CLI Flags
+# Skip slow tasks and stop on first failure
+devpipe --fast --fail-fast
 
-```bash
-# Configuration
---config <path>         # Use specific config file
---since <ref>           # Git ref to compare against
+# Run only specific task
+devpipe --only lint
 
-# Execution
---only <task-id>        # Run only specific task
---skip <task-id>        # Skip task (repeatable)
---fast                  # Skip long-running tasks
---fail-fast             # Stop on first failure
---dry-run               # Show what would run
+# Skip multiple tasks
+devpipe --skip e2e-tests --skip integration-tests
 
-# UI
---dashboard             # Show dashboard with live progress
--ui <mode>              # UI mode: basic, full
---no-color              # Disable colors
---verbose               # Verbose output
+# Dry run to see what would execute
+devpipe --dry-run
+
+# Full dashboard with verbose output
+devpipe --dashboard -ui full --verbose
+
+# Validate config files
+devpipe validate
+devpipe validate config/*.toml
 ```
 
 ## Git Modes
@@ -163,7 +283,7 @@ Control which files are in scope for changes:
 
 ```bash
 # Check only staged files
-./devpipe --config config-staged.toml
+./devpipe --config config/config-staged.toml
 
 # Compare against main branch
 ./devpipe --since main
@@ -187,14 +307,14 @@ metricsPath = "dist/app.js"
 
 View the dashboard:
 ```bash
-open .devpipe/dashboard.html
+open .devpipe/report.html
 ```
 
 ## Output Structure
 
 ```
 .devpipe/
-├── dashboard.html          # HTML dashboard
+├── report.html             # HTML dashboard
 ├── summary.json            # Aggregated metrics
 └── runs/
     └── 2025-11-29T05-25-25Z_071352/
@@ -206,7 +326,7 @@ open .devpipe/dashboard.html
             └── unit-tests.log
 ```
 
-## Examples
+## Where you can use Devpipe
 
 ### Pre-commit Hook
 
@@ -222,8 +342,7 @@ open .devpipe/dashboard.html
 # .github/workflows/ci.yml
 - name: Run devpipe
   run: |
-    curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-linux-amd64 -o devpipe
-    chmod +x devpipe
+    curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe_*_linux_amd64.tar.gz | tar xz
     ./devpipe --no-color
 ```
 

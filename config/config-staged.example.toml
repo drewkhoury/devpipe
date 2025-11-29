@@ -8,10 +8,8 @@ mode = "staged"
 [task_defaults]
 enabled = true
 workdir = "."
-estimatedSeconds = 10
 
 [tasks.lint]
 name = "Lint"
 type = "quality"
 command = "./hello-world.sh lint"
-estimatedSeconds = 5

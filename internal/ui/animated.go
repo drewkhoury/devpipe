@@ -101,7 +101,12 @@ func (a *AnimatedTaskTracker) Start() error {
 		return fmt.Errorf("animation not supported: %w", err)
 	}
 	
+	// Start animation loop (it will do the initial render)
 	go a.animationLoop()
+	
+	// Give the animation loop a moment to start and do initial render
+	time.Sleep(50 * time.Millisecond)
+	
 	return nil
 }
 
@@ -172,9 +177,16 @@ func (a *AnimatedTaskTracker) AddVerboseLine(line string) {
 
 // animationLoop continuously updates the display
 func (a *AnimatedTaskTracker) animationLoop() {
+	// Do initial render immediately
+	a.render()
+	
 	// Use configured refresh rate
 	ticker := time.NewTicker(time.Duration(a.refreshMs) * time.Millisecond)
 	defer ticker.Stop()
+	
+	// Do another render after a short delay to catch fast tasks
+	time.Sleep(100 * time.Millisecond)
+	a.render()
 	
 	for {
 		select {

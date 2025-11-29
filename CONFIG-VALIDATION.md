@@ -7,8 +7,6 @@ The `devpipe validate` command validates TOML configuration files to ensure they
 ### Validate default config.toml
 ```bash
 devpipe validate
-# or
-make validate
 ```
 
 ### Validate a specific config file
@@ -19,8 +17,6 @@ devpipe validate config/config-phases.toml
 ### Validate multiple config files
 ```bash
 devpipe validate config/*.toml
-# or
-make validate-all
 ```
 
 ## What It Validates
@@ -34,23 +30,23 @@ make validate-all
 - **Unknown sections**: Detects sections that aren't part of the config structure
 
 ### Defaults Section (`[defaults]`)
-- **uiMode**: Must be one of: `basic`, `animated`, `simple`
+- **uiMode**: Must be one of: `basic`, `full`
 - **animatedGroupBy**: Must be one of: `type`, `phase`
 - **fastThreshold**: Must be non-negative
-- **animationRefreshMs**: Must be non-negative
+- **animationRefreshMs**: Must be between 20-2000 (milliseconds)
 
 ### Git Configuration (`[defaults.git]`)
 - **mode**: Must be one of: `staged`, `staged_unstaged`, `ref`
 - **ref**: Warning if mode is `ref` but no ref is specified
 
 ### Task Defaults (`[task_defaults]`)
-- **estimatedSeconds**: Must be non-negative
+- **enabled**: Whether tasks are enabled by default
+- **workdir**: Default working directory for tasks
 
 ### Tasks (`[tasks.*]`)
 - **command**: Required for non-phase tasks
 - **type**: Warning if not one of the common types: `quality`, `correctness`, `security`, `release`
-- **estimatedSeconds**: Must be non-negative
-- **metricsFormat**: Must be one of: `junit`, `eslint`, `sarif`, `artifact`
+- **metricsFormat**: Must be one of: `junit`, `artifact`
 - **metricsPath**: Warning if metricsFormat is set but metricsPath is missing (and vice versa)
 
 ### Phase Headers
@@ -73,10 +69,9 @@ The validator provides clear, color-coded output:
 
 Or with errors:
 ```
-❌ Found 3 error(s):
-  • [defaults.uiMode] Invalid UI mode 'invalid_mode'. Valid options: basic, animated, simple
+❌ Found 2 error(s):
+  • [defaults.uiMode] Invalid UI mode 'invalid_mode'. Valid options: basic, full
   • [tasks.test-task.command] Task must have a command
-  • [tasks.test-task.estimatedSeconds] Estimated seconds must be non-negative
 
 ⚠️  Found 1 warning(s):
   • [tasks.test-task.type] Unknown task type 'invalid_type'. Common types: quality, correctness, security, release
@@ -99,13 +94,11 @@ mode = "staged_unstaged"
 [task_defaults]
 enabled = true
 workdir = "."
-estimatedSeconds = 10
 
 [tasks.lint]
 name = "Lint"
 type = "quality"
 command = "./hello-world.sh lint"
-estimatedSeconds = 5
 ```
 
 ### Invalid Configuration Examples
@@ -113,7 +106,7 @@ estimatedSeconds = 5
 **Invalid UI Mode:**
 ```toml
 [defaults]
-uiMode = "invalid_mode"  # ERROR: must be basic, animated, or simple
+uiMode = "invalid_mode"  # ERROR: must be basic or full
 ```
 
 **Missing Command:**
@@ -128,7 +121,7 @@ name = "My Task"
 [tasks.test]
 name = "Test"
 command = "npm test"
-metricsFormat = "invalid"  # ERROR: must be junit, eslint, sarif, or artifact
+metricsFormat = "invalid"  # ERROR: must be junit or artifact
 ```
 
 ## Implementation

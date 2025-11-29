@@ -89,7 +89,7 @@ func ValidateConfigFile(path string) (*ValidationResult, error) {
 func validateDefaults(defaults *DefaultsConfig, result *ValidationResult) {
 	// Validate UIMode
 	if defaults.UIMode != "" {
-		validModes := []string{"basic", "animated", "simple"}
+		validModes := []string{"basic", "full"}
 		if !contains(validModes, defaults.UIMode) {
 			result.Valid = false
 			result.Errors = append(result.Errors, ValidationError{
@@ -157,13 +157,7 @@ func validateGitConfig(git *GitConfig, result *ValidationResult) {
 
 // validateTaskDefaults validates the task_defaults section
 func validateTaskDefaults(taskDefaults *TaskDefaultsConfig, result *ValidationResult) {
-	if taskDefaults.EstimatedSeconds < 0 {
-		result.Valid = false
-		result.Errors = append(result.Errors, ValidationError{
-			Field:   "task_defaults.estimatedSeconds",
-			Message: "Estimated seconds must be non-negative",
-		})
-	}
+	// No numeric validations needed currently
 }
 
 // validateTask validates a single task configuration
@@ -199,18 +193,9 @@ func validateTask(taskID string, task TaskConfig, result *ValidationResult) {
 
 	// Note: task.Type is user-defined and can be any string, so we don't validate it
 
-	// Validate estimatedSeconds
-	if task.EstimatedSeconds < 0 {
-		result.Valid = false
-		result.Errors = append(result.Errors, ValidationError{
-			Field:   prefix + ".estimatedSeconds",
-			Message: "Estimated seconds must be non-negative",
-		})
-	}
-
 	// Validate metricsFormat if specified
 	if task.MetricsFormat != "" {
-		validFormats := []string{"junit", "eslint", "sarif", "artifact"}
+		validFormats := []string{"junit", "artifact"}
 		if !contains(validFormats, task.MetricsFormat) {
 			result.Valid = false
 			result.Errors = append(result.Errors, ValidationError{

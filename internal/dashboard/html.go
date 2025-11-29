@@ -233,7 +233,7 @@ const dashboardTemplate = `<!DOCTYPE html>
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -491,7 +491,7 @@ const runDetailTemplate = `<!DOCTYPE html>
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -842,7 +842,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                             <table style="width: 100%; font-size: 13px;">
                                 {{range $defaults}}
                                 <tr>
-                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 60%;">{{trimPrefix .Key "defaults."}}</td>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">{{trimPrefix .Key "defaults."}}</td>
                                     <td class="mono" style="font-weight: bold; padding: 6px 0;">{{.Value}}</td>
                                     <td style="padding: 6px 0; text-align: right;">
                                         {{if eq .Source "config-file"}}
@@ -853,7 +853,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                                         <span class="badge" style="background: #e2e3e5; color: #383d41; font-size: 10px;">⚙️ Default</span>
                                         {{end}}
                                         {{if .Overrode}}
-                                        <span style="color: #7f8c8d; font-size: 11px; margin-left: 5px;">(was: {{.Overrode}})</span>
+                                        <br><span style="color: #7f8c8d; font-size: 11px;">(was: {{.Overrode}})</span>
                                         {{end}}
                                     </td>
                                 </tr>
@@ -868,7 +868,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                             <table style="width: 100%; font-size: 13px;">
                                 {{range $defaultsGit}}
                                 <tr>
-                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 60%;">{{trimPrefix .Key "defaults.git."}}</td>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">{{trimPrefix .Key "defaults.git."}}</td>
                                     <td class="mono" style="font-weight: bold; padding: 6px 0;">{{.Value}}</td>
                                     <td style="padding: 6px 0; text-align: right;">
                                         {{if eq .Source "config-file"}}
@@ -879,7 +879,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                                         <span class="badge" style="background: #e2e3e5; color: #383d41; font-size: 10px;">⚙️ Default</span>
                                         {{end}}
                                         {{if .Overrode}}
-                                        <span style="color: #7f8c8d; font-size: 11px; margin-left: 5px;">(was: {{.Overrode}})</span>
+                                        <br><span style="color: #7f8c8d; font-size: 11px;">(was: {{.Overrode}})</span>
                                         {{end}}
                                     </td>
                                 </tr>
@@ -894,7 +894,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                             <table style="width: 100%; font-size: 13px;">
                                 {{range $taskDefaults}}
                                 <tr>
-                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 60%;">{{trimPrefix .Key "task_defaults."}}</td>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">{{trimPrefix .Key "task_defaults."}}</td>
                                     <td class="mono" style="font-weight: bold; padding: 6px 0;">{{.Value}}</td>
                                     <td style="padding: 6px 0; text-align: right;">
                                         {{if eq .Source "config-file"}}
@@ -915,7 +915,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                             <table style="width: 100%; font-size: 13px;">
                                 {{range $tasks}}
                                 <tr>
-                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 60%;">{{.Key}}</td>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">{{.Key}}</td>
                                     <td class="mono" style="font-weight: bold; padding: 6px 0;">{{.Value}}</td>
                                     <td style="padding: 6px 0; text-align: right;">
                                         {{if eq .Source "historical"}}
@@ -924,7 +924,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                                         <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
                                         {{end}}
                                         {{if .Overrode}}
-                                        <span style="color: #7f8c8d; font-size: 11px; margin-left: 5px;">(was: {{.Overrode}})</span>
+                                        <br><span style="color: #7f8c8d; font-size: 11px;">(was: {{.Overrode}})</span>
                                         {{end}}
                                     </td>
                                 </tr>

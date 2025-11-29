@@ -9,58 +9,24 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build binaries
+  goreleaser:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
-    
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
       
-      - name: Build binary
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          go build -o devpipe-${{ matrix.goos }}-${{ matrix.goarch }} .
-      
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: devpipe-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: devpipe-${{ matrix.goos }}-${{ matrix.goarch }}
-  
-  release:
-    name: Create release
-    needs: build
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./binaries
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: binaries/*/devpipe-*
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
