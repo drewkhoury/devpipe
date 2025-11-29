@@ -68,7 +68,7 @@ func main() {
 	flag.Parse()
 	
 	// Load configuration first to get UI mode
-	cfg, err := config.LoadConfig(flagConfig)
+	cfg, configTaskOrder, phaseNames, err := config.LoadConfig(flagConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		os.Exit(1)
@@ -118,7 +118,7 @@ func main() {
 				fmt.Printf("Generated config.toml with built-in tasks\n")
 			}
 			// Reload config after generating
-			cfg, _ = config.LoadConfig(defaultConfigPath)
+			cfg, configTaskOrder, phaseNames, _ = config.LoadConfig(defaultConfigPath)
 			mergedCfg = config.MergeWithDefaults(cfg)
 		}
 	}
@@ -137,24 +137,37 @@ func main() {
 	} else {
 		// Use tasks from config
 		tasks = mergedCfg.Tasks
-		// Use the built-in order if tasks match, otherwise alphabetical
-		builtInOrder := config.GetTaskOrder()
-		for _, id := range builtInOrder {
-			if _, exists := tasks[id]; exists {
-				taskOrder = append(taskOrder, id)
-			}
-		}
-		// Add any additional tasks not in built-in order
-		for id := range tasks {
-			found := false
-			for _, existing := range taskOrder {
-				if existing == id {
-					found = true
-					break
+		// Use the order extracted from the config file
+		if len(configTaskOrder) > 0 {
+			taskOrder = configTaskOrder
+		} else {
+			// Fallback: use built-in order if tasks match, otherwise alphabetical
+			builtInOrder := config.GetTaskOrder()
+			for _, id := range builtInOrder {
+				if _, exists := tasks[id]; exists {
+					taskOrder = append(taskOrder, id)
 				}
 			}
-			if !found {
-				taskOrder = append(taskOrder, id)
+			// Add any additional tasks not in built-in order
+			for id := range tasks {
+				found := false
+				for _, existing := range taskOrder {
+					if existing == id {
+						found = true
+						break
+					}
+				}
+				if !found {
+					taskOrder = append(taskOrder, id)
+				}
+			}
+		}
+		
+		// Filter out "wait*" and "phase-*" pseudo-tasks (they're just phase markers)
+		// Keep them in taskOrder for phase detection, but remove from tasks map
+		for id := range tasks {
+			if id == "wait" || strings.HasPrefix(id, "wait-") || strings.HasPrefix(id, "phase-") {
+				delete(tasks, id)
 			}
 		}
 	}
@@ -189,6 +202,15 @@ func main() {
 	// Build task definitions
 	var taskDefs []model.TaskDefinition
 	for _, id := range taskOrder {
+		// Check if this is a "wait" or "wait-*" marker
+		if id == "wait" || strings.HasPrefix(id, "wait-") {
+			// Mark the previous task as a wait point (end of phase)
+			if len(taskDefs) > 0 {
+				taskDefs[len(taskDefs)-1].Wait = true
+			}
+			continue
+		}
+		
 		taskCfg, ok := tasks[id]
 		if !ok {
 			continue
@@ -266,7 +288,7 @@ func main() {
 	}()
 	
 	// Group tasks into phases based on wait markers
-	phases := groupTasksIntoPhases(filteredTasks)
+	phases := groupTasksIntoPhases(filteredTasks, phaseNames)
 	
 	if renderer.IsAnimated() {
 		// Build task progress list with phase information
@@ -278,6 +300,7 @@ func main() {
 					Name:             st.Name,
 					Type:             st.Type,
 					Phase:            phaseIdx + 1, // 1-indexed phases
+					PhaseName:        phase.Name,
 					Status:           "PENDING",
 					EstimatedSeconds: st.EstimatedSeconds,
 					IsEstimateGuess:  st.IsEstimateGuess,
@@ -702,29 +725,47 @@ func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSinc
 // Phase represents a group of tasks that can run in parallel
 type Phase struct {
 	Tasks []model.TaskDefinition
+	Name  string // Display name for the phase
 }
 
 // groupTasksIntoPhases splits tasks into phases based on wait markers
-func groupTasksIntoPhases(tasks []model.TaskDefinition) []Phase {
+func groupTasksIntoPhases(tasks []model.TaskDefinition, phaseNames map[string]config.PhaseInfo) []Phase {
 	if len(tasks) == 0 {
 		return nil
 	}
 	
 	var phases []Phase
 	currentPhase := Phase{Tasks: []model.TaskDefinition{}}
+	phaseNum := 1
 	
 	for _, task := range tasks {
 		currentPhase.Tasks = append(currentPhase.Tasks, task)
 		
 		// If this task has wait=true, end the current phase
 		if task.Wait {
+			// Set phase name from phaseNames map, or default to "Phase N"
+			phaseKey := "wait-" + fmt.Sprintf("%d", phaseNum)
+			if info, ok := phaseNames[phaseKey]; ok && info.Name != "" {
+				currentPhase.Name = info.Name
+			} else {
+				currentPhase.Name = fmt.Sprintf("Phase %d", phaseNum)
+			}
+			
 			phases = append(phases, currentPhase)
 			currentPhase = Phase{Tasks: []model.TaskDefinition{}}
+			phaseNum++
 		}
 	}
 	
 	// Add remaining tasks as final phase
 	if len(currentPhase.Tasks) > 0 {
+		// Set phase name for the last phase
+		phaseKey := "wait-" + fmt.Sprintf("%d", phaseNum)
+		if info, ok := phaseNames[phaseKey]; ok && info.Name != "" {
+			currentPhase.Name = info.Name
+		} else {
+			currentPhase.Name = fmt.Sprintf("Phase %d", phaseNum)
+		}
 		phases = append(phases, currentPhase)
 	}
 	

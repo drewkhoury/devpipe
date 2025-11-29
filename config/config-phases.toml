@@ -1,4 +1,4 @@
-# Test config with phases (wait markers)
+# Test config with phase-based grouping
 
 [defaults]
 outputRoot = ".devpipe"
@@ -14,6 +14,10 @@ workdir = "."
 estimatedSeconds = 10
 
 # Phase 1: Quality checks (parallel)
+[tasks.phase-quality]
+name = "Quality Checks"
+desc = "Lint and format validation"
+
 [tasks.lint]
 name = "Lint"
 type = "quality"
@@ -25,9 +29,12 @@ name = "Format"
 type = "quality"
 command = "./hello-world.sh format"
 estimatedSeconds = 3
-wait = true  # End of Phase 1
 
 # Phase 2: Build (after quality checks pass)
+[tasks.phase-build]
+name = "Build"
+desc = "Build the application artifact"
+
 [tasks.build]
 name = "Build"
 type = "release"
@@ -35,9 +42,12 @@ command = "./hello-world.sh build"
 estimatedSeconds = 3
 metricsFormat = "artifact"
 metricsPath = "artifacts/build/app.txt"
-wait = true  # End of Phase 2
 
 # Phase 3: Tests (parallel, after build)
+[tasks.phase-tests]
+name = "Tests"
+desc = "Run all test suites"
+
 [tasks.unit-tests]
 name = "Unit Tests"
 type = "correctness"

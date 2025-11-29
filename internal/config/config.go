@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -53,7 +54,7 @@ type TaskConfig struct {
 
 // LoadConfig loads configuration from a TOML file
 // Returns nil if file doesn't exist (use built-in defaults)
-func LoadConfig(path string) (*Config, error) {
+func LoadConfig(path string) (*Config, []string, map[string]PhaseInfo, error) {
 	// If no path specified, look for config.toml in current directory
 	if path == "" {
 		path = "config.toml"
@@ -61,15 +62,21 @@ func LoadConfig(path string) (*Config, error) {
 
 	// Check if file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, nil // No config file, use defaults
+		return nil, nil, nil, nil // No config file, use defaults
 	}
 
 	var cfg Config
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config file %s: %w", path, err)
+		return nil, nil, nil, fmt.Errorf("failed to parse config file %s: %w", path, err)
 	}
 
-	return &cfg, nil
+	// Extract task order and phase names from the TOML file by parsing it manually
+	taskOrder, phaseNames, err := extractTaskOrder(path)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to extract task order: %w", err)
+	}
+
+	return &cfg, taskOrder, phaseNames, nil
 }
 
 // GetDefaults returns the default configuration
@@ -169,6 +176,110 @@ func (c *Config) ResolveTaskConfig(id string, taskCfg TaskConfig, repoRoot strin
 
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+func intToString(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
+func splitLines(s string) []string {
+	return strings.Split(s, "\n")
+}
+
+func trimSpace(s string) string {
+	return strings.TrimSpace(s)
+}
+
+// PhaseInfo holds information about a phase
+type PhaseInfo struct {
+	Name string
+	Desc string
+}
+
+// extractTaskOrder parses the TOML file to extract the order of [tasks.X] sections
+// Tasks starting with "phase-" are treated as phase headers - all tasks after a phase
+// header belong to that phase until the next phase header
+// Returns task order and a map of phase names
+func extractTaskOrder(path string) ([]string, map[string]PhaseInfo, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var order []string
+	phaseNames := make(map[string]PhaseInfo)
+	lines := splitLines(string(data))
+	phaseCounter := 0
+	var currentPhaseID string
+	
+	// Parse [tasks.X] sections to build order
+	// When we see [tasks.phase-*], insert a wait marker before it (except for the first phase)
+	for i, line := range lines {
+		trimmed := trimSpace(line)
+		if len(trimmed) > 7 && trimmed[0] == '[' && trimmed[1:7] == "tasks." {
+			// Extract task ID from [tasks.ID]
+			end := -1
+			for j := 7; j < len(trimmed); j++ {
+				if trimmed[j] == ']' {
+					end = j
+					break
+				}
+			}
+			if end > 7 {
+				taskID := trimmed[7:end]
+				
+				// Check if this is a phase header
+				if len(taskID) > 6 && taskID[0:6] == "phase-" {
+					// Insert a wait marker before this phase (except for the first phase)
+					if phaseCounter > 0 {
+						order = append(order, "wait-"+intToString(phaseCounter))
+					}
+					phaseCounter++
+					currentPhaseID = "wait-" + intToString(phaseCounter)
+					
+					// Extract phase name and desc from following lines
+					phaseName := ""
+					phaseDesc := ""
+					for j := i + 1; j < len(lines) && j < i+10; j++ {
+						nextLine := trimSpace(lines[j])
+						if len(nextLine) > 0 && nextLine[0] == '[' {
+							break // Hit next section
+						}
+						if strings.HasPrefix(nextLine, "name = ") {
+							phaseName = extractQuotedValue(nextLine[7:])
+						}
+						if strings.HasPrefix(nextLine, "desc = ") {
+							phaseDesc = extractQuotedValue(nextLine[7:])
+						}
+					}
+					
+					if phaseName != "" {
+						phaseNames[currentPhaseID] = PhaseInfo{Name: phaseName, Desc: phaseDesc}
+					}
+					
+					// Don't add the phase header itself to the order
+					continue
+				}
+				
+				order = append(order, taskID)
+			}
+		}
+	}
+	
+	return order, phaseNames, nil
+}
+
+func extractQuotedValue(s string) string {
+	s = trimSpace(s)
+	if len(s) >= 2 && s[0] == '"' {
+		// Find closing quote
+		for i := 1; i < len(s); i++ {
+			if s[i] == '"' {
+				return s[1:i]
+			}
+		}
+	}
+	return s
 }
 
 // GenerateDefaultConfig creates a config.toml file with built-in task definitions

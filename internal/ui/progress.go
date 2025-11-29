@@ -10,6 +10,7 @@ type TaskProgress struct {
 	Name             string
 	Type             string // Type of task (quality, correctness, release)
 	Phase            int    // Phase number (1, 2, 3, etc.)
+	PhaseName        string // Display name for the phase
 	Status           string
 	EstimatedSeconds int
 	IsEstimateGuess  bool // True if estimate is a default guess

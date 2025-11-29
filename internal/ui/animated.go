@@ -320,7 +320,12 @@ func (a *AnimatedTaskTracker) renderFullMode() {
 	for _, task := range a.tasks {
 		var groupKey string
 		if a.groupBy == "phase" {
-			groupKey = fmt.Sprintf("Phase %d", task.Phase)
+			// Use the phase name if available, otherwise fall back to "Phase N"
+			if task.PhaseName != "" {
+				groupKey = task.PhaseName
+			} else {
+				groupKey = fmt.Sprintf("Phase %d", task.Phase)
+			}
 		} else {
 			groupKey = task.Type
 		}
