@@ -16,12 +16,29 @@ Fast, local pipeline runner for development workflows.
 
 ### Install
 
-```bash
-# Download latest release
-curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-darwin-arm64 -o devpipe
-chmod +x devpipe
+Download the latest release:
 
-# Or build from source
+```bash
+# Download latest release (choose your platform)
+# macOS Apple Silicon (M1/M2/M3)
+curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-darwin-arm64 -o devpipe
+
+# macOS Intel
+curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-darwin-amd64 -o devpipe
+
+# Linux x86_64
+curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-linux-amd64 -o devpipe
+
+# Linux ARM64
+curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-linux-arm64 -o devpipe
+
+# Make executable
+chmod +x devpipe
+```
+
+Or build from source:
+
+```bash
 git clone https://github.com/drewkhoury/devpipe
 cd devpipe
 make build
@@ -29,7 +46,7 @@ make build
 
 ## Configuration
 
-Expects a `config.toml` in the current directory. If none is found, it will generate a default one.
+Uses `config.toml` from the current directory by default. If no config file is specified and `config.toml` doesn't exist, devpipe will auto-generate one with example tasks.
 
 Example `config.toml`:
 
