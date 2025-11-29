@@ -12,16 +12,18 @@ type AnimatedTaskTracker struct {
 	tasks        []TaskProgress
 	mu           sync.RWMutex
 	done         chan struct{}
-	renderer     *Renderer
-	headerLines  int
-	firstRender  bool
-	logLines     []string
-	maxLogLines  int
-	termHeight   int
-	animLines    int
-	refreshMs    int
-	groupBy      string // "type" or "phase"
-	maxIDWidth   int    // Calculated once at init for consistent alignment
+	renderer      *Renderer
+	headerLines   int
+	firstRender   bool
+	logLines      []string
+	maxLogLines   int
+	verboseLines  []string     // Verbose output lines
+	maxVerbose    int          // Max verbose lines to show (5)
+	termHeight    int
+	animLines     int
+	refreshMs     int
+	groupBy       string // "type" or "phase"
+	maxIDWidth    int    // Calculated once at init for consistent alignment
 }
 
 // NewAnimatedTaskTracker creates a new animated task tracker
@@ -75,18 +77,20 @@ func NewAnimatedTaskTracker(renderer *Renderer, tasks []TaskProgress, headerLine
 	}
 	
 	return &AnimatedTaskTracker{
-		tasks:       tasks,
-		done:        make(chan struct{}),
-		renderer:    renderer,
-		headerLines: headerLines,
-		firstRender: true,
-		logLines:    []string{},
-		maxLogLines: maxLogLines,
-		termHeight:  termHeight,
-		animLines:   animLines,
-		refreshMs:   refreshMs,
-		groupBy:     groupBy,
-		maxIDWidth:  maxIDWidth,
+		tasks:        tasks,
+		done:         make(chan struct{}),
+		renderer:     renderer,
+		headerLines:  headerLines,
+		firstRender:  true,
+		logLines:     []string{},
+		maxLogLines:  maxLogLines,
+		verboseLines: []string{},
+		maxVerbose:   5, // Fixed 5 lines for verbose output
+		termHeight:   termHeight,
+		animLines:    animLines,
+		refreshMs:    refreshMs,
+		groupBy:      groupBy,
+		maxIDWidth:   maxIDWidth,
 	}
 }
 
@@ -107,9 +111,8 @@ func (a *AnimatedTaskTracker) Stop() {
 	defer fmt.Print("\033[?25h") // Show cursor again
 	
 	close(a.done)
-	time.Sleep(50 * time.Millisecond) // Let final updates propagate
-	a.render() // Force final render with all stages complete
-	time.Sleep(300 * time.Millisecond) // Show final 100% state
+
+	fmt.Println() // Add newline after animation
 }
 
 // testRender tests if terminal supports ANSI escape codes
@@ -154,6 +157,19 @@ func (a *AnimatedTaskTracker) AddLogLine(line string) {
 	}
 }
 
+// AddVerboseLine adds a verbose log line to the display
+func (a *AnimatedTaskTracker) AddVerboseLine(line string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	
+	a.verboseLines = append(a.verboseLines, line)
+	
+	// Keep only the last maxVerbose lines (5)
+	if len(a.verboseLines) > a.maxVerbose {
+		a.verboseLines = a.verboseLines[len(a.verboseLines)-a.maxVerbose:]
+	}
+}
+
 // animationLoop continuously updates the display
 func (a *AnimatedTaskTracker) animationLoop() {
 	// Use configured refresh rate
@@ -187,20 +203,17 @@ func (a *AnimatedTaskTracker) render() {
 	} else {
 		// Subsequent renders: move to top, clear animation area, redraw
 		
-		// Move cursor to animation start
+		// Move cursor to start of animation area and clear all lines
 		linesToMove := a.calculateLines()
-		fmt.Printf("\033[%dA", linesToMove) // Move up
 		
-		// Clear each line of the animation
-		for i := 0; i < linesToMove; i++ {
-			fmt.Print("\033[2K") // Clear entire line
-			if i < linesToMove-1 {
-				fmt.Print("\n") // Move to next line
-			}
+		// Move cursor up to start of animation area
+		if linesToMove > 0 {
+			fmt.Printf("\033[%dA", linesToMove)
 		}
 		
-		// Move back to start of animation area
-		fmt.Printf("\033[%dA", linesToMove-1)
+		// Move to beginning of line and clear everything below
+		fmt.Print("\r")                    // Move to start of line
+		fmt.Print("\033[J")                // Clear from cursor to end of screen
 		
 		// Render animation
 		if a.renderer.mode == UIModeFull {
@@ -223,7 +236,12 @@ func (a *AnimatedTaskTracker) calculateLines() int {
 		for _, task := range a.tasks {
 			var groupKey string
 			if a.groupBy == "phase" {
-				groupKey = fmt.Sprintf("Phase %d", task.Phase)
+				// Use the phase name if available, otherwise fall back to "Phase N"
+				if task.PhaseName != "" {
+					groupKey = task.PhaseName
+				} else {
+					groupKey = fmt.Sprintf("Phase %d", task.Phase)
+				}
 			} else {
 				groupKey = task.Type
 			}

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -15,11 +16,13 @@ const (
 
 // Renderer handles UI rendering
 type Renderer struct {
-	mode     UIMode
-	colors   *Colors
-	width    int
-	isTTY    bool
-	animated bool
+	mode        UIMode
+	colors      *Colors
+	width       int
+	isTTY       bool
+	animated    bool
+	tracker     *AnimatedTaskTracker // Reference to tracker for verbose output
+	pipelineLog *os.File             // Log file for verbose output
 }
 
 // NewRenderer creates a new UI renderer
@@ -142,7 +145,7 @@ func (r *Renderer) RenderTaskSkipped(id, reason string, verbose bool) {
 }
 
 // RenderSummary renders the final summary
-func (r *Renderer) RenderSummary(results []TaskSummary, anyFailed bool) {
+func (r *Renderer) RenderSummary(results []TaskSummary, anyFailed bool, totalMs int64) {
 	// Add blank line before summary if animated (animation already on screen)
 	if r.animated {
 		fmt.Println()
@@ -153,10 +156,16 @@ func (r *Renderer) RenderSummary(results []TaskSummary, anyFailed bool) {
 	for _, result := range results {
 		symbol := r.colors.StatusSymbol(result.Status)
 		statusText := r.colors.StatusColor(result.Status, fmt.Sprintf("%-10s", result.Status))
-		durationText := fmt.Sprintf("%6dms", result.DurationMs)
+		seconds := float64(result.DurationMs) / 1000.0
+		durationText := fmt.Sprintf("%.2fs (%dms)", seconds, result.DurationMs)
 		
 		fmt.Printf("  %s %-15s %s %s\n", symbol, result.ID, statusText, durationText)
 	}
+	
+	// Show total pipeline duration
+	fmt.Println()
+	totalSeconds := float64(totalMs) / 1000.0
+	fmt.Printf("Total: %.2fs (%dms)\n", totalSeconds, totalMs)
 	
 	fmt.Println()
 	if anyFailed {
@@ -218,6 +227,46 @@ func (r *Renderer) Cyan(s string) string {
 	return r.colors.Cyan(s)
 }
 
+func (r *Renderer) Gray(s string) string {
+	return r.colors.Gray(s)
+}
+
 func (r *Renderer) StatusColor(status string) string {
 	return r.colors.StatusColor(status, status)
+}
+
+// SetTracker sets the animated tracker reference
+func (r *Renderer) SetTracker(tracker *AnimatedTaskTracker) {
+	r.tracker = tracker
+}
+
+// SetPipelineLog sets the pipeline log file for verbose output
+func (r *Renderer) SetPipelineLog(log *os.File) {
+	r.pipelineLog = log
+}
+
+// Verbose outputs a verbose message with [verbose] prefix
+// Always writes to pipeline.log if available
+// Only displays on screen if verbose flag is enabled
+func (r *Renderer) Verbose(verbose bool, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	
+	// Always write to pipeline.log (without color codes)
+	if r.pipelineLog != nil {
+		plainLine := fmt.Sprintf("[%-15s] %s\n", "verbose", msg)
+		r.pipelineLog.WriteString(plainLine)
+	}
+	
+	// Only output to console/tracker if verbose flag is enabled
+	if verbose {
+		// Pad "verbose" to 15 chars BEFORE applying color, so alignment works
+		paddedVerbose := fmt.Sprintf("%-15s", "verbose")
+		line := fmt.Sprintf("[%s] %s", r.colors.Gray(paddedVerbose), msg)
+		
+		if r.tracker != nil {
+			r.tracker.AddLogLine(line)
+		} else {
+			fmt.Println(line)
+		}
+	}
 }

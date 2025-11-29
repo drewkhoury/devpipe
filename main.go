@@ -1,6 +1,18 @@
-// devpipe - Iteration 2
+// Copyright 2025 Andrew Khoury
 //
-// Local pipeline runner with TOML config support and git modes.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// devpipe - Fast, local pipeline runner
 
 package main
 
@@ -39,27 +51,39 @@ func (s *sliceFlag) Set(val string) error {
 }
 
 func main() {
+	// Check for subcommands first
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "validate":
+			runValidateCommand()
+			return
+		case "help", "--help", "-h":
+			printHelp()
+			return
+		}
+	}
+	
 	// CLI flags
 	var (
-		flagConfig   string
-		flagSince    string
-		flagOnly     string
-		flagUI       string
-		flagNoColor  bool
-		flagAnimated bool
-		flagFailFast bool
-		flagDryRun   bool
-		flagVerbose  bool
-		flagFast     bool
-		flagSkipVals sliceFlag
+		flagConfig    string
+		flagSince     string
+		flagOnly      string
+		flagUI        string
+		flagNoColor   bool
+		flagDashboard bool
+		flagFailFast  bool
+		flagDryRun    bool
+		flagVerbose   bool
+		flagFast      bool
+		flagSkipVals  sliceFlag
 	)
 	
 	flag.StringVar(&flagConfig, "config", "", "Path to config file (default: config.toml)")
 	flag.StringVar(&flagSince, "since", "", "Git ref to compare against (overrides config)")
 	flag.StringVar(&flagOnly, "only", "", "Run only a single task by id")
 	flag.StringVar(&flagUI, "ui", "basic", "UI mode: basic, full")
+	flag.BoolVar(&flagDashboard, "dashboard", false, "Show dashboard with live progress")
 	flag.BoolVar(&flagNoColor, "no-color", false, "Disable colored output")
-	flag.BoolVar(&flagAnimated, "animated", false, "Show live progress animation (experimental)")
 	flag.Var(&flagSkipVals, "skip", "Skip a task by id (can be specified multiple times)")
 	flag.BoolVar(&flagFailFast, "fail-fast", false, "Stop on first task failure")
 	flag.BoolVar(&flagDryRun, "dry-run", false, "Do not execute commands, simulate only")
@@ -96,9 +120,9 @@ func main() {
 	
 	// Create renderer
 	enableColors := !flagNoColor && ui.IsColorEnabled()
-	// Animated mode requires TTY
-	animated := flagAnimated && ui.IsTTY(uintptr(1))
-	renderer := ui.NewRenderer(uiMode, enableColors, animated)
+	// Determine if we should use dashboard (animated tracker)
+	useAnimated := flagDashboard && ui.IsTTY(uintptr(1))
+	renderer := ui.NewRenderer(uiMode, enableColors, useAnimated)
 
 	// Determine repo root
 	repoRoot, inGitRepo := git.DetectRepoRoot()
@@ -221,9 +245,7 @@ func main() {
 		
 		// Skip if disabled
 		if resolved.Enabled != nil && !*resolved.Enabled {
-			if flagVerbose {
-				fmt.Printf("[%-15s] DISABLED in config\n", id)
-			}
+			renderer.Verbose(flagVerbose, "%s DISABLED in config", id)
 			continue
 		}
 		
@@ -255,8 +277,9 @@ func main() {
 		if resolved.MetricsFormat != "" {
 			taskDef.MetricsFormat = resolved.MetricsFormat
 			taskDef.MetricsPath = resolved.MetricsPath
-			if flagVerbose {
-				fmt.Printf("[%-15s] Metrics configured: format=%s, path=%s\n", id, resolved.MetricsFormat, resolved.MetricsPath)
+			if flagVerbose && !useAnimated {
+				// Only print before dashboard starts; during dashboard it goes to output
+				fmt.Printf("[%-15s] %s Metrics configured: format=%s, path=%s\n", renderer.Gray("verbose"), id, resolved.MetricsFormat, resolved.MetricsPath)
 			}
 		}
 		
@@ -272,6 +295,19 @@ func main() {
 		overallExitCode int
 		anyFailed       bool
 	)
+
+	// Create pipeline.log for verbose output
+	pipelineLogPath := filepath.Join(runDir, "pipeline.log")
+	pipelineLog, err := os.Create(pipelineLogPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: cannot create pipeline.log: %v\n", err)
+		pipelineLog = nil
+	}
+	if pipelineLog != nil {
+		defer pipelineLog.Close()
+		// Set pipeline log on renderer so verbose output is captured
+		renderer.SetPipelineLog(pipelineLog)
+	}
 
 	// Render header
 	renderer.RenderHeader(runID, repoRoot, gitMode, len(gitInfo.ChangedFiles))
@@ -324,21 +360,27 @@ func main() {
 					fmt.Fprintf(os.Stderr, "WARNING: Animation not supported, using basic mode\n")
 				}
 				tracker = nil
+			} else {
+				// Set tracker on renderer so verbose output can be routed
+				renderer.SetTracker(tracker)
 			}
 		}
 	}
 	
-	if flagVerbose && len(phases) > 1 {
-		fmt.Printf("Executing %d phases with parallel tasks\n", len(phases))
+	if len(phases) > 1 {
+		renderer.Verbose(flagVerbose, "Executing %d phases with parallel tasks", len(phases))
 	}
+	
+	// Track total pipeline duration
+	pipelineStart := time.Now()
 	
 	// Execute phases sequentially, tasks within each phase in parallel
 	var resultsMu sync.Mutex
 	var outputMu sync.Mutex // For sequential output display
 	
 	for phaseIdx, phase := range phases {
-		if flagVerbose && len(phases) > 1 {
-			fmt.Printf("\n=== Phase %d/%d (%d tasks) ===\n", phaseIdx+1, len(phases), len(phase.Tasks))
+		if len(phases) > 1 {
+			renderer.Verbose(flagVerbose, "Phase %d/%d (%d tasks)", phaseIdx+1, len(phases), len(phase.Tasks))
 		}
 		
 		// Use errgroup for parallel execution within phase
@@ -450,6 +492,10 @@ func main() {
 		tracker.Stop()
 	}
 
+	// Calculate total pipeline duration
+	pipelineDuration := time.Since(pipelineStart)
+	totalMs := pipelineDuration.Milliseconds()
+
 	// Render summary
 	var summaries []ui.TaskSummary
 	for _, r := range results {
@@ -459,7 +505,7 @@ func main() {
 			DurationMs: r.DurationMs,
 		})
 	}
-	renderer.RenderSummary(summaries, anyFailed)
+	renderer.RenderSummary(summaries, anyFailed, totalMs)
 	
 	// Build effective config tracking
 	effectiveConfig := buildEffectiveConfig(cfg, &mergedCfg, flagSince, flagUI, uiModeStr, gitMode, gitRef, historicalAvg)
@@ -963,12 +1009,10 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 	
 	// Parse metrics if configured
 	if st.MetricsFormat != "" && st.MetricsPath != "" {
-		if verbose {
-			fmt.Printf("[%-15s] Parsing metrics: format=%s, path=%s\n", st.ID, st.MetricsFormat, st.MetricsPath)
-		}
+		renderer.Verbose(verbose, "%s Parsing metrics: format=%s, path=%s", st.ID, st.MetricsFormat, st.MetricsPath)
 		res.Metrics = parseTaskMetrics(st, verbose)
-		if verbose && res.Metrics != nil {
-			fmt.Printf("[%-15s] Metrics parsed successfully: %+v\n", st.ID, res.Metrics.Data)
+		if res.Metrics != nil {
+			renderer.Verbose(verbose, "%s Metrics parsed successfully: %+v", st.ID, res.Metrics.Data)
 		}
 		
 		// Validate artifact if metrics path specified
@@ -976,12 +1020,10 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		if info, err := os.Stat(artifactPath); err != nil || info.Size() == 0 {
 			// Artifact missing or empty - fail the task
 			res.Status = model.StatusFail
-			if verbose {
-				if err != nil {
-					fmt.Printf("[%-15s] Artifact validation FAILED: file not found: %s\n", st.ID, artifactPath)
-				} else {
-					fmt.Printf("[%-15s] Artifact validation FAILED: file is empty: %s\n", st.ID, artifactPath)
-				}
+			if err != nil {
+				renderer.Verbose(verbose, "%s Artifact validation FAILED: file not found: %s", st.ID, artifactPath)
+			} else {
+				renderer.Verbose(verbose, "%s Artifact validation FAILED: file is empty: %s", st.ID, artifactPath)
 			}
 		} else {
 			// Artifact exists and has size - store info in metrics
@@ -995,12 +1037,10 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 			res.Metrics.Data["path"] = artifactPath
 			res.Metrics.Data["size"] = info.Size()
 			
-			if verbose {
-				fmt.Printf("[%-15s] Artifact validation PASSED: %s (%d bytes)\n", st.ID, artifactPath, info.Size())
-			}
+			renderer.Verbose(verbose, "%s Artifact validation PASSED: %s (%d bytes)", st.ID, artifactPath, info.Size())
 		}
-	} else if verbose {
-		fmt.Printf("[%-15s] No metrics configured (format=%s, path=%s)\n", st.ID, st.MetricsFormat, st.MetricsPath)
+	} else {
+		renderer.Verbose(verbose, "%s No metrics configured (format=%s, path=%s)", st.ID, st.MetricsFormat, st.MetricsPath)
 	}
 	
 	// Update tracker with final status
@@ -1177,4 +1217,90 @@ func (w *lineWriter) Write(p []byte) (n int, err error) {
 	}
 	
 	return len(p), nil
+}
+
+// runValidateCommand validates a config file
+func runValidateCommand() {
+	// Parse validate subcommand flags
+	validateFlags := flag.NewFlagSet("validate", flag.ExitOnError)
+	configPath := validateFlags.String("config", "", "Path to config file to validate (default: config.toml)")
+	validateFlags.Parse(os.Args[2:])
+	
+	// Determine config path
+	path := *configPath
+	if path == "" {
+		path = "config.toml"
+	}
+	
+	// Check if any additional files were specified as positional args
+	args := validateFlags.Args()
+	if len(args) > 0 {
+		// Validate all specified files
+		hasErrors := false
+		for _, arg := range args {
+			result, err := config.ValidateConfigFile(arg)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error validating %s: %v\n\n", arg, err)
+				hasErrors = true
+				continue
+			}
+			
+			config.PrintValidationResult(arg, result)
+			if !result.Valid {
+				hasErrors = true
+			}
+		}
+		
+		if hasErrors {
+			os.Exit(1)
+		}
+		return
+	}
+	
+	// Validate single config file
+	result, err := config.ValidateConfigFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	
+	config.PrintValidationResult(path, result)
+	
+	if !result.Valid {
+		os.Exit(1)
+	}
+}
+
+// printHelp prints usage information
+func printHelp() {
+	fmt.Println("devpipe - Fast, local pipeline runner")
+	fmt.Println()
+	fmt.Println("USAGE:")
+	fmt.Println("  devpipe [flags]              Run the pipeline")
+	fmt.Println("  devpipe validate [files...]  Validate config file(s)")
+	fmt.Println("  devpipe help                 Show this help")
+	fmt.Println()
+	fmt.Println("RUN FLAGS:")
+	fmt.Println("  --config <path>       Path to config file (default: config.toml)")
+	fmt.Println("  --since <ref>         Git ref to compare against (overrides config)")
+	fmt.Println("  --only <task-id>      Run only a single task by id")
+	fmt.Println("  --skip <task-id>      Skip a task by id (can be specified multiple times)")
+	fmt.Println("  --ui <mode>           UI mode: basic, full (default: basic)")
+	fmt.Println("  --dashboard           Show dashboard with live progress")
+	fmt.Println("  --fail-fast           Stop on first task failure")
+	fmt.Println("  --fast                Skip long running tasks")
+	fmt.Println("  --dry-run             Do not execute commands, simulate only")
+	fmt.Println("  --verbose             Verbose logging")
+	fmt.Println("  --no-color            Disable colored output")
+	fmt.Println()
+	fmt.Println("VALIDATE FLAGS:")
+	fmt.Println("  --config <path>       Path to config file to validate (default: config.toml)")
+	fmt.Println()
+	fmt.Println("EXAMPLES:")
+	fmt.Println("  devpipe                                    # Run pipeline with default config")
+	fmt.Println("  devpipe --config config/custom.toml        # Run with custom config")
+	fmt.Println("  devpipe --fast --fail-fast                 # Skip slow tasks, stop on failure")
+	fmt.Println("  devpipe validate                           # Validate default config.toml")
+	fmt.Println("  devpipe validate config/*.toml             # Validate all configs in folder")
+	fmt.Println()
 }

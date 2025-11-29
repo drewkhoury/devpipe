@@ -42,6 +42,7 @@ type TaskDefaultsConfig struct {
 // TaskConfig represents a single task configuration
 type TaskConfig struct {
 	Name             string `toml:"name"`
+	Desc             string `toml:"desc"`          // Description (used for phase headers)
 	Type             string `toml:"type"`
 	Command          string `toml:"command"`
 	Workdir          string `toml:"workdir"`

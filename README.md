@@ -1,369 +1,233 @@
-# devpipe - Iteration 3
+# devpipe
 
-A local "ready to commit" pipeline runner with beautiful UI and colors.
+Fast, local pipeline runner for development workflows.
 
-## Overview
+## Features
 
-`devpipe` is a CLI tool that runs a configurable pipeline of checks before committing code. This is **Iteration 3** - now with colored output and multiple UI modes!
-
-### Current Features (Iteration 3)
-
-- ✅ Single static Go binary
-- ✅ **Beautiful UI** - 3 modes: `none`, `minimal`, `full`
-- ✅ **Colored output** - Status symbols and color-coded results
-- ✅ **TOML configuration** - Define your own stages per project
-- ✅ **Git modes** - `staged`, `staged_unstaged`, or `ref`
-- ✅ Git integration (repo detection, changed file tracking)
-- ✅ Per-run artifacts under `.devpipe/runs/<run-id>/`
-- ✅ Structured `run.json` with stage results
-- ✅ Per-stage logs (`logs/<stage-id>.log`)
-- ✅ CLI flags: `--ui`, `--no-color`, `--config`, `--since`, `--only`, `--skip`, `--fail-fast`, `--dry-run`, `--verbose`, `--fast`
-- ✅ TTY detection and terminal width adaptation
-- ✅ Backward compatible - works without config file
+- 🚀 **Single binary** - No dependencies, just download and run
+- 🎨 **Beautiful UI** - Animated progress, colored output, grouping
+- ⚙️ **Phase-based execution** - Organize tasks into sequential phases
+- 📝 **TOML configuration** - Simple, readable config files
+- 🔀 **Git integration** - Run checks on staged, unstaged, or ref-based changes
+- 📊 **Metrics & Dashboard** - JUnit/artifact parsing, HTML reports
+- 🎯 **Flexible** - Run all, skip some, or target specific tasks
 
 ## Quick Start
 
-### Build
+### Install
 
 ```bash
+# Download latest release
+curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-darwin-arm64 -o devpipe
+chmod +x devpipe
+
+# Or build from source
+git clone https://github.com/drewkhoury/devpipe
+cd devpipe
 make build
 ```
 
-### Run
+## Configuration
 
-```bash
-# Run all stages (uses config.toml if present, otherwise built-in stages)
-./devpipe
+Expects a `config.toml` in the current directory. If none is found, it will generate a default one.
 
-# Run with full UI mode (fancy header)
-./devpipe --ui=full
+Example `config.toml`:
 
-# Run with minimal UI mode (default)
-./devpipe --ui=minimal
+```toml
+[defaults]
+animatedGroupBy = "phase"  # or "type"
 
-# Run with no UI (plain text)
-./devpipe --ui=none
+[defaults.git]
+mode = "staged_unstaged"
 
-# Disable colors
-./devpipe --no-color
+[task_defaults]
+enabled = true
+workdir = "."
 
-# Run with verbose output
-./devpipe --verbose
+[tasks.lint]
+name = "Lint"
+type = "check"
+command = "npm run lint"
 
-# Use a specific config file
-./devpipe --config my-config.toml
+[tasks.format]
+name = "Format Check"
+type = "check"
+command = "npm run format:check"
+```
 
-# Compare against a specific git ref
-./devpipe --since main
+## Phases
 
-# Run only specific stage
-./devpipe --only unit-tests
+Tasks can be organized into phases using `[tasks.phase-*]` headers. All tasks under a phase header run in parallel, and phases execute sequentially:
 
-# Skip stages
-./devpipe --skip lint --skip format
-
-# Fast mode (skip stages >= 300s)
-./devpipe --fast
-
-# Stop on first failure
-./devpipe --fail-fast
-
-# Dry run (don't execute, just show what would run)
-./devpipe --dry-run
+```
+Phase 1: Quality Checks
+├─ lint (parallel)
+└─ format (parallel)
+    ↓ (wait for phase to complete)
+Phase 2: Build
+└─ build
+    ↓ (wait for phase to complete)
+Phase 3: Tests
+├─ unit-tests (parallel)
+└─ e2e-tests (parallel)
 ```
 
 ## UI Modes
 
-devpipe supports 3 UI modes:
+### Dashboard Mode
 
-### `--ui=none` (Plain Text)
-```
-devpipe run 2025-11-28T22-04-51Z_015609
-Repo root: /Users/drew/repos/devpipe
-Git mode: staged_unstaged
-Changed files: 3
-[lint           ] ✓ PASS (1029ms)
+```bash
+./devpipe --dashboard -ui full
 ```
 
-### `--ui=minimal` (Default)
 ```
-devpipe run 2025-11-28T22-04-57Z_015690
-Repo: /Users/drew/repos/devpipe
-Git mode: staged_unstaged | Changed files: 3
+╔═════════════════════════════════════════════════════════╗
+║ devpipe run 2025-11-29T05-25-25Z_071352                 ║
+║ Repo: /Users/you/project                                ║
+║ Git: staged_unstaged | Files: 6                         ║
+╚═════════════════════════════════════════════════════════╝
 
-[lint           ] ✓ PASS (1020ms)
+Overall: ████████████████████████████████████████ 100%
+
+┌─ Quality Checks ──────────────────────────────────────┐
+│ ✓ lint         1s                         
+│ ✓ format       1s                         
+└─────────────────────────────────────────────────────────┘
+
+┌─ Build ───────────────────────────────────────────────┐
+│ ✓ build        3s                         
+└─────────────────────────────────────────────────────────┘
+
+┌─ Tests ───────────────────────────────────────────────┐
+│ ✓ unit-tests   2s                         
+│ ✓ e2e-tests    5s                          
+└─────────────────────────────────────────────────────────┘
 ```
 
-### `--ui=full` (Fancy Header)
-```
-╔══════════════════════════════════════════════╗
-║ devpipe run 2025-11-28T22-05-06Z_015765      ║
-║ Repo: /Users/drew/repos/devpipe              ║
-║ Git: staged_unstaged | Files: 3              ║
-╚══════════════════════════════════════════════╝
+### Basic Mode
 
-[lint           ] ✓ PASS (1032ms)
+```bash
+./devpipe
 ```
 
-### Status Symbols
-
+Simple text output with status symbols:
 - ✓ PASS (green)
 - ✗ FAIL (red)
 - ⊘ SKIPPED (yellow)
-- ⚙ RUNNING (blue)
-- ⋯ PENDING (gray)
 
-## Configuration
-
-### Creating a config.toml
-
-Copy the example config and customize for your project:
+## CLI Flags
 
 ```bash
-cp config.toml.example config.toml
+# Configuration
+--config <path>         # Use specific config file
+--since <ref>           # Git ref to compare against
+
+# Execution
+--only <task-id>        # Run only specific task
+--skip <task-id>        # Skip task (repeatable)
+--fast                  # Skip long-running tasks
+--fail-fast             # Stop on first failure
+--dry-run               # Show what would run
+
+# UI
+--dashboard             # Show dashboard with live progress
+-ui <mode>              # UI mode: basic, full
+--no-color              # Disable colors
+--verbose               # Verbose output
 ```
 
-### Config Structure
+## Git Modes
 
-```toml
-[defaults]
-outputRoot = ".devpipe"        # Where to store runs
-fastThreshold = 300            # Seconds threshold for --fast
-
-[defaults.git]
-mode = "staged_unstaged"       # Git mode: staged, staged_unstaged, or ref
-ref = "main"                   # Ref to compare against (when mode = ref)
-
-[stage_defaults]
-enabled = true
-workdir = "."
-estimatedSeconds = 10
-
-[stages.lint]
-name = "Lint"
-group = "quality"
-command = "npm run lint"
-estimatedSeconds = 5
-
-[stages.build]
-name = "Build"
-group = "release"
-command = "npm run build"
-estimatedSeconds = 30
-```
-
-### Git Modes
+Control which files are in scope for changes:
 
 - **`staged`** - Only staged files (`git diff --cached`)
-- **`staged_unstaged`** - Staged + unstaged files (`git diff HEAD`)
-- **`ref`** - Compare against specific ref (`git diff <ref>`)
+- **`staged_unstaged`** - Staged + unstaged (`git diff HEAD`)
+- **`ref`** - Compare against ref (`git diff <ref>`)
 
-Override with `--since`:
 ```bash
-./devpipe --since origin/main
+# Check only staged files
+./devpipe --config config-staged.toml
+
+# Compare against main branch
+./devpipe --since main
 ```
 
-## Makefile Commands
+devpipe will collect this information but doesn't handle the logic within each task.
 
+## Metrics & Dashboard
+
+devpipe can parse test results and generate HTML dashboards:
+
+```toml
+[tasks.unit-tests]
+metricsFormat = "junit"
+metricsPath = "test-results/junit.xml"
+
+[tasks.build]
+metricsFormat = "artifact"
+metricsPath = "dist/app.js"
+```
+
+View the dashboard:
 ```bash
-# Build & Run
-make build          # Build the devpipe binary
-make run            # Build and run with default settings
-make clean          # Remove build artifacts and .devpipe directory
-
-# Demo commands (for testing)
-make demo           # Run basic pipeline
-make demo-verbose   # Run with verbose output
-make demo-fast      # Run with --fast (skip long stages)
-make demo-fail-fast # Run with --fail-fast
-make demo-only      # Run only unit-tests stage
-make demo-skip      # Run pipeline, skip lint and format
-make demo-dry-run   # Dry run (don't execute commands)
-
-# Utilities
-make show-runs      # List all pipeline runs
-make show-latest    # Show latest run.json
-make hello-test     # Test hello-world.sh directly
+open .devpipe/dashboard.html
 ```
 
 ## Output Structure
 
-After running `devpipe`, you'll find:
-
 ```
 .devpipe/
+├── dashboard.html          # HTML dashboard
+├── summary.json            # Aggregated metrics
 └── runs/
-    └── 2025-11-28T21-13-26Z_692593/
-        ├── run.json              # Structured run metadata
+    └── 2025-11-29T05-25-25Z_071352/
+        ├── run.json        # Run metadata
+        ├── pipeline.log    # Verbose output log
         └── logs/
             ├── lint.log
-            ├── format.log
-            ├── type-check.log
             ├── build.log
-            ├── unit-tests.log
-            └── e2e-tests.log
-
-artifacts/                        # Created by hello-world.sh
-├── build/
-│   └── app.txt
-└── test/
-    └── junit.xml
+            └── unit-tests.log
 ```
 
-## run.json Schema
+## Examples
 
-Each run creates a `run.json` with:
-
-```json
-{
-  "runId": "2025-11-28T21-13-26Z_692593",
-  "timestamp": "2025-11-28T21:13:32Z",
-  "repoRoot": "/Users/drew/repos/devpipe",
-  "outputRoot": "/Users/drew/repos/devpipe/.devpipe",
-  "git": {
-    "inGitRepo": true,
-    "repoRoot": "/Users/drew/repos/devpipe",
-    "diffBase": "HEAD",
-    "changedFiles": ["main.go", "hello-world.sh"]
-  },
-  "flags": {
-    "fast": false,
-    "failFast": false,
-    "dryRun": false,
-    "verbose": false
-  },
-  "stages": [
-    {
-      "id": "lint",
-      "name": "Lint",
-      "group": "quality",
-      "status": "PASS",
-      "exitCode": 0,
-      "command": "/path/to/hello-world.sh lint",
-      "workdir": "/Users/drew/repos/devpipe",
-      "logPath": ".devpipe/runs/.../logs/lint.log",
-      "startTime": "2025-11-28T21:13:26Z",
-      "endTime": "2025-11-28T21:13:27Z",
-      "durationMs": 1014,
-      "estimatedSeconds": 5
-    }
-    // ... more stages
-  ]
-}
-```
-
-## Testing with hello-world.sh
-
-The `hello-world.sh` script simulates real pipeline commands without requiring actual tools:
+### Pre-commit Hook
 
 ```bash
-# Test individual commands
-./hello-world.sh lint
-./hello-world.sh build
-./hello-world.sh unit-tests
-
-# Or test all at once
-make hello-test
+#!/bin/bash
+# .git/hooks/pre-commit
+./devpipe --config .devpipe-precommit.toml --fail-fast
 ```
 
-It creates dummy artifacts:
-- `artifacts/build/app.txt` - Simulated build output
-- `artifacts/test/junit.xml` - Dummy JUnit XML for testing
+### CI/CD
 
-### Simulating Failures
-
-You can simulate stage failures using the `DEVPIPE_TEST_FAIL` environment variable:
-
-```bash
-# Make the lint stage fail
-DEVPIPE_TEST_FAIL=lint ./devpipe --verbose
-
-# Make the format stage fail
-DEVPIPE_TEST_FAIL=format ./devpipe --fail-fast
-
-# Test that --fail-fast actually stops on first failure
-make test-fail-fast
-
-# Test that pipeline continues without --fail-fast
-make test-continue-on-fail
-
-# Run all failure tests
-make test-failures
+```yaml
+# .github/workflows/ci.yml
+- name: Run devpipe
+  run: |
+    curl -L https://github.com/drewkhoury/devpipe/releases/latest/download/devpipe-linux-amd64 -o devpipe
+    chmod +x devpipe
+    ./devpipe --no-color
 ```
 
-## Hardcoded Stages (Iteration 1)
-
-| ID | Name | Group | Est. Time | Command |
-|----|------|-------|-----------|---------|
-| `lint` | Lint | quality | 5s | `hello-world.sh lint` |
-| `format` | Format | quality | 5s | `hello-world.sh format` |
-| `type-check` | Type Check | correctness | 10s | `hello-world.sh type-check` |
-| `build` | Build | release | 15s | `hello-world.sh build` |
-| `unit-tests` | Unit Tests | correctness | 20s | `hello-world.sh unit-tests` |
-| `e2e-tests` | E2E Tests | correctness | 600s | `hello-world.sh e2e-tests` |
-
-## Roadmap
-
-### Iteration 2 - Config + TOML + Git modes
-- [ ] TOML config support (`config.toml`)
-- [ ] Configurable stages
-- [ ] Git modes (staged, staged_unstaged, ref)
-- [ ] `--config` flag
-
-### Iteration 3 - UI engine + colors
-- [ ] TTY detection
-- [ ] UI modes: minimal, full
-- [ ] Live progress bars
-- [ ] Color output
-
-### Iteration 4 - Metrics, summary.json, HTML dashboard
-- [ ] Metrics parsing (JUnit, ESLint, SARIF)
-- [ ] `summary.json` aggregation
-- [ ] HTML dashboard (`report.html`)
-- [ ] Historical analytics
-
-### Iteration 5 - Autofix + AI stubs
-- [ ] Auto-fix on failure
-- [ ] Build artifact contracts
-- [ ] AI commit message generation
-- [ ] AI PR review stubs
-
-## Development
-
-### Requirements
-
-- Go 1.20+ (tested with Go 1.25.4)
-- Git (for repo detection)
-
-### Build from source
+### Local Development
 
 ```bash
-git clone <repo>
-cd devpipe
-go mod init github.com/drew/devpipe
-make build
-```
+# Quick checks before commit
+./devpipe --fast
 
-### Testing
-
-```bash
-# Run all demo scenarios
-make demo
-make demo-verbose
-make demo-fast
-make demo-dry-run
-make demo-only
-make demo-skip
-
-# View results
-make show-runs
-make show-latest
+# Full pipeline with dashboard
+./devpipe --dashboard -ui full
 ```
 
 ## License
 
-TBD
+Apache 2.0 - see [LICENSE](LICENSE) for details.
 
-## Credits
+## Contributing
 
-Built as a local pipeline runner for development workflows.
+Contributions welcome! Please open an issue or PR.
+
+---
+
+Built by [Andrew Khoury](https://github.com/drewkhoury)

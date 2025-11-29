@@ -27,6 +27,8 @@ help:
 	@echo "  make show-runs      - List all pipeline runs"
 	@echo "  make show-latest    - Show latest run.json"
 	@echo "  make hello-test     - Test hello-world.sh directly"
+	@echo "  make validate       - Validate default config.toml"
+	@echo "  make validate-all   - Validate all config files in config/"
 
 build:
 	@echo "Building devpipe..."
@@ -104,6 +106,14 @@ hello-test:
 	./hello-world.sh unit-tests
 	@echo ""
 	@echo "✓ All hello-world.sh commands work!"
+
+validate: build
+	@echo "Validating default config.toml..."
+	./devpipe validate
+
+validate-all: build
+	@echo "Validating all config files..."
+	./devpipe validate config/*.toml
 
 # Failure testing
 test-failures: test-fail-fast test-continue-on-fail
