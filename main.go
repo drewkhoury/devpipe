@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/drew/devpipe/internal/config"
@@ -22,6 +23,7 @@ import (
 	"github.com/drew/devpipe/internal/metrics"
 	"github.com/drew/devpipe/internal/model"
 	"github.com/drew/devpipe/internal/ui"
+	"golang.org/x/sync/errgroup"
 )
 
 // sliceFlag allows repeating --skip
@@ -207,6 +209,7 @@ func main() {
 			Command:          resolved.Command,
 			Workdir:          resolved.Workdir,
 			EstimatedSeconds: resolved.EstimatedSeconds,
+			Wait:             resolved.Wait,
 		}
 		
 		// Add metrics config if present
@@ -277,46 +280,98 @@ func main() {
 		}
 	}
 
-	// Execute tasks
-	for _, st := range filteredTasks {
-		// Check if should skip due to --fast
-		longRunning := st.EstimatedSeconds >= mergedCfg.Defaults.FastThreshold
-		if flagFast && longRunning && flagOnly == "" {
-			reason := fmt.Sprintf("skipped by --fast (est %ds)", st.EstimatedSeconds)
-			
-			// Update tracker if animated
-			if tracker != nil {
-				tracker.UpdateTask(st.ID, "SKIPPED", 0)
-			}
-			
-			renderer.RenderTaskSkipped(st.ID, reason, flagVerbose)
-			results = append(results, model.TaskResult{
-				ID:               st.ID,
-				Name:             st.Name,
-				Type:             st.Type,
-				Status:           model.StatusSkipped,
-				Skipped:          true,
-				SkipReason:       "skipped by --fast",
-				Command:          st.Command,
-				Workdir:          st.Workdir,
-				LogPath:          "",
-				EstimatedSeconds: st.EstimatedSeconds,
-			})
-			continue
+	// Group tasks into phases based on wait markers
+	phases := groupTasksIntoPhases(filteredTasks)
+	
+	if flagVerbose && len(phases) > 1 {
+		fmt.Printf("Executing %d phases with parallel tasks\n", len(phases))
+	}
+	
+	// Execute phases sequentially, tasks within each phase in parallel
+	var resultsMu sync.Mutex
+	
+	for phaseIdx, phase := range phases {
+		if flagVerbose && len(phases) > 1 {
+			fmt.Printf("\n=== Phase %d/%d (%d tasks) ===\n", phaseIdx+1, len(phases), len(phase.Tasks))
 		}
-
-		res, _ := runTask(st, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker)
-		results = append(results, res)
-
-		if res.Status == model.StatusFail {
-			anyFailed = true
-			overallExitCode = 1
-			if flagFailFast {
-				if flagVerbose {
-					fmt.Printf("[%-15s] FAIL, stopping due to --fail-fast\n", st.ID)
+		
+		// Use errgroup for parallel execution within phase
+		g := new(errgroup.Group)
+		g.SetLimit(10) // Max 10 concurrent tasks
+		
+		phaseFailed := false
+		var phaseFailMu sync.Mutex
+		
+		for _, st := range phase.Tasks {
+			// Check if should skip due to --fast
+			longRunning := st.EstimatedSeconds >= mergedCfg.Defaults.FastThreshold
+			if flagFast && longRunning && flagOnly == "" {
+				reason := fmt.Sprintf("skipped by --fast (est %ds)", st.EstimatedSeconds)
+				
+				// Update tracker if animated
+				if tracker != nil {
+					tracker.UpdateTask(st.ID, "SKIPPED", 0)
 				}
-				break
+				
+				renderer.RenderTaskSkipped(st.ID, reason, flagVerbose)
+				resultsMu.Lock()
+				results = append(results, model.TaskResult{
+					ID:               st.ID,
+					Name:             st.Name,
+					Type:             st.Type,
+					Status:           model.StatusSkipped,
+					Skipped:          true,
+					SkipReason:       "skipped by --fast",
+					Command:          st.Command,
+					Workdir:          st.Workdir,
+					LogPath:          "",
+					EstimatedSeconds: st.EstimatedSeconds,
+				})
+				resultsMu.Unlock()
+				continue
 			}
+			
+			// Capture task for goroutine
+			task := st
+			
+			g.Go(func() error {
+				res, _ := runTask(task, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker)
+				
+				resultsMu.Lock()
+				results = append(results, res)
+				resultsMu.Unlock()
+				
+				if res.Status == model.StatusFail {
+					phaseFailMu.Lock()
+					phaseFailed = true
+					anyFailed = true
+					overallExitCode = 1
+					phaseFailMu.Unlock()
+					
+					if flagFailFast {
+						if flagVerbose {
+							fmt.Printf("[%-15s] FAIL, stopping due to --fail-fast\n", task.ID)
+						}
+						return fmt.Errorf("task %s failed", task.ID)
+					}
+				}
+				return nil
+			})
+		}
+		
+		// Wait for all tasks in this phase to complete
+		if err := g.Wait(); err != nil && flagFailFast {
+			// Fail-fast triggered, stop all phases
+			break
+		}
+		
+		// If phase failed and fail-fast is enabled, stop
+		phaseFailMu.Lock()
+		shouldStop := phaseFailed && flagFailFast
+		phaseFailMu.Unlock()
+		
+		if shouldStop {
+			break
 		}
 	}
 
@@ -412,6 +467,38 @@ func containsSpace(s string) bool {
 		}
 	}
 	return false
+}
+
+// Phase represents a group of tasks that can run in parallel
+type Phase struct {
+	Tasks []model.TaskDefinition
+}
+
+// groupTasksIntoPhases splits tasks into phases based on wait markers
+func groupTasksIntoPhases(tasks []model.TaskDefinition) []Phase {
+	if len(tasks) == 0 {
+		return nil
+	}
+	
+	var phases []Phase
+	currentPhase := Phase{Tasks: []model.TaskDefinition{}}
+	
+	for _, task := range tasks {
+		currentPhase.Tasks = append(currentPhase.Tasks, task)
+		
+		// If this task has wait=true, end the current phase
+		if task.Wait {
+			phases = append(phases, currentPhase)
+			currentPhase = Phase{Tasks: []model.TaskDefinition{}}
+		}
+	}
+	
+	// Add remaining tasks as final phase
+	if len(currentPhase.Tasks) > 0 {
+		phases = append(phases, currentPhase)
+	}
+	
+	return phases
 }
 
 func filterTasks(tasks []model.TaskDefinition, only string, skip sliceFlag, fast bool, fastThreshold int, verbose bool) []model.TaskDefinition {

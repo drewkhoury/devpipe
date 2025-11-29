@@ -1,0 +1,52 @@
+# Test config with phases (wait markers)
+
+[defaults]
+outputRoot = ".devpipe"
+fastThreshold = 300
+
+[defaults.git]
+mode = "staged_unstaged"
+
+[task_defaults]
+enabled = true
+workdir = "."
+estimatedSeconds = 10
+
+# Phase 1: Quality checks (parallel)
+[tasks.lint]
+name = "Lint"
+type = "quality"
+command = "./hello-world.sh lint"
+estimatedSeconds = 6
+
+[tasks.format]
+name = "Format"
+type = "quality"
+command = "./hello-world.sh format"
+estimatedSeconds = 3
+wait = true  # End of Phase 1
+
+# Phase 2: Build (after quality checks pass)
+[tasks.build]
+name = "Build"
+type = "release"
+command = "./hello-world.sh build"
+estimatedSeconds = 3
+metricsFormat = "artifact"
+metricsPath = "artifacts/build/app.txt"
+wait = true  # End of Phase 2
+
+# Phase 3: Tests (parallel, after build)
+[tasks.unit-tests]
+name = "Unit Tests"
+type = "correctness"
+command = "./hello-world.sh unit-tests"
+estimatedSeconds = 3
+metricsFormat = "junit"
+metricsPath = "artifacts/test/junit.xml"
+
+[tasks.e2e-tests]
+name = "E2E Tests"
+type = "correctness"
+command = "./hello-world.sh e2e-tests"
+estimatedSeconds = 600

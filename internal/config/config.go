@@ -45,6 +45,7 @@ type TaskConfig struct {
 	Workdir          string `toml:"workdir"`
 	EstimatedSeconds int    `toml:"estimatedSeconds"`
 	Enabled          *bool  `toml:"enabled"`
+	Wait             bool   `toml:"wait"`           // If true, wait for all previous tasks to complete before continuing
 	MetricsFormat    string `toml:"metricsFormat"` // "junit", "eslint", "sarif"
 	MetricsPath      string `toml:"metricsPath"`   // Path to metrics file (relative to workdir)
 }

@@ -19,6 +19,7 @@ type TaskDefinition struct {
 	Command          string
 	Workdir          string
 	EstimatedSeconds int
+	Wait             bool   // If true, marks end of phase (wait for all previous tasks)
 	MetricsFormat    string // "junit", "eslint", etc.
 	MetricsPath      string // Path to metrics file
 }
