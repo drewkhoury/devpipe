@@ -41,7 +41,7 @@ type = "check-static"
 
 [tasks.golangci-lint]
 name = "Golang CI Lint"
-desc = "Runs errcheck, gosimple, govet, ineffassign, staticcheck, unused, gofmt, goimports, misspell, revive, unconvert, unparam, gocritic, gocyclo, dupl"
+desc = "Runs errcheck, govet, ineffassign, staticcheck, unused, misspell, revive, unconvert, unparam, gocritic, gocyclo, dupl"
 command = "make lint"
 type = "check-lint"
 
