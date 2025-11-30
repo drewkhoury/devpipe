@@ -23,30 +23,37 @@ type TaskDefinition struct {
 	Wait             bool   // If true, marks end of phase (wait for all previous tasks)
 	MetricsFormat    string // "junit", "eslint", etc.
 	MetricsPath      string // Path to metrics file
+	FixType          string // "auto", "helper", "none", or ""
+	FixCommand       string // Command to run to fix issues
 }
 
 // TaskResult is the per-task record written into run.json
 type TaskResult struct {
-	ID               string       `json:"id"`
-	Name             string       `json:"name"`
-	Type             string       `json:"type"`
-	Status           TaskStatus   `json:"status"`
-	ExitCode         *int         `json:"exitCode,omitempty"`
-	Skipped          bool         `json:"skipped"`
-	SkipReason       string       `json:"skipReason,omitempty"`
-	Command          string       `json:"command"`
-	Workdir          string       `json:"workdir"`
-	LogPath          string       `json:"logPath"`
-	StartTime        string       `json:"startTime,omitempty"`
-	EndTime          string       `json:"endTime,omitempty"`
-	DurationMs       int64        `json:"durationMs"`
-	EstimatedSeconds int          `json:"estimatedSeconds"`
-	Metrics          *TaskMetrics `json:"metrics,omitempty"`
+	ID                string       `json:"id"`
+	Name              string       `json:"name"`
+	Type              string       `json:"type"`
+	Status            TaskStatus   `json:"status"`
+	ExitCode          *int         `json:"exitCode,omitempty"`
+	Skipped           bool         `json:"skipped"`
+	SkipReason        string       `json:"skipReason,omitempty"`
+	Command           string       `json:"command"`
+	Workdir           string       `json:"workdir"`
+	LogPath           string       `json:"logPath"`
+	StartTime         string       `json:"startTime,omitempty"`
+	EndTime           string       `json:"endTime,omitempty"`
+	DurationMs        int64        `json:"durationMs"`
+	EstimatedSeconds  int          `json:"estimatedSeconds"`
+	AutoFixed         bool         `json:"autoFixed,omitempty"`
+	FixCommand        string       `json:"fixCommand,omitempty"`
+	InitialExitCode   *int         `json:"initialExitCode,omitempty"`
+	FixDurationMs     int64        `json:"fixDurationMs,omitempty"`
+	RecheckDurationMs int64        `json:"recheckDurationMs,omitempty"`
+	Metrics           *TaskMetrics `json:"metrics,omitempty"`
 }
 
 // TaskMetrics holds parsed metrics from task artifacts
 type TaskMetrics struct {
-	Kind          string                 `json:"kind"` // "test", "lint", "coverage", "build"
+	Kind          string                 `json:"kind"`                    // "test", "lint", "coverage", "build"
 	SummaryFormat string                 `json:"summaryFormat,omitempty"` // "junit", "eslint", "sarif"
 	Data          map[string]interface{} `json:"data,omitempty"`
 }
@@ -76,7 +83,7 @@ type RunFlags struct {
 type ConfigValue struct {
 	Key      string `json:"key"`
 	Value    string `json:"value"`
-	Source   string `json:"source"`   // "config-file", "cli-flag", "default", "historical"
+	Source   string `json:"source"`             // "config-file", "cli-flag", "default", "historical"
 	Overrode string `json:"overrode,omitempty"` // What value it replaced, if any
 }
 
@@ -94,7 +101,7 @@ type RunRecord struct {
 	OutputRoot      string           `json:"outputRoot"`
 	ConfigPath      string           `json:"configPath,omitempty"`
 	Command         string           `json:"command,omitempty"` // Full command line that was executed
-	Git             interface{}      `json:"git"` // git.GitInfo
+	Git             interface{}      `json:"git"`               // git.GitInfo
 	Flags           RunFlags         `json:"flags"`
 	Tasks           []TaskResult     `json:"tasks"`
 	EffectiveConfig *EffectiveConfig `json:"effectiveConfig,omitempty"`

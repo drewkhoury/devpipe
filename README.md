@@ -9,6 +9,7 @@ Fast, local pipeline runner for development workflows.
 - 🚀 **Single binary** - No dependencies, just download and run
 - 🎨 **Beautiful UI** - Animated progress, colored output, grouping
 - ⚙️ **Phase-based execution** - Organize tasks into sequential phases, running all tasks in a phase in parallel
+- 🔧 **Auto-fix** - Automatically fix formatting, linting, and other fixable issues
 - 📝 **TOML configuration** - Simple, readable config files
 - 🔀 **Git integration** - Run checks on staged, unstaged, or ref-based changes
 - 📊 **Metrics & Dashboard** - JUnit/artifact parsing, HTML reports
@@ -18,8 +19,6 @@ Fast, local pipeline runner for development workflows.
 
 ## Quick Start
 
-In a rush? Skip to [Examples](#examples) once you have `devpipe` installed.
-
 ### Install
 
 **Homebrew (macOS/Linux):**
@@ -27,6 +26,15 @@ In a rush? Skip to [Examples](#examples) once you have `devpipe` installed.
 ```bash
 brew install drewkhoury/tap/devpipe
 ```
+
+In a rush? Skip to [examples](#examples) once you have `devpipe` installed, or just run it from your project root with no arguments to auto-generate a config.toml with example tasks.
+
+See [cli-reference](#cli-reference) for more details about runtime options.
+
+<details>
+<summary>More Install Options</summary>
+
+---
 
 **Direct download:**
 
@@ -49,11 +57,11 @@ cd devpipe
 make build
 ```
 
+</details>
+
 ## Configuration
 
 `devpipe` expects `config.toml` from the current directory by default. If no config file is specified and `config.toml` doesn't exist, devpipe will auto-generate one with example tasks.
-
-You can get started by running `devpipe` with no arguments.
 
 Example `config.toml`:
 
@@ -71,6 +79,18 @@ command = "npm run build"
 ### Configuration Reference
 
 See [config.example.toml](config.example.toml) for a full example.
+
+<details open>
+<summary><h4 style="display: inline;">Detailed Configuration Reference</h4></summary>
+
+#### Order of Precedence
+
+All configuration values in devpipe are resolved in this order (highest to lowest priority):
+
+1. **CLI flags** (e.g., `--fix-type`, `--since`, `--ui`)
+2. **Task level** (e.g., `[tasks.go-fmt] fixType = "auto"`)
+3. **Task defaults** (e.g., `[task_defaults] fixType = "helper"`)
+4. **Built-in defaults** (e.g., `helper`)
 
 #### [defaults] Section
 
@@ -95,7 +115,13 @@ Git integration settings.
 
 #### [task_defaults] Section
 
-Set default values for `enabled` and `workdir` that apply to all tasks unless overridden. See `[tasks.<task-id>]` section for field descriptions.
+Set default values that apply to all tasks unless overridden at the task level.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `enabled` | bool | No | `true` | Whether tasks are enabled by default |
+| `workdir` | string | No | `.` | Default working directory for tasks |
+| `fixType` | string | No | `helper` | Default fix behavior: `auto`, `helper`, or `none` |
 
 #### [tasks.\<task-id\>] Section
 
@@ -109,6 +135,8 @@ Individual task configuration. Task ID must be unique.
 | `type` | string | No | - | Task type for grouping (e.g., `check`, `build`, `test`) |
 | `workdir` | string | No | `.` | Working directory for this task |
 | `enabled` | bool | No | `true` | Whether this task is enabled |
+| `fixType` | string | No | (inherited) | Fix behavior: `auto`, `helper`, `none` (overrides task_defaults) |
+| `fixCommand` | string | No | - | Command to run to fix issues (required if fixType is set) |
 | `metricsFormat` | string | No | - | Metrics format: `junit`, `artifact` |
 | `metricsPath` | string | No | - | Path to metrics file (relative to workdir) |
 
@@ -160,14 +188,82 @@ Phase 3: Tests
 └─ e2e-tests (parallel)
 ```
 
+</details>
+
+### Auto-Fix
+
+`devpipe` can automatically fix issues when tasks fail. This is useful for formatting checks, linting, and other fixable issues.
+
+#### Fix Types
+
+- **`helper`** (default): Show a suggestion on how to fix the issue
+- **`auto`**: Automatically run the fix command and re-check
+- **`none`**: Don't show fix suggestions (useful to override global defaults)
+
+<details>
+<summary>More Info</summary>
+
+#### Configuration Example
+
+```toml
+[task_defaults]
+fixType = "helper"  # Default: show fix suggestions
+
+[tasks.go-fmt]
+command = "make check-fmt"
+fixType = "auto"           # Override: auto-fix this task
+fixCommand = "make fmt"    # Command to fix formatting
+
+[tasks.go-vet]
+command = "go vet ./..."
+fixCommand = "make vet-fix"  # Uses fixType="helper" from task_defaults
+
+[tasks.security-scan]
+command = "make security"
+fixType = "none"  # Don't suggest fixes for security issues
+```
+
+#### CLI Override
+
+Override fix behavior for all tasks:
+
+```bash
+./devpipe --fix-type auto    # Auto-fix all tasks with fixCommand
+./devpipe --fix-type helper  # Show suggestions only
+./devpipe --fix-type none    # Disable all fix suggestions
+```
+
+#### Example Output
+
+**Helper mode:**
+```
+[go-fmt         ] ✗ FAIL (80ms)
+[go-fmt         ] 💡 To fix run: make fmt
+```
+
+**Auto mode:**
+```
+[go-fmt         ] ✗ FAIL (77ms)
+
+[go-fmt         ] 🔧 Auto-fixing: make fmt (31ms)
+[go-fmt         ] ✅ Fix succeeded, re-checking...
+[go-fmt         ] ✅ PASS (48ms)
+Summary:
+  ✓ go-fmt          PASS       0.16s (156ms) [auto-fixed]
+```
+
+The total time includes: initial check + fix + re-check.
+
+</details>
+
 ## Modes
 
 ### UI Modes
 
-`basic` mode provides simple text output with status symbols. It's the default UI mode.
+**`basic` mode** provides simple text output with status symbols. It's the default UI mode.
 
 ```bash
-./devpipe
+./devpipe -ui basic
 ```
 
 Simple text output with status symbols:
@@ -175,8 +271,11 @@ Simple text output with status symbols:
 - ✗ FAIL (red)
 - ⊘ SKIPPED (yellow)
 
-`full` mode provides borders, and better visuals, and more detailed formatting.
+**`full` mode** provides borders, and better visuals, and more detailed formatting.
 
+```bash
+./devpipe -ui full
+```
 
 ### Dashboard & Full UI Modes
 
@@ -230,6 +329,7 @@ Overall: ███████████████████████�
 | `--since <ref>` | Git ref to compare against (overrides config) | - |
 | `--only <task-id>` | Run only a single task by id | - |
 | `--skip <task-id>` | Skip a task by id (repeatable) | - |
+| `--fix-type <type>` | Fix behavior: `auto`, `helper`, `none` (overrides config) | - |
 | `--ui <mode>` | UI mode: `basic`, `full` | `basic` |
 | `--dashboard` | Show dashboard with live progress | `false` |
 | `--fail-fast` | Stop on first task failure | `false` |

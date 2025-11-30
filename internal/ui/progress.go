@@ -23,7 +23,7 @@ func CalculateTaskProgress(elapsed float64, estimated int) float64 {
 	if estimated == 0 {
 		return 0
 	}
-	
+
 	progress := (elapsed / float64(estimated)) * 100
 	if progress > 100 {
 		return 100
@@ -36,11 +36,11 @@ func CalculateOverallProgress(tasks []TaskProgress) float64 {
 	if len(tasks) == 0 {
 		return 0
 	}
-	
+
 	completed := 0
 	running := 0
 	total := len(tasks)
-	
+
 	for _, task := range tasks {
 		switch task.Status {
 		case "PASS", "FAIL", "SKIPPED":
@@ -54,14 +54,14 @@ func CalculateOverallProgress(tasks []TaskProgress) float64 {
 			// Not started yet - counts as 0
 		}
 	}
-	
+
 	// Calculate percentage: (completed tasks + running progress) / total tasks
 	totalProgress := float64(completed*100+running) / float64(total)
-	
+
 	if totalProgress > 100 {
 		return 100
 	}
-	
+
 	return totalProgress
 }
 
@@ -70,26 +70,26 @@ func FormatDuration(ms int64) string {
 	if ms < 1000 {
 		return "0s"
 	}
-	
+
 	seconds := ms / 1000
-	
+
 	if seconds < 60 {
 		return formatSeconds(seconds)
 	}
-	
+
 	minutes := seconds / 60
 	remainingSeconds := seconds % 60
-	
+
 	if minutes < 60 {
 		if remainingSeconds == 0 {
 			return formatMinutes(minutes)
 		}
 		return formatMinutes(minutes) + " " + formatSeconds(remainingSeconds)
 	}
-	
+
 	hours := minutes / 60
 	remainingMinutes := minutes % 60
-	
+
 	if remainingMinutes == 0 {
 		return formatHours(hours)
 	}
@@ -121,5 +121,5 @@ func formatInt(n int64) string {
 	if n < 10 {
 		return string(rune('0' + n))
 	}
-	return string(rune('0' + n/10)) + string(rune('0' + n%10))
+	return string(rune('0'+n/10)) + string(rune('0'+n%10))
 }

@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"os"
 	"golang.org/x/term"
+	"os"
 )
 
 // IsTTY checks if the given file descriptor is a terminal
@@ -34,7 +34,7 @@ func IsColorEnabled() bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
-	
+
 	// Check if stdout is a TTY
 	return IsTTY(os.Stdout.Fd())
 }

@@ -11,9 +11,9 @@ import (
 
 // Config represents the complete devpipe configuration
 type Config struct {
-	Defaults      DefaultsConfig            `toml:"defaults"`
-	TaskDefaults  TaskDefaultsConfig        `toml:"task_defaults"`
-	Tasks         map[string]TaskConfig     `toml:"tasks"`
+	Defaults     DefaultsConfig        `toml:"defaults"`
+	TaskDefaults TaskDefaultsConfig    `toml:"task_defaults"`
+	Tasks        map[string]TaskConfig `toml:"tasks"`
 }
 
 // DefaultsConfig holds global defaults
@@ -36,6 +36,7 @@ type GitConfig struct {
 type TaskDefaultsConfig struct {
 	Enabled *bool  `toml:"enabled"`
 	Workdir string `toml:"workdir"`
+	FixType string `toml:"fixType"` // "auto", "helper", "none", or "" (default: "helper")
 }
 
 // TaskConfig represents a single task configuration
@@ -49,6 +50,8 @@ type TaskConfig struct {
 	Wait          bool   `toml:"wait"`          // Internal use only: set automatically by phase headers
 	MetricsFormat string `toml:"metricsFormat"` // "junit", "eslint", "sarif"
 	MetricsPath   string `toml:"metricsPath"`   // Path to metrics file (relative to workdir)
+	FixType       string `toml:"fixType"`       // "auto", "helper", "none", or "" (inherits from task_defaults)
+	FixCommand    string `toml:"fixCommand"`    // Command to run to fix issues
 }
 
 // LoadConfig loads configuration from a TOML file
@@ -91,7 +94,7 @@ func GetDefaults() Config {
 			OutputRoot:         ".devpipe",
 			FastThreshold:      300,
 			UIMode:             "basic",
-			AnimationRefreshMs: 500, // 500ms = 2 FPS (efficient default)
+			AnimationRefreshMs: 500,     // 500ms = 2 FPS (efficient default)
 			AnimatedGroupBy:    "phase", // "type" or "phase"
 			Git: GitConfig{
 				Mode: "staged_unstaged",
@@ -208,7 +211,7 @@ func extractTaskOrder(path string) ([]string, map[string]PhaseInfo, error) {
 	lines := splitLines(string(data))
 	phaseCounter := 0
 	var currentPhaseID string
-	
+
 	// Parse [tasks.X] sections to build order
 	// When we see [tasks.phase-*], insert a wait marker before it (except for the first phase)
 	for i, line := range lines {
@@ -224,7 +227,7 @@ func extractTaskOrder(path string) ([]string, map[string]PhaseInfo, error) {
 			}
 			if end > 7 {
 				taskID := trimmed[7:end]
-				
+
 				// Check if this is a phase header
 				if len(taskID) > 6 && taskID[0:6] == "phase-" {
 					// Insert a wait marker before this phase (except for the first phase)
@@ -233,7 +236,7 @@ func extractTaskOrder(path string) ([]string, map[string]PhaseInfo, error) {
 					}
 					phaseCounter++
 					currentPhaseID = "wait-" + intToString(phaseCounter)
-					
+
 					// Extract phase name and desc from following lines
 					phaseName := ""
 					phaseDesc := ""
@@ -249,20 +252,20 @@ func extractTaskOrder(path string) ([]string, map[string]PhaseInfo, error) {
 							phaseDesc = extractQuotedValue(nextLine[7:])
 						}
 					}
-					
+
 					if phaseName != "" {
 						phaseNames[currentPhaseID] = PhaseInfo{Name: phaseName, Desc: phaseDesc}
 					}
-					
+
 					// Don't add the phase header itself to the order
 					continue
 				}
-				
+
 				order = append(order, taskID)
 			}
 		}
 	}
-	
+
 	return order, phaseNames, nil
 }
 
@@ -285,14 +288,14 @@ func GenerateDefaultConfig(path string, repoRoot string) error {
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("config file already exists: %s", path)
 	}
-	
+
 	// Write to file
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
 	defer f.Close()
-	
+
 	// Write minimal, runnable config
 	content := `# devpipe configuration file
 # Full reference: https://github.com/drewkhoury/devpipe/blob/main/config.example.toml
@@ -312,10 +315,10 @@ name = "Build"
 command = "echo 'Building application...'"
 type = "build"
 `
-	
+
 	if _, err := f.WriteString(content); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
-	
+
 	return nil
 }

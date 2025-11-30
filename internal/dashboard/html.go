@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	
+
 	"github.com/drew/devpipe/internal/model"
 )
 
@@ -16,12 +16,12 @@ func writeHTMLDashboard(path string, summary Summary) error {
 		Summary
 		Timezone string
 	}
-	
+
 	data := DashboardData{
 		Summary:  summary,
 		Timezone: getLocalTimezone(),
 	}
-	
+
 	tmpl, err := template.New("dashboard").Funcs(template.FuncMap{
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
@@ -32,17 +32,17 @@ func writeHTMLDashboard(path string, summary Summary) error {
 		"div":            func(a, b float64) float64 { return a / b },
 		"int64":          func(f float64) int64 { return int64(f) },
 	}).Parse(dashboardTemplate)
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	
+
 	return tmpl.Execute(f, data)
 }
 
@@ -110,20 +110,20 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 		ArtifactPath string
 		ArtifactSize int64
 	}
-	
+
 	type DetailData struct {
 		model.RunRecord
 		TasksWithLogs    []TaskWithLog
 		Timezone         string
 		RawConfigContent string
 	}
-	
+
 	data := DetailData{
 		RunRecord:     run,
 		TasksWithLogs: make([]TaskWithLog, 0, len(run.Tasks)),
 		Timezone:      getLocalTimezone(),
 	}
-	
+
 	// Load raw config file if it exists
 	if run.ConfigPath != "" {
 		// The config.toml should be in the same directory as the report
@@ -132,47 +132,59 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 			data.RawConfigContent = string(configData)
 		}
 	}
-	
+
 	// Load log previews and artifact info for each task
 	for _, task := range run.Tasks {
 		taskWithLog := TaskWithLog{
 			TaskResult: task,
 			LogPreview: readLastLines(task.LogPath, 10),
 		}
-		
+
 		// Check for artifact file (stored in metrics for artifact format)
 		if task.Metrics != nil && task.Metrics.SummaryFormat == "artifact" {
 			// The artifact path should be in the workdir + metrics path from task definition
 			// We need to reconstruct it from the run record
 			// For now, check if we can get it from the task's workdir
 		}
-		
+
 		data.TasksWithLogs = append(data.TasksWithLogs, taskWithLog)
 	}
-	
+
 	tmpl, err := template.New("rundetail").Funcs(template.FuncMap{
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
 		"statusClass":    statusClass,
 		"statusSymbol":   statusSymbol,
 		"string":         func(s model.TaskStatus) string { return string(s) },
-		"deref":          func(i *int) int { if i != nil { return *i }; return 0 },
-		"hasPrefix":      func(s, prefix string) bool { return len(s) >= len(prefix) && s[:len(prefix)] == prefix },
-		"trimPrefix":     func(s, prefix string) string { if len(s) >= len(prefix) && s[:len(prefix)] == prefix { return s[len(prefix):] }; return s },
-		"slice":          func() []model.ConfigValue { return []model.ConfigValue{} },
-		"append":         func(slice []model.ConfigValue, item model.ConfigValue) []model.ConfigValue { return append(slice, item) },
+		"deref": func(i *int) int {
+			if i != nil {
+				return *i
+			}
+			return 0
+		},
+		"hasPrefix": func(s, prefix string) bool { return len(s) >= len(prefix) && s[:len(prefix)] == prefix },
+		"trimPrefix": func(s, prefix string) string {
+			if len(s) >= len(prefix) && s[:len(prefix)] == prefix {
+				return s[len(prefix):]
+			}
+			return s
+		},
+		"slice": func() []model.ConfigValue { return []model.ConfigValue{} },
+		"append": func(slice []model.ConfigValue, item model.ConfigValue) []model.ConfigValue {
+			return append(slice, item)
+		},
 	}).Parse(runDetailTemplate)
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	
+
 	return tmpl.Execute(f, data)
 }
 
@@ -182,14 +194,14 @@ func readLastLines(path string, n int) []string {
 	if err != nil {
 		return []string{"Error reading log file"}
 	}
-	
+
 	lines := []string{}
 	for _, line := range []byte(string(data)) {
 		if line == '\n' {
 			lines = append(lines, "")
 		}
 	}
-	
+
 	// Split by newlines properly
 	allLines := []string{}
 	currentLine := ""
@@ -204,7 +216,7 @@ func readLastLines(path string, n int) []string {
 	if currentLine != "" {
 		allLines = append(allLines, currentLine)
 	}
-	
+
 	// Return last N lines
 	if len(allLines) <= n {
 		return allLines
@@ -988,6 +1000,30 @@ const runDetailTemplate = `<!DOCTYPE html>
                         </div>
                     </div>
                     {{end}}
+                    {{if .AutoFixed}}
+                    <div class="detail-item">
+                        <div class="detail-label">Auto-Fixed</div>
+                        <div class="detail-value">
+                            <span class="badge" style="background: #d4edda; color: #155724;">🔧 Yes</span>
+                        </div>
+                    </div>
+                    {{if .InitialExitCode}}
+                    <div class="detail-item">
+                        <div class="detail-label">Initial Exit Code</div>
+                        <div class="detail-value">
+                            <span class="exit-code-error">{{deref .InitialExitCode}}</span>
+                        </div>
+                    </div>
+                    {{end}}
+                    <div class="detail-item">
+                        <div class="detail-label">Fix Duration</div>
+                        <div class="detail-value">{{formatDuration .FixDurationMs}}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Recheck Duration</div>
+                        <div class="detail-value">{{formatDuration .RecheckDurationMs}}</div>
+                    </div>
+                    {{end}}
                     <div class="detail-item">
                         <div class="detail-label">Start Time ({{$.Timezone}})</div>
                         <div class="detail-value">{{formatTime .StartTime}}</div>
@@ -1002,6 +1038,13 @@ const runDetailTemplate = `<!DOCTYPE html>
                     <div class="detail-label">Command</div>
                     <div class="detail-value mono">{{.Command}}</div>
                 </div>
+                
+                {{if .FixCommand}}
+                <div class="detail-item" style="margin-top: 10px;">
+                    <div class="detail-label">Fix Command</div>
+                    <div class="detail-value mono">{{.FixCommand}}</div>
+                </div>
+                {{end}}
                 
                 {{if .Metrics}}
                 <div class="metrics-box">

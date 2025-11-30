@@ -29,22 +29,22 @@ type Renderer struct {
 func NewRenderer(mode UIMode, enableColors bool, animated bool) *Renderer {
 	isTTY := IsTTY(uintptr(1)) // stdout
 	width := GetTerminalWidth()
-	
+
 	// Force basic mode if not a TTY
 	if !isTTY && mode != UIModeBasic {
 		mode = UIModeBasic
 	}
-	
+
 	// Disable colors if not a TTY or explicitly disabled
 	if !isTTY {
 		enableColors = false
 	}
-	
+
 	// Disable animation if not a TTY
 	if !isTTY {
 		animated = false
 	}
-	
+
 	return &Renderer{
 		mode:     mode,
 		colors:   NewColors(enableColors),
@@ -72,7 +72,7 @@ func (r *Renderer) RenderHeader(runID, repoRoot string, gitMode string, changedF
 func (r *Renderer) renderFullHeader(runID, repoRoot string, gitMode string, changedFiles int) {
 	line := strings.Repeat("═", r.width-2)
 	fmt.Printf("╔%s╗\n", line)
-	fmt.Printf("║ %s%-*s%s║\n", 
+	fmt.Printf("║ %s%-*s%s║\n",
 		r.colors.Bold("devpipe run "+runID),
 		r.width-len("devpipe run "+runID)-3,
 		"",
@@ -102,7 +102,7 @@ func (r *Renderer) RenderTaskStart(id, command string, verbose bool) {
 	if r.animated {
 		return
 	}
-	
+
 	if verbose {
 		fmt.Printf("[%-15s] %s    %s\n", id, r.colors.Blue("RUN"), command)
 	} else {
@@ -116,10 +116,10 @@ func (r *Renderer) RenderTaskComplete(id, status string, exitCode *int, duration
 	if r.animated {
 		return
 	}
-	
+
 	symbol := r.colors.StatusSymbol(status)
 	statusText := r.colors.StatusColor(status, status)
-	
+
 	if verbose && exitCode != nil {
 		fmt.Printf("[%-15s] %s %s (exit %d, %dms)\n", id, symbol, statusText, *exitCode, durationMs)
 	} else {
@@ -134,7 +134,7 @@ func (r *Renderer) RenderTaskSkipped(id, reason string, verbose bool) {
 	if r.animated {
 		return
 	}
-	
+
 	symbol := r.colors.StatusSymbol("SKIPPED")
 	if verbose {
 		fmt.Printf("[%-15s] %s %s (%s)\n", id, symbol, r.colors.Yellow("SKIPPED"), reason)
@@ -150,23 +150,28 @@ func (r *Renderer) RenderSummary(results []TaskSummary, anyFailed bool, totalMs 
 	if r.animated {
 		fmt.Println()
 	}
-	
+
 	fmt.Println(r.colors.Bold("Summary:"))
-	
+
 	for _, result := range results {
 		symbol := r.colors.StatusSymbol(result.Status)
 		statusText := r.colors.StatusColor(result.Status, fmt.Sprintf("%-10s", result.Status))
 		seconds := float64(result.DurationMs) / 1000.0
 		durationText := fmt.Sprintf("%.2fs (%dms)", seconds, result.DurationMs)
-		
-		fmt.Printf("  %s %-15s %s %s\n", symbol, result.ID, statusText, durationText)
+
+		annotation := ""
+		if result.AutoFixed {
+			annotation = " " + r.colors.Gray("[auto-fixed]")
+		}
+
+		fmt.Printf("  %s %-15s %s %s%s\n", symbol, result.ID, statusText, durationText, annotation)
 	}
-	
+
 	// Show total pipeline duration
 	fmt.Println()
 	totalSeconds := float64(totalMs) / 1000.0
 	fmt.Printf("Total: %.2fs (%dms)\n", totalSeconds, totalMs)
-	
+
 	fmt.Println()
 	if anyFailed {
 		fmt.Println(r.colors.Red("devpipe: one or more tasks failed"))
@@ -181,6 +186,7 @@ type TaskSummary struct {
 	ID         string
 	Status     string
 	DurationMs int64
+	AutoFixed  bool
 }
 
 // RenderProgress renders a progress bar (for full mode)
@@ -188,12 +194,12 @@ func (r *Renderer) RenderProgress(current, total int) {
 	if r.mode == UIModeBasic {
 		return
 	}
-	
+
 	barWidth := 40
 	if r.width > 80 {
 		barWidth = 60
 	}
-	
+
 	bar := r.colors.ProgressBar(current, total, barWidth)
 	fmt.Printf("\n%s (%d/%d stages)\n\n", bar, current, total)
 }
@@ -250,19 +256,19 @@ func (r *Renderer) SetPipelineLog(log *os.File) {
 // Only displays on screen if verbose flag is enabled
 func (r *Renderer) Verbose(verbose bool, format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	
+
 	// Always write to pipeline.log (without color codes)
 	if r.pipelineLog != nil {
 		plainLine := fmt.Sprintf("[%-15s] %s\n", "verbose", msg)
 		r.pipelineLog.WriteString(plainLine)
 	}
-	
+
 	// Only output to console/tracker if verbose flag is enabled
 	if verbose {
 		// Pad "verbose" to 15 chars BEFORE applying color, so alignment works
 		paddedVerbose := fmt.Sprintf("%-15s", "verbose")
 		line := fmt.Sprintf("[%s] %s", r.colors.Gray(paddedVerbose), msg)
-		
+
 		if r.tracker != nil {
 			r.tracker.AddLogLine(line)
 		} else {

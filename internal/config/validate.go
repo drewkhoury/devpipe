@@ -23,8 +23,8 @@ func (e ValidationError) Error() string {
 
 // ValidationResult holds the results of config validation
 type ValidationResult struct {
-	Valid   bool
-	Errors  []ValidationError
+	Valid    bool
+	Errors   []ValidationError
 	Warnings []ValidationError
 }
 
@@ -157,7 +157,17 @@ func validateGitConfig(git *GitConfig, result *ValidationResult) {
 
 // validateTaskDefaults validates the task_defaults section
 func validateTaskDefaults(taskDefaults *TaskDefaultsConfig, result *ValidationResult) {
-	// No numeric validations needed currently
+	// Validate fixType if specified
+	if taskDefaults.FixType != "" {
+		validFixTypes := []string{"auto", "helper", "none"}
+		if !contains(validFixTypes, taskDefaults.FixType) {
+			result.Valid = false
+			result.Errors = append(result.Errors, ValidationError{
+				Field:   "task_defaults.fixType",
+				Message: fmt.Sprintf("Invalid fix type '%s'. Valid options: %s", taskDefaults.FixType, strings.Join(validFixTypes, ", ")),
+			})
+		}
+	}
 }
 
 // validateTask validates a single task configuration
@@ -213,6 +223,27 @@ func validateTask(taskID string, task TaskConfig, result *ValidationResult) {
 		}
 	}
 
+	// Validate fixType if specified
+	if task.FixType != "" {
+		validFixTypes := []string{"auto", "helper", "none"}
+		if !contains(validFixTypes, task.FixType) {
+			result.Valid = false
+			result.Errors = append(result.Errors, ValidationError{
+				Field:   prefix + ".fixType",
+				Message: fmt.Sprintf("Invalid fix type '%s'. Valid options: %s", task.FixType, strings.Join(validFixTypes, ", ")),
+			})
+		}
+
+		// ERROR if fixType is set at task level (and not "none") but no fixCommand
+		if task.FixType != "none" && task.FixCommand == "" {
+			result.Valid = false
+			result.Errors = append(result.Errors, ValidationError{
+				Field:   prefix + ".fixCommand",
+				Message: "fixType is set but fixCommand is not specified",
+			})
+		}
+	}
+
 	// Warn if metricsPath is set but metricsFormat is not
 	if task.MetricsPath != "" && task.MetricsFormat == "" {
 		result.Warnings = append(result.Warnings, ValidationError{
@@ -234,7 +265,7 @@ func validatePhaseHeaders(path string, result *ValidationResult) error {
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		
+
 		// Check for section headers
 		if strings.HasPrefix(trimmed, "[tasks.phase-") {
 			// Extract section name

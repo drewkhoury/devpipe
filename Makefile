@@ -42,6 +42,15 @@ test:
 	@echo "Running tests..."
 	go test ./... -v
 
+# Check commands (for devpipe config.toml)
+check-fmt:
+	@test -z "$$(gofmt -l .)" || (echo "Files need formatting:" && gofmt -l . && exit 1)
+
+fmt:
+	@echo "Formatting Go files..."
+	@gofmt -w .
+	@echo "✓ All files formatted"
+
 clean:
 	@echo "Cleaning up..."
 	rm -rf .devpipe artifacts devpipe

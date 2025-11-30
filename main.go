@@ -62,13 +62,14 @@ func main() {
 			return
 		}
 	}
-	
+
 	// CLI flags
 	var (
 		flagConfig    string
 		flagSince     string
 		flagOnly      string
 		flagUI        string
+		flagFixType   string
 		flagNoColor   bool
 		flagDashboard bool
 		flagFailFast  bool
@@ -77,11 +78,12 @@ func main() {
 		flagFast      bool
 		flagSkipVals  sliceFlag
 	)
-	
+
 	flag.StringVar(&flagConfig, "config", "", "Path to config file (default: config.toml)")
 	flag.StringVar(&flagSince, "since", "", "Git ref to compare against (overrides config)")
 	flag.StringVar(&flagOnly, "only", "", "Run only a single task by id")
 	flag.StringVar(&flagUI, "ui", "basic", "UI mode: basic, full")
+	flag.StringVar(&flagFixType, "fix-type", "", "Fix type: auto, helper, none (overrides config)")
 	flag.BoolVar(&flagDashboard, "dashboard", false, "Show dashboard with live progress")
 	flag.BoolVar(&flagNoColor, "no-color", false, "Disable colored output")
 	flag.Var(&flagSkipVals, "skip", "Skip a task by id (can be specified multiple times)")
@@ -90,24 +92,24 @@ func main() {
 	flag.BoolVar(&flagVerbose, "verbose", false, "Verbose logging")
 	flag.BoolVar(&flagFast, "fast", false, "Skip long running tasks")
 	flag.Parse()
-	
+
 	// Load configuration first to get UI mode
 	cfg, configTaskOrder, phaseNames, err := config.LoadConfig(flagConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Merge with defaults
 	mergedCfg := config.MergeWithDefaults(cfg)
-	
+
 	// Parse UI mode (CLI flag overrides config)
 	uiModeStr := flagUI
 	if flagUI == "basic" && cfg != nil && mergedCfg.Defaults.UIMode != "" {
 		// Use config value if CLI flag is default
 		uiModeStr = mergedCfg.Defaults.UIMode
 	}
-	
+
 	var uiMode ui.UIMode
 	switch uiModeStr {
 	case "basic":
@@ -117,7 +119,7 @@ func main() {
 	default:
 		uiMode = ui.UIModeBasic
 	}
-	
+
 	// Create renderer
 	enableColors := !flagNoColor && ui.IsColorEnabled()
 	// Determine if we should use dashboard (animated tracker)
@@ -129,16 +131,16 @@ func main() {
 	if !inGitRepo && flagVerbose {
 		fmt.Println("WARNING: not in a git repo, using current directory as repo root")
 	}
-	
+
 	// Auto-generate config.toml if it doesn't exist and no custom config specified
 	if cfg == nil && flagConfig == "" {
 		defaultConfigPath := "config.toml"
-		
+
 		// Prompt user to create config
 		fmt.Printf("No config.toml found. Create one with example tasks? (y/n): ")
 		var response string
 		fmt.Scanln(&response)
-		
+
 		if response == "y" || response == "Y" || response == "yes" || response == "Yes" {
 			if err := config.GenerateDefaultConfig(defaultConfigPath, repoRoot); err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: Could not generate config.toml: %v\n", err)
@@ -146,7 +148,7 @@ func main() {
 			}
 			fmt.Printf("✓ Created config.toml - edit it to customize your tasks\n")
 			fmt.Printf("  Full reference: https://github.com/drewkhoury/devpipe/blob/main/config.example.toml\n\n")
-			
+
 			// Reload config after generating
 			cfg, configTaskOrder, phaseNames, _ = config.LoadConfig(defaultConfigPath)
 			mergedCfg = config.MergeWithDefaults(cfg)
@@ -155,11 +157,11 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	
+
 	// Determine which tasks to use
 	var tasks map[string]config.TaskConfig
 	var taskOrder []string
-	
+
 	if cfg == nil || len(cfg.Tasks) == 0 {
 		// No config file or no tasks defined, use built-in
 		if flagVerbose {
@@ -195,7 +197,7 @@ func main() {
 				}
 			}
 		}
-		
+
 		// Filter out "wait*" and "phase-*" pseudo-tasks (they're just phase markers)
 		// Keep them in taskOrder for phase detection, but remove from tasks map
 		for id := range tasks {
@@ -208,7 +210,7 @@ func main() {
 	// Determine git mode and ref
 	gitMode := mergedCfg.Defaults.Git.Mode
 	gitRef := mergedCfg.Defaults.Git.Ref
-	
+
 	// CLI --since overrides config
 	if flagSince != "" {
 		gitMode = "ref"
@@ -231,7 +233,7 @@ func main() {
 
 	// Load historical averages
 	historicalAvg := loadHistoricalAverages(outputRoot)
-	
+
 	// Build task definitions
 	var taskDefs []model.TaskDefinition
 	for _, id := range taskOrder {
@@ -243,31 +245,31 @@ func main() {
 			}
 			continue
 		}
-		
+
 		taskCfg, ok := tasks[id]
 		if !ok {
 			continue
 		}
-		
+
 		// Resolve with defaults
 		resolved := mergedCfg.ResolveTaskConfig(id, taskCfg, repoRoot)
-		
+
 		// Skip if disabled
 		if resolved.Enabled != nil && !*resolved.Enabled {
 			renderer.Verbose(flagVerbose, "%s DISABLED in config", id)
 			continue
 		}
-		
+
 		// Use historical average if available, otherwise use 10s default
 		estimatedSeconds := 10
 		isGuess := true
-		
+
 		if avgSeconds, hasHistory := historicalAvg[id]; hasHistory {
 			// Always prefer historical average
 			estimatedSeconds = avgSeconds
 			isGuess = false // Historical data, not a guess
 		}
-		
+
 		taskDef := model.TaskDefinition{
 			ID:               id,
 			Name:             resolved.Name,
@@ -278,7 +280,7 @@ func main() {
 			IsEstimateGuess:  isGuess,
 			Wait:             resolved.Wait,
 		}
-		
+
 		// Add metrics config if present
 		if resolved.MetricsFormat != "" {
 			taskDef.MetricsFormat = resolved.MetricsFormat
@@ -288,7 +290,16 @@ func main() {
 				fmt.Printf("[%-15s] %s Metrics configured: format=%s, path=%s\n", renderer.Gray("verbose"), id, resolved.MetricsFormat, resolved.MetricsPath)
 			}
 		}
-		
+
+		// Add fix config if present
+		// Apply CLI flag override if specified
+		fixType := resolved.FixType
+		if flagFixType != "" {
+			fixType = flagFixType
+		}
+		taskDef.FixType = fixType
+		taskDef.FixCommand = resolved.FixCommand
+
 		taskDefs = append(taskDefs, taskDef)
 	}
 
@@ -317,21 +328,21 @@ func main() {
 
 	// Render header
 	renderer.RenderHeader(runID, repoRoot, gitMode, len(gitInfo.ChangedFiles))
-	
+
 	// Setup animation if enabled
 	var tracker *ui.AnimatedTaskTracker
-	
+
 	// Ensure cursor is restored on exit (in case of panic or early exit)
 	defer func() {
 		if tracker != nil {
 			fmt.Print("\033[?25h") // Show cursor
-			fmt.Println() // Add newline to ensure clean exit
+			fmt.Println()          // Add newline to ensure clean exit
 		}
 	}()
-	
+
 	// Group tasks into phases based on wait markers
 	phases := groupTasksIntoPhases(filteredTasks, phaseNames)
-	
+
 	if renderer.IsAnimated() {
 		// Build task progress list with phase information
 		var taskProgress []ui.TaskProgress
@@ -351,13 +362,13 @@ func main() {
 				})
 			}
 		}
-		
+
 		// Calculate header lines
 		headerLines := 4 // basic mode: run ID, repo, git mode, changed files
 		if renderer.IsAnimated() {
 			headerLines = 4
 		}
-		
+
 		tracker = renderer.CreateAnimatedTracker(taskProgress, headerLines, mergedCfg.Defaults.AnimationRefreshMs, mergedCfg.Defaults.AnimatedGroupBy)
 		if tracker != nil {
 			if err := tracker.Start(); err != nil {
@@ -372,44 +383,44 @@ func main() {
 			}
 		}
 	}
-	
+
 	if len(phases) > 1 {
 		renderer.Verbose(flagVerbose, "Executing %d phases with parallel tasks", len(phases))
 	}
-	
+
 	// Track total pipeline duration
 	pipelineStart := time.Now()
-	
+
 	// Execute phases sequentially, tasks within each phase in parallel
 	var resultsMu sync.Mutex
 	var outputMu sync.Mutex // For sequential output display
-	
+
 	for phaseIdx, phase := range phases {
 		if len(phases) > 1 {
 			renderer.Verbose(flagVerbose, "Phase %d/%d (%d tasks)", phaseIdx+1, len(phases), len(phase.Tasks))
 		}
-		
+
 		// Use errgroup for parallel execution within phase
 		g := new(errgroup.Group)
 		g.SetLimit(10) // Max 10 concurrent tasks
-		
+
 		var phaseFailed bool
 		var phaseFailMu sync.Mutex
-		
+
 		// For sequential output: each task gets a completion channel from the previous task
 		var prevTaskDone chan struct{}
-		
+
 		for _, st := range phase.Tasks {
 			// Check if should skip due to --fast
 			longRunning := st.EstimatedSeconds >= mergedCfg.Defaults.FastThreshold
 			if flagFast && longRunning && flagOnly == "" {
 				reason := fmt.Sprintf("skipped by --fast (est %ds)", st.EstimatedSeconds)
-				
+
 				// Update tracker if animated
 				if tracker != nil {
 					tracker.UpdateTask(st.ID, "SKIPPED", 0)
 				}
-				
+
 				renderer.RenderTaskSkipped(st.ID, reason, flagVerbose)
 				resultsMu.Lock()
 				results = append(results, model.TaskResult{
@@ -427,18 +438,18 @@ func main() {
 				resultsMu.Unlock()
 				continue
 			}
-			
+
 			// Capture task for goroutine
 			task := st
-			
+
 			// Create a done channel for this task
 			taskDone := make(chan struct{})
 			waitForPrev := prevTaskDone
 			prevTaskDone = taskDone // Next task will wait for this one
-			
+
 			g.Go(func() error {
 				res, taskBuffer, _ := runTask(task, runDir, logDir, flagDryRun, flagVerbose, renderer, tracker, &outputMu, waitForPrev, taskDone)
-				
+
 				// Display buffered output sequentially (always, even in animated mode)
 				if taskBuffer != nil && taskBuffer.Len() > 0 {
 					outputMu.Lock()
@@ -454,18 +465,18 @@ func main() {
 					}
 					outputMu.Unlock()
 				}
-				
+
 				resultsMu.Lock()
 				results = append(results, res)
 				resultsMu.Unlock()
-				
+
 				if res.Status == model.StatusFail {
 					phaseFailMu.Lock()
 					phaseFailed = true
 					anyFailed = true
 					overallExitCode = 1
 					phaseFailMu.Unlock()
-					
+
 					if flagFailFast {
 						if flagVerbose {
 							fmt.Printf("[%-15s] FAIL, stopping due to --fail-fast\n", task.ID)
@@ -476,18 +487,195 @@ func main() {
 				return nil
 			})
 		}
-		
+
 		// Wait for all tasks in this phase to complete
 		if err := g.Wait(); err != nil && flagFailFast {
 			// Fail-fast triggered, stop all phases
 			break
 		}
-		
+
+		// Auto-fix logic: check for failed tasks that have fixType="auto"
+		if !flagDryRun {
+			resultsMu.Lock()
+			var tasksToFix []struct {
+				task   model.TaskDefinition
+				result model.TaskResult
+				index  int
+			}
+
+			// Find failed tasks in this phase that need fixing
+			for i := len(results) - len(phase.Tasks); i < len(results); i++ {
+				res := results[i]
+				if res.Status == model.StatusFail {
+					// Find the corresponding task definition
+					for _, task := range phase.Tasks {
+						if task.ID == res.ID && task.FixType == "auto" && task.FixCommand != "" {
+							tasksToFix = append(tasksToFix, struct {
+								task   model.TaskDefinition
+								result model.TaskResult
+								index  int
+							}{task, res, i})
+							break
+						}
+					}
+				}
+			}
+			resultsMu.Unlock()
+
+			// Run fixes in parallel (same as original tasks)
+			if len(tasksToFix) > 0 {
+				fixGroup := new(errgroup.Group)
+				fixGroup.SetLimit(10)
+
+				for _, item := range tasksToFix {
+					task := item.task
+					resultIndex := item.index
+					originalResult := item.result
+
+					fixGroup.Go(func() error {
+						// Open log file to append fix output
+						logFile, err := os.OpenFile(originalResult.LogPath, os.O_APPEND|os.O_WRONLY, 0644)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "ERROR: cannot open log file %s: %v\n", originalResult.LogPath, err)
+							return nil
+						}
+						defer logFile.Close()
+
+						// Run fix command and time it
+						fixCmd := exec.Command("sh", "-c", task.FixCommand)
+						fixCmd.Dir = task.Workdir
+						fixStart := time.Now()
+
+						// Capture output and write to log
+						fixCmd.Stdout = logFile
+						fixCmd.Stderr = logFile
+
+						// Write separator to log
+						fmt.Fprintf(logFile, "\n--- Auto-fix: %s ---\n", task.FixCommand)
+
+						fixErr := fixCmd.Run()
+						fixDuration := time.Since(fixStart)
+
+						// Show fix message with timing
+						if tracker != nil {
+							tracker.UpdateTask(task.ID, "FIXING", 0)
+						} else {
+							fmt.Printf("[%-15s] 🔧 %s (%dms)\n", task.ID, renderer.Blue("Auto-fixing: "+task.FixCommand), fixDuration.Milliseconds())
+						}
+
+						if fixErr != nil {
+							// Fix failed
+							if tracker != nil {
+								tracker.UpdateTask(task.ID, "FIX FAILED", 0)
+							} else {
+								fmt.Printf("[%-15s] ❌ %s\n", task.ID, renderer.Red("Failed to fix"))
+							}
+							return nil // Don't stop other fixes
+						}
+
+						// Fix succeeded, re-run original check
+						if tracker != nil {
+							tracker.UpdateTask(task.ID, "RE-CHECKING", 0)
+						} else {
+							fmt.Printf("[%-15s] ✅ %s\n", task.ID, renderer.Green("Fix succeeded, re-checking..."))
+						}
+
+						// Write separator to log
+						fmt.Fprintf(logFile, "\n--- Re-check: %s ---\n", task.Command)
+
+						// Re-run original command
+						recheckCmd := exec.Command("sh", "-c", task.Command)
+						recheckCmd.Dir = task.Workdir
+						recheckCmd.Stdout = logFile
+						recheckCmd.Stderr = logFile
+						recheckStart := time.Now()
+						recheckErr := recheckCmd.Run()
+						recheckDuration := time.Since(recheckStart)
+
+						// Calculate total time: original check + fix + recheck
+						totalDuration := time.Duration(originalResult.DurationMs)*time.Millisecond + fixDuration + recheckDuration
+
+						// Update result
+						resultsMu.Lock()
+						if recheckErr == nil {
+							// Fixed!
+							results[resultIndex].Status = model.StatusPass
+							exitCode := 0
+							results[resultIndex].ExitCode = &exitCode
+							results[resultIndex].DurationMs = totalDuration.Milliseconds()
+							results[resultIndex].AutoFixed = true
+							results[resultIndex].FixCommand = task.FixCommand
+							results[resultIndex].InitialExitCode = originalResult.ExitCode
+							results[resultIndex].FixDurationMs = fixDuration.Milliseconds()
+							results[resultIndex].RecheckDurationMs = recheckDuration.Milliseconds()
+
+							// Update phase failure status
+							phaseFailMu.Lock()
+							// Recount failures in this phase
+							phaseStillFailed := false
+							for i := len(results) - len(phase.Tasks); i < len(results); i++ {
+								if results[i].Status == model.StatusFail {
+									phaseStillFailed = true
+									break
+								}
+							}
+							phaseFailed = phaseStillFailed
+							if !phaseStillFailed {
+								anyFailed = false
+								overallExitCode = 0
+							}
+							phaseFailMu.Unlock()
+
+							if tracker != nil {
+								tracker.UpdateTask(task.ID, "PASS", recheckDuration.Seconds())
+							} else {
+								fmt.Printf("[%-15s] ✅ %s (%dms)\n", task.ID, renderer.Green("PASS"), recheckDuration.Milliseconds())
+							}
+						} else {
+							// Still failing after fix
+							results[resultIndex].DurationMs = totalDuration.Milliseconds()
+							results[resultIndex].FixCommand = task.FixCommand
+							results[resultIndex].InitialExitCode = originalResult.ExitCode
+							results[resultIndex].FixDurationMs = fixDuration.Milliseconds()
+							results[resultIndex].RecheckDurationMs = recheckDuration.Milliseconds()
+							if tracker != nil {
+								tracker.UpdateTask(task.ID, "STILL FAILING", recheckDuration.Seconds())
+							} else {
+								fmt.Printf("[%-15s] ❌ %s\n", task.ID, renderer.Red("Still failing after fix"))
+							}
+						}
+						resultsMu.Unlock()
+
+						return nil
+					})
+				}
+
+				fixGroup.Wait()
+			}
+
+			// Show helper messages for failed tasks with fixType="helper"
+			resultsMu.Lock()
+			for i := len(results) - len(phase.Tasks); i < len(results); i++ {
+				res := results[i]
+				if res.Status == model.StatusFail {
+					for _, task := range phase.Tasks {
+						if task.ID == res.ID && task.FixType == "helper" && task.FixCommand != "" {
+							if tracker == nil {
+								fmt.Printf("[%-15s] 💡 %s\n", task.ID, renderer.Yellow("To fix run: "+task.FixCommand))
+							}
+							break
+						}
+					}
+				}
+			}
+			resultsMu.Unlock()
+		}
+
 		// If phase failed and fail-fast is enabled, stop
 		phaseFailMu.Lock()
 		shouldStop := phaseFailed && flagFailFast
 		phaseFailMu.Unlock()
-		
+
 		if shouldStop {
 			break
 		}
@@ -501,12 +689,12 @@ func main() {
 	if tracker != nil {
 		// Do a final render to show completed state
 		time.Sleep(100 * time.Millisecond)
-		
+
 		tracker.Stop()
-		
+
 		// Show completion message and wait for user input
 		fmt.Print(renderer.Green("✓ Done") + " - Press Enter to continue...")
-		
+
 		// Wait for Enter key
 		fmt.Scanln()
 	}
@@ -518,18 +706,19 @@ func main() {
 			ID:         r.ID,
 			Status:     string(r.Status),
 			DurationMs: r.DurationMs,
+			AutoFixed:  r.AutoFixed,
 		})
 	}
 	renderer.RenderSummary(summaries, anyFailed, totalMs)
-	
+
 	// Show where to find logs and reports
 	fmt.Println()
 	fmt.Printf("📁 Run logs:  %s\n", filepath.Join(outputRoot, "runs", runID, "logs"))
 	fmt.Printf("📊 Dashboard: %s\n", filepath.Join(outputRoot, "report.html"))
-	
+
 	// Build effective config tracking
 	effectiveConfig := buildEffectiveConfig(cfg, &mergedCfg, flagSince, flagUI, uiModeStr, gitMode, gitRef, historicalAvg)
-	
+
 	// Determine the actual config path used
 	actualConfigPath := flagConfig
 	if actualConfigPath == "" {
@@ -538,16 +727,16 @@ func main() {
 			actualConfigPath = "config.toml"
 		}
 	}
-	
+
 	// Write run record and generate dashboard
 	runRecord := model.RunRecord{
-		RunID:           runID,
-		Timestamp:       time.Now().UTC().Format(time.RFC3339),
-		RepoRoot:        repoRoot,
-		OutputRoot:      outputRoot,
-		ConfigPath:      actualConfigPath,
-		Command:         buildCommandString(),
-		Git:             gitInfo,
+		RunID:      runID,
+		Timestamp:  time.Now().UTC().Format(time.RFC3339),
+		RepoRoot:   repoRoot,
+		OutputRoot: outputRoot,
+		ConfigPath: actualConfigPath,
+		Command:    buildCommandString(),
+		Git:        gitInfo,
 		Flags: model.RunFlags{
 			Fast:     flagFast,
 			FailFast: flagFailFast,
@@ -564,45 +753,45 @@ func main() {
 	if err := writeRunJSON(runDir, runRecord); err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to write run record: %v\n", err)
 	}
-	
+
 	// Copy config file to run directory
 	if err := copyConfigToRun(runDir, flagConfig, &mergedCfg); err != nil {
 		if flagVerbose {
 			fmt.Fprintf(os.Stderr, "WARNING: failed to copy config: %v\n", err)
 		}
 	}
-	
+
 	// Generate dashboard
 	if err := dashboard.GenerateDashboard(outputRoot); err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to generate dashboard: %v\n", err)
 	}
-	
+
 	// Final cursor restoration (belt and suspenders)
 	fmt.Print("\033[?25h")
-	
+
 	os.Exit(overallExitCode)
 }
 
 // loadHistoricalAverages loads task averages from the dashboard summary
 func loadHistoricalAverages(outputRoot string) map[string]int {
 	averages := make(map[string]int)
-	
+
 	summaryPath := filepath.Join(outputRoot, "summary.json")
 	data, err := os.ReadFile(summaryPath)
 	if err != nil {
 		return averages // No history yet
 	}
-	
+
 	var summary struct {
 		TaskStats map[string]struct {
 			AvgDuration float64 `json:"avgDuration"`
 		} `json:"taskStats"`
 	}
-	
+
 	if err := json.Unmarshal(data, &summary); err != nil {
 		return averages
 	}
-	
+
 	// Convert milliseconds to seconds
 	for taskID, stats := range summary.TaskStats {
 		if stats.AvgDuration > 0 {
@@ -613,7 +802,7 @@ func loadHistoricalAverages(outputRoot string) map[string]int {
 			averages[taskID] = avgSeconds
 		}
 	}
-	
+
 	return averages
 }
 
@@ -624,10 +813,10 @@ func buildCommandString() string {
 		username = os.Getenv("USERNAME") // Windows fallback
 	}
 	hostname, _ := os.Hostname()
-	
+
 	// Get current working directory
 	cwd, _ := os.Getwd()
-	
+
 	// Build command line from os.Args
 	cmdLine := ""
 	for i, arg := range os.Args {
@@ -641,7 +830,7 @@ func buildCommandString() string {
 			cmdLine += `"` + arg + `"`
 		}
 	}
-	
+
 	// Format like: drew@drews-MBP devpipe % ./devpipe --config ...
 	return fmt.Sprintf("%s@%s %s %% %s", username, hostname, filepath.Base(cwd), cmdLine)
 }
@@ -659,7 +848,7 @@ func containsSpace(s string) bool {
 func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSince, flagUI, uiModeStr, gitMode, gitRef string, historicalAvg map[string]int) *model.EffectiveConfig {
 	defaults := config.GetDefaults()
 	var values []model.ConfigValue
-	
+
 	// Helper to add a config value
 	addValue := func(key, value, source, overrode string) {
 		values = append(values, model.ConfigValue{
@@ -669,21 +858,21 @@ func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSinc
 			Overrode: overrode,
 		})
 	}
-	
+
 	// Output Root
 	if cfg != nil && cfg.Defaults.OutputRoot != "" {
 		addValue("defaults.outputRoot", mergedCfg.Defaults.OutputRoot, "config-file", "")
 	} else {
 		addValue("defaults.outputRoot", mergedCfg.Defaults.OutputRoot, "default", "")
 	}
-	
+
 	// Fast Threshold
 	if cfg != nil && cfg.Defaults.FastThreshold != 0 {
 		addValue("defaults.fastThreshold", fmt.Sprintf("%d", mergedCfg.Defaults.FastThreshold), "config-file", "")
 	} else {
 		addValue("defaults.fastThreshold", fmt.Sprintf("%d", mergedCfg.Defaults.FastThreshold), "default", "")
 	}
-	
+
 	// UI Mode
 	var uiSource, uiOverrode string
 	if flagUI != "basic" {
@@ -699,14 +888,14 @@ func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSinc
 		uiSource = "default"
 	}
 	addValue("defaults.uiMode", uiModeStr, uiSource, uiOverrode)
-	
+
 	// Animation Refresh
 	if cfg != nil && cfg.Defaults.AnimationRefreshMs != 0 {
 		addValue("defaults.animationRefreshMs", fmt.Sprintf("%d", mergedCfg.Defaults.AnimationRefreshMs), "config-file", "")
 	} else {
 		addValue("defaults.animationRefreshMs", fmt.Sprintf("%d", mergedCfg.Defaults.AnimationRefreshMs), "default", "")
 	}
-	
+
 	// Git Mode
 	var gitModeSource, gitModeOverrode string
 	if flagSince != "" {
@@ -722,7 +911,7 @@ func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSinc
 		gitModeSource = "default"
 	}
 	addValue("defaults.git.mode", gitMode, gitModeSource, gitModeOverrode)
-	
+
 	// Git Ref
 	var gitRefSource, gitRefOverrode string
 	if flagSince != "" {
@@ -738,20 +927,20 @@ func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSinc
 		gitRefSource = "default"
 	}
 	addValue("defaults.git.ref", gitRef, gitRefSource, gitRefOverrode)
-	
+
 	// Task Defaults
 	if cfg != nil && cfg.TaskDefaults.Enabled != nil {
 		addValue("task_defaults.enabled", fmt.Sprintf("%t", *mergedCfg.TaskDefaults.Enabled), "config-file", "")
 	} else {
 		addValue("task_defaults.enabled", fmt.Sprintf("%t", *mergedCfg.TaskDefaults.Enabled), "default", "")
 	}
-	
+
 	if cfg != nil && cfg.TaskDefaults.Workdir != "" {
 		addValue("task_defaults.workdir", mergedCfg.TaskDefaults.Workdir, "config-file", "")
 	} else {
 		addValue("task_defaults.workdir", mergedCfg.TaskDefaults.Workdir, "default", "")
 	}
-	
+
 	return &model.EffectiveConfig{
 		Values: values,
 	}
@@ -768,14 +957,14 @@ func groupTasksIntoPhases(tasks []model.TaskDefinition, phaseNames map[string]co
 	if len(tasks) == 0 {
 		return nil
 	}
-	
+
 	var phases []Phase
 	currentPhase := Phase{Tasks: []model.TaskDefinition{}}
 	phaseNum := 1
-	
+
 	for _, task := range tasks {
 		currentPhase.Tasks = append(currentPhase.Tasks, task)
-		
+
 		// If this task has wait=true, end the current phase
 		if task.Wait {
 			// Set phase name from phaseNames map, or default to "Phase N"
@@ -785,13 +974,13 @@ func groupTasksIntoPhases(tasks []model.TaskDefinition, phaseNames map[string]co
 			} else {
 				currentPhase.Name = fmt.Sprintf("Phase %d", phaseNum)
 			}
-			
+
 			phases = append(phases, currentPhase)
 			currentPhase = Phase{Tasks: []model.TaskDefinition{}}
 			phaseNum++
 		}
 	}
-	
+
 	// Add remaining tasks as final phase
 	if len(currentPhase.Tasks) > 0 {
 		// Set phase name for the last phase
@@ -803,7 +992,7 @@ func groupTasksIntoPhases(tasks []model.TaskDefinition, phaseNames map[string]co
 		}
 		phases = append(phases, currentPhase)
 	}
-	
+
 	return phases
 }
 
@@ -856,7 +1045,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		LogPath:          "",
 		EstimatedSeconds: st.EstimatedSeconds,
 	}
-	
+
 	// Create a buffer to capture all output for this task
 	var taskOutputBuffer bytes.Buffer
 
@@ -877,7 +1066,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		if waitForPrev != nil {
 			<-waitForPrev
 		}
-		
+
 		// Now we can stream output
 		if verbose {
 			fmt.Printf("[%-15s] %s    %s\n", st.ID, renderer.Blue("RUN"), st.Command)
@@ -898,7 +1087,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 	start := time.Now().UTC()
 	res.StartTime = start.Format(time.RFC3339)
 	res.Status = model.StatusRunning
-	
+
 	// Update tracker if animated
 	if tracker != nil {
 		tracker.UpdateTask(st.ID, "RUNNING", 0)
@@ -917,7 +1106,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 
 	// Setup output handling
 	var bufferMu sync.Mutex
-	
+
 	if tracker != nil {
 		// Animated mode: buffer output for sequential display
 		stdoutWriter := &lineWriter{taskID: st.ID, file: logFile, outputBuffer: &taskOutputBuffer, mu: &bufferMu, renderer: renderer}
@@ -975,18 +1164,18 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		}
 		res.Status = model.StatusFail
 		res.ExitCode = &exitCode
-		
+
 		// Update tracker with final status
 		if tracker != nil {
 			tracker.UpdateTask(st.ID, "FAIL", elapsed)
 			renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
-			
+
 			// Also buffer the failure message for the output section
 			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] ✗ %s (%dms)\n", st.ID, renderer.Red("FAIL"), res.DurationMs))
 		} else {
 			// Stream the failure message with color
 			fmt.Printf("[%-15s] ✗ %s (%dms)\n\n", st.ID, renderer.Red("FAIL"), res.DurationMs)
-			
+
 			// Signal that this task is done streaming
 			close(taskDone)
 		}
@@ -995,7 +1184,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 
 	res.Status = model.StatusPass
 	res.ExitCode = &exitCode
-	
+
 	// Parse metrics if configured
 	if st.MetricsFormat != "" && st.MetricsPath != "" {
 		renderer.Verbose(verbose, "%s Parsing metrics: format=%s, path=%s", st.ID, st.MetricsFormat, st.MetricsPath)
@@ -1003,7 +1192,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		if res.Metrics != nil {
 			renderer.Verbose(verbose, "%s Metrics parsed successfully: %+v", st.ID, res.Metrics.Data)
 		}
-		
+
 		// Validate artifact if metrics path specified
 		artifactPath := filepath.Join(st.Workdir, st.MetricsPath)
 		if info, err := os.Stat(artifactPath); err != nil || info.Size() == 0 {
@@ -1025,22 +1214,22 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 			}
 			res.Metrics.Data["path"] = artifactPath
 			res.Metrics.Data["size"] = info.Size()
-			
+
 			renderer.Verbose(verbose, "%s Artifact validation PASSED: %s (%d bytes)", st.ID, artifactPath, info.Size())
 		}
 	} else {
 		renderer.Verbose(verbose, "%s No metrics configured (format=%s, path=%s)", st.ID, st.MetricsFormat, st.MetricsPath)
 	}
-	
+
 	// Update tracker with final status
 	if tracker != nil {
 		tracker.UpdateTask(st.ID, string(res.Status), elapsed)
 		renderer.RenderTaskComplete(st.ID, string(res.Status), &exitCode, res.DurationMs, verbose)
-		
+
 		// Also buffer the completion message for the output section
 		symbol := "•"
 		var statusText string
-		
+
 		if res.Status == model.StatusPass {
 			symbol = "✓"
 			statusText = renderer.Green(string(res.Status))
@@ -1053,7 +1242,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		} else {
 			statusText = string(res.Status)
 		}
-		
+
 		if verbose && exitCode != 0 {
 			taskOutputBuffer.WriteString(fmt.Sprintf("[%-15s] %s %s (exit %d, %dms)\n", st.ID, symbol, statusText, exitCode, res.DurationMs))
 		} else {
@@ -1063,7 +1252,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		// Stream the completion message for non-animated mode with colors
 		symbol := "•"
 		var statusText string
-		
+
 		if res.Status == model.StatusPass {
 			symbol = "✓"
 			statusText = renderer.Green(string(res.Status))
@@ -1076,18 +1265,18 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		} else {
 			statusText = string(res.Status)
 		}
-		
+
 		if verbose && exitCode != 0 {
 			fmt.Printf("[%-15s] %s %s (exit %d, %dms)\n", st.ID, symbol, statusText, exitCode, res.DurationMs)
 		} else {
 			fmt.Printf("[%-15s] %s %s (%dms)\n", st.ID, symbol, statusText, res.DurationMs)
 		}
 		fmt.Println() // Blank line after task
-		
+
 		// Signal that this task is done streaming
 		close(taskDone)
 	}
-	
+
 	return res, &taskOutputBuffer, nil
 }
 
@@ -1104,7 +1293,7 @@ func writeRunJSON(runDir string, record model.RunRecord) error {
 func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics {
 	// Build full path to metrics file
 	metricsPath := filepath.Join(st.Workdir, st.MetricsPath)
-	
+
 	// Check if file exists
 	if _, err := os.Stat(metricsPath); os.IsNotExist(err) {
 		if verbose {
@@ -1112,7 +1301,7 @@ func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics 
 		}
 		return nil
 	}
-	
+
 	// Parse based on format
 	switch st.MetricsFormat {
 	case "junit":
@@ -1135,12 +1324,12 @@ func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics 
 // copyConfigToRun copies the config file to the run directory
 func copyConfigToRun(runDir, configPath string, mergedCfg *config.Config) error {
 	destPath := filepath.Join(runDir, "config.toml")
-	
+
 	// If no config path specified, try default location
 	if configPath == "" {
 		configPath = "config.toml"
 	}
-	
+
 	// If config file exists, copy it
 	if _, err := os.Stat(configPath); err == nil {
 		data, err := os.ReadFile(configPath)
@@ -1149,7 +1338,7 @@ func copyConfigToRun(runDir, configPath string, mergedCfg *config.Config) error 
 		}
 		return os.WriteFile(destPath, data, 0644)
 	}
-	
+
 	// Otherwise, write the merged config as JSON (built-in + defaults)
 	data, err := json.MarshalIndent(mergedCfg, "", "  ")
 	if err != nil {
@@ -1160,35 +1349,35 @@ func copyConfigToRun(runDir, configPath string, mergedCfg *config.Config) error 
 
 // lineWriter captures output line by line and sends to tracker
 type lineWriter struct {
-	tracker       *ui.AnimatedTaskTracker
-	taskID        string
-	file          *os.File
-	buffer        []byte
-	outputBuffer  *bytes.Buffer // Buffer all output until task completes
-	mu            *sync.Mutex   // Protect outputBuffer
-	console       *os.File      // For streaming output directly
-	renderer      *ui.Renderer  // For colorizing output
+	tracker      *ui.AnimatedTaskTracker
+	taskID       string
+	file         *os.File
+	buffer       []byte
+	outputBuffer *bytes.Buffer // Buffer all output until task completes
+	mu           *sync.Mutex   // Protect outputBuffer
+	console      *os.File      // For streaming output directly
+	renderer     *ui.Renderer  // For colorizing output
 }
 
 func (w *lineWriter) Write(p []byte) (n int, err error) {
 	// Write to log file (unprefixed)
 	w.file.Write(p)
-	
+
 	// Add to buffer and extract complete lines
 	w.buffer = append(w.buffer, p...)
-	
+
 	// Process complete lines
 	for {
 		idx := bytes.IndexByte(w.buffer, '\n')
 		if idx == -1 {
 			break
 		}
-		
+
 		line := string(w.buffer[:idx])
-		
+
 		// Prefix line with task ID
 		prefixedLine := fmt.Sprintf("[%-15s] %s", w.taskID, line)
-		
+
 		if w.tracker != nil {
 			w.tracker.AddLogLine(prefixedLine)
 		} else if w.outputBuffer != nil {
@@ -1201,10 +1390,10 @@ func (w *lineWriter) Write(p []byte) (n int, err error) {
 			// Stream output directly
 			fmt.Fprintln(w.console, prefixedLine)
 		}
-		
+
 		w.buffer = w.buffer[idx+1:]
 	}
-	
+
 	return len(p), nil
 }
 
@@ -1214,13 +1403,13 @@ func runValidateCommand() {
 	validateFlags := flag.NewFlagSet("validate", flag.ExitOnError)
 	configPath := validateFlags.String("config", "", "Path to config file to validate (default: config.toml)")
 	validateFlags.Parse(os.Args[2:])
-	
+
 	// Determine config path
 	path := *configPath
 	if path == "" {
 		path = "config.toml"
 	}
-	
+
 	// Check if any additional files were specified as positional args
 	args := validateFlags.Args()
 	if len(args) > 0 {
@@ -1233,28 +1422,28 @@ func runValidateCommand() {
 				hasErrors = true
 				continue
 			}
-			
+
 			config.PrintValidationResult(arg, result)
 			if !result.Valid {
 				hasErrors = true
 			}
 		}
-		
+
 		if hasErrors {
 			os.Exit(1)
 		}
 		return
 	}
-	
+
 	// Validate single config file
 	result, err := config.ValidateConfigFile(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	config.PrintValidationResult(path, result)
-	
+
 	if !result.Valid {
 		os.Exit(1)
 	}

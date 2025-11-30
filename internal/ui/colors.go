@@ -8,7 +8,7 @@ const (
 	ColorRed    = "\033[31m"
 	ColorGreen  = "\033[32m"
 	ColorYellow = "\033[33m"
-	ColorBlue   = "\033[94m"  // Bright blue - more readable on dark backgrounds
+	ColorBlue   = "\033[94m" // Bright blue - more readable on dark backgrounds
 	ColorCyan   = "\033[36m"
 	ColorGray   = "\033[90m"
 	ColorBold   = "\033[1m"
@@ -124,14 +124,14 @@ func (c *Colors) ProgressBar(current, total, width int) string {
 	if total == 0 {
 		return ""
 	}
-	
+
 	percent := float64(current) / float64(total)
 	filled := int(percent * float64(width))
-	
+
 	if filled > width {
 		filled = width
 	}
-	
+
 	bar := ""
 	for i := 0; i < width; i++ {
 		if i < filled {
@@ -140,9 +140,9 @@ func (c *Colors) ProgressBar(current, total, width int) string {
 			bar += "░"
 		}
 	}
-	
+
 	percentText := fmt.Sprintf(" %3.0f%%", percent*100)
-	
+
 	if c.enabled {
 		if percent >= 1.0 {
 			return c.Green(bar) + c.Green(percentText)
@@ -152,6 +152,6 @@ func (c *Colors) ProgressBar(current, total, width int) string {
 			return c.Gray(bar) + percentText
 		}
 	}
-	
+
 	return bar + percentText
 }

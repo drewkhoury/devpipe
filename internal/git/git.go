@@ -12,8 +12,8 @@ import (
 type GitInfo struct {
 	InGitRepo    bool     `json:"inGitRepo"`
 	RepoRoot     string   `json:"repoRoot"`
-	Mode         string   `json:"mode"`         // "staged", "staged_unstaged", "ref"
-	Ref          string   `json:"ref"`          // reference used for comparison
+	Mode         string   `json:"mode"` // "staged", "staged_unstaged", "ref"
+	Ref          string   `json:"ref"`  // reference used for comparison
 	ChangedFiles []string `json:"changedFiles"`
 }
 
@@ -24,7 +24,7 @@ func DetectRepoRoot() (string, bool) {
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &bytes.Buffer{}
-	
+
 	if err := cmd.Run(); err != nil {
 		// Not a git repo, use cwd
 		cwd, err2 := os.Getwd()
@@ -33,7 +33,7 @@ func DetectRepoRoot() (string, bool) {
 		}
 		return cwd, false
 	}
-	
+
 	root := strings.TrimSpace(buf.String())
 	if root == "" {
 		cwd, err := os.Getwd()
@@ -42,7 +42,7 @@ func DetectRepoRoot() (string, bool) {
 		}
 		return cwd, false
 	}
-	
+
 	return root, true
 }
 
@@ -55,50 +55,50 @@ func DetectChangedFiles(repoRoot string, inGitRepo bool, mode string, ref string
 		Ref:          ref,
 		ChangedFiles: []string{},
 	}
-	
+
 	if !inGitRepo {
 		return info
 	}
 
 	var cmd *exec.Cmd
-	
+
 	switch mode {
 	case "staged":
 		// Only staged files
 		cmd = exec.Command("git", "diff", "--cached", "--name-only")
-		
+
 	case "staged_unstaged":
 		// Staged + unstaged files (compare against HEAD)
 		cmd = exec.Command("git", "diff", "--name-only", "HEAD")
-		
+
 	case "ref":
 		// Compare against specific ref
 		cmd = exec.Command("git", "diff", "--name-only", ref)
-		
+
 	default:
 		// Default to staged_unstaged
 		cmd = exec.Command("git", "diff", "--name-only", "HEAD")
 		info.Mode = "staged_unstaged"
 	}
-	
+
 	cmd.Dir = repoRoot
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &bytes.Buffer{}
-	
+
 	if err := cmd.Run(); err != nil {
 		if verbose {
 			fmt.Fprintf(os.Stderr, "WARNING: git diff failed: %v\n", err)
 		}
 		return info
 	}
-	
+
 	output := strings.TrimSpace(out.String())
 	if output == "" {
 		info.ChangedFiles = []string{}
 		return info
 	}
-	
+
 	lines := strings.Split(output, "\n")
 	var files []string
 	for _, l := range lines {
@@ -106,7 +106,7 @@ func DetectChangedFiles(repoRoot string, inGitRepo bool, mode string, ref string
 			files = append(files, l)
 		}
 	}
-	
+
 	info.ChangedFiles = files
 	return info
 }

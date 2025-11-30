@@ -42,10 +42,13 @@ devpipe validate config/*.toml
 ### Task Defaults (`[task_defaults]`)
 - **enabled**: Whether tasks are enabled by default
 - **workdir**: Default working directory for tasks
+- **fixType**: Must be one of: `auto`, `helper`, `none`
 
 ### Tasks (`[tasks.*]`)
 - **command**: Required for non-phase tasks
 - **type**: Warning if not one of the common types: `quality`, `correctness`, `security`, `release`
+- **fixType**: Must be one of: `auto`, `helper`, `none`
+- **fixCommand**: Required if fixType is set at task level (except when fixType is `none`)
 - **metricsFormat**: Must be one of: `junit`, `artifact`
 - **metricsPath**: Warning if metricsFormat is set but metricsPath is missing (and vice versa)
 
@@ -94,11 +97,13 @@ mode = "staged_unstaged"
 [task_defaults]
 enabled = true
 workdir = "."
+fixType = "helper"
 
 [tasks.lint]
 name = "Lint"
 type = "quality"
 command = "./hello-world.sh lint"
+fixCommand = "./hello-world.sh lint --fix"
 ```
 
 ### Invalid Configuration Examples
@@ -122,6 +127,22 @@ name = "My Task"
 name = "Test"
 command = "npm test"
 metricsFormat = "invalid"  # ERROR: must be junit or artifact
+```
+
+**Invalid Fix Type:**
+```toml
+[tasks.lint]
+name = "Lint"
+command = "npm run lint"
+fixType = "invalid"  # ERROR: must be auto, helper, or none
+```
+
+**Missing Fix Command:**
+```toml
+[tasks.lint]
+name = "Lint"
+command = "npm run lint"
+fixType = "auto"  # ERROR: fixCommand is required when fixType is set
 ```
 
 ## Implementation
