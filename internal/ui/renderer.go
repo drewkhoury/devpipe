@@ -96,6 +96,14 @@ func (r *Renderer) renderBasicHeader(runID, repoRoot string, gitMode string, cha
 	fmt.Println() // Blank line after header
 }
 
+// truncateTaskID truncates a task ID to maxLen, adding "..." if needed
+func truncateTaskID(id string, maxLen int) string {
+	if len(id) <= maxLen {
+		return id
+	}
+	return id[:maxLen-3] + "..."
+}
+
 // RenderTaskStart renders when a task starts
 func (r *Renderer) RenderTaskStart(id, command string, verbose bool) {
 	// In animated mode, don't print anything yet
@@ -103,10 +111,11 @@ func (r *Renderer) RenderTaskStart(id, command string, verbose bool) {
 		return
 	}
 
+	taskID := truncateTaskID(id, 15)
 	if verbose {
-		fmt.Printf("[%-15s] %s    %s\n", id, r.colors.Blue("RUN"), command)
+		fmt.Printf("[%-15s] %s    %s\n", taskID, r.colors.Blue("RUN"), command)
 	} else {
-		fmt.Printf("[%-15s] %s\n", id, r.colors.Blue("RUN"))
+		fmt.Printf("[%-15s] %s\n", taskID, r.colors.Blue("RUN"))
 	}
 }
 
@@ -117,13 +126,14 @@ func (r *Renderer) RenderTaskComplete(id, status string, exitCode *int, duration
 		return
 	}
 
+	taskID := truncateTaskID(id, 15)
 	symbol := r.colors.StatusSymbol(status)
 	statusText := r.colors.StatusColor(status, status)
 
 	if verbose && exitCode != nil {
-		fmt.Printf("[%-15s] %s %s (exit %d, %dms)\n", id, symbol, statusText, *exitCode, durationMs)
+		fmt.Printf("[%-15s] %s %s (exit %d, %dms)\n", taskID, symbol, statusText, *exitCode, durationMs)
 	} else {
-		fmt.Printf("[%-15s] %s %s (%dms)\n", id, symbol, statusText, durationMs)
+		fmt.Printf("[%-15s] %s %s (%dms)\n", taskID, symbol, statusText, durationMs)
 	}
 	fmt.Println() // Blank line after task
 }
@@ -135,11 +145,12 @@ func (r *Renderer) RenderTaskSkipped(id, reason string, verbose bool) {
 		return
 	}
 
+	taskID := truncateTaskID(id, 15)
 	symbol := r.colors.StatusSymbol("SKIPPED")
 	if verbose {
-		fmt.Printf("[%-15s] %s %s (%s)\n", id, symbol, r.colors.Yellow("SKIPPED"), reason)
+		fmt.Printf("[%-15s] %s %s (%s)\n", taskID, symbol, r.colors.Yellow("SKIPPED"), reason)
 	} else {
-		fmt.Printf("[%-15s] %s %s\n", id, symbol, r.colors.Yellow("SKIPPED"))
+		fmt.Printf("[%-15s] %s %s\n", taskID, symbol, r.colors.Yellow("SKIPPED"))
 	}
 	fmt.Println() // Blank line after skipped task
 }
@@ -149,6 +160,18 @@ func (r *Renderer) RenderSummary(results []TaskSummary, anyFailed bool, totalMs 
 	// Add blank line before summary if animated (animation already on screen)
 	if r.animated {
 		fmt.Println()
+	}
+
+	// Calculate max task ID width (same logic as animated view)
+	maxIDWidth := 12
+	for _, result := range results {
+		taskLen := len(result.ID)
+		if taskLen > 45 {
+			taskLen = 45
+		}
+		if taskLen > maxIDWidth {
+			maxIDWidth = taskLen
+		}
 	}
 
 	fmt.Println(r.colors.Bold("Summary:"))
@@ -164,7 +187,8 @@ func (r *Renderer) RenderSummary(results []TaskSummary, anyFailed bool, totalMs 
 			annotation = " " + r.colors.Gray("[auto-fixed]")
 		}
 
-		fmt.Printf("  %s %-15s %s %s%s\n", symbol, result.ID, statusText, durationText, annotation)
+		taskID := truncateTaskID(result.ID, 45)
+		fmt.Printf("  %s %-*s %s %s%s\n", symbol, maxIDWidth, taskID, statusText, durationText, annotation)
 	}
 
 	// Show total pipeline duration

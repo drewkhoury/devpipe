@@ -69,10 +69,15 @@ func NewAnimatedTaskTracker(renderer *Renderer, tasks []TaskProgress, headerLine
 	}
 
 	// Calculate max task ID width once for consistent alignment
+	// Cap at 45 to prevent very long task names from breaking layout
 	maxIDWidth := 12
 	for _, task := range tasks {
-		if len(task.ID) > maxIDWidth {
-			maxIDWidth = len(task.ID)
+		taskLen := len(task.ID)
+		if taskLen > 45 {
+			taskLen = 45
+		}
+		if taskLen > maxIDWidth {
+			maxIDWidth = taskLen
 		}
 	}
 
@@ -299,18 +304,24 @@ func (a *AnimatedTaskTracker) renderBasicMode() {
 	for _, task := range a.tasks {
 		symbol := a.renderer.colors.StatusSymbol(task.Status)
 
+		// Truncate task ID if needed (max 45 chars)
+		taskID := task.ID
+		if len(taskID) > 45 {
+			taskID = taskID[:42] + "..."
+		}
+
 		switch task.Status {
 		case "PASS", "FAIL", "SKIPPED":
 			statusText := a.renderer.colors.StatusColor(task.Status, task.Status)
-			fmt.Printf("%s %-15s %s\n", symbol, task.ID, statusText)
+			fmt.Printf("%s %-*s %s\n", symbol, a.maxIDWidth, taskID, statusText)
 		case "RUNNING":
 			progress := CalculateTaskProgress(task.ElapsedSeconds, task.EstimatedSeconds)
 			progressText := fmt.Sprintf("%.0f%%", progress)
-			fmt.Printf("%s %-15s %s %s\n", symbol, task.ID,
+			fmt.Printf("%s %-*s %s %s\n", symbol, a.maxIDWidth, taskID,
 				a.renderer.colors.Blue("running..."),
 				a.renderer.colors.Gray(progressText))
 		case "PENDING":
-			fmt.Printf("%s %-15s %s\n", symbol, task.ID, a.renderer.colors.Gray("pending"))
+			fmt.Printf("%s %-*s %s\n", symbol, a.maxIDWidth, taskID, a.renderer.colors.Gray("pending"))
 		}
 	}
 
@@ -380,19 +391,25 @@ func (a *AnimatedTaskTracker) renderFullMode() {
 		for _, task := range taskList {
 			symbol := a.renderer.colors.StatusSymbol(task.Status)
 
+			// Truncate task ID if needed (max 45 chars)
+			taskID := task.ID
+			if len(taskID) > 45 {
+				taskID = taskID[:42] + "..."
+			}
+
 			// Build the content line
 			var content string
 			switch task.Status {
 			case "PASS":
 				duration := FormatDuration(int64(task.ElapsedSeconds * 1000))
-				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, task.ID,
+				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, taskID,
 					a.renderer.colors.Green(duration))
 			case "FAIL":
 				duration := FormatDuration(int64(task.ElapsedSeconds * 1000))
-				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, task.ID,
+				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, taskID,
 					a.renderer.colors.Red(duration))
 			case "SKIPPED":
-				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, task.ID,
+				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, taskID,
 					a.renderer.colors.Yellow("skipped"))
 			case "RUNNING":
 				progress := CalculateTaskProgress(task.ElapsedSeconds, task.EstimatedSeconds)
@@ -406,10 +423,10 @@ func (a *AnimatedTaskTracker) renderFullMode() {
 				miniBarWidth := 12
 				miniBar := a.renderer.colors.ProgressBar(int(progress), 100, miniBarWidth)
 
-				content = fmt.Sprintf("%s %-*s %s / %s   %s", symbol, a.maxIDWidth, task.ID,
+				content = fmt.Sprintf("%s %-*s %s / %s   %s", symbol, a.maxIDWidth, taskID,
 					elapsed, estimated, miniBar)
 			case "PENDING":
-				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, task.ID,
+				content = fmt.Sprintf("%s %-*s %s", symbol, a.maxIDWidth, taskID,
 					a.renderer.colors.Gray("pending"))
 			}
 
