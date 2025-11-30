@@ -10,6 +10,9 @@ artifacts/
 # Test config file (anywhere in repo)
 **/config.tmp.toml
 
+# ideas
+ideas.md
+
 # Go build artifacts
 *.exe
 *.exe~

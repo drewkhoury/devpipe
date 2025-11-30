@@ -15,6 +15,8 @@ const (
 type TaskDefinition struct {
 	ID               string
 	Name             string
+	Desc             string
+	Phase            string
 	Type             string
 	Command          string
 	Workdir          string
@@ -31,6 +33,8 @@ type TaskDefinition struct {
 type TaskResult struct {
 	ID                string       `json:"id"`
 	Name              string       `json:"name"`
+	Desc              string       `json:"desc,omitempty"`
+	Phase             string       `json:"phase,omitempty"`
 	Type              string       `json:"type"`
 	Status            TaskStatus   `json:"status"`
 	ExitCode          *int         `json:"exitCode,omitempty"`

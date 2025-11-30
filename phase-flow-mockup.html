@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase Flow Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .phase-flow-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+            position: relative;
+        }
+
+        .phase-flow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .phase-flow-header h2 {
+            font-size: 24px;
+            color: #2c3e50;
+        }
+
+        .fullscreen-btn {
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .fullscreen-btn:hover {
+            background: #2980b9;
+        }
+
+        .phase-flow-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 10px;
+        }
+
+        .phase-flow {
+            display: flex;
+            gap: 40px;
+            min-width: min-content;
+        }
+
+        .phase-container {
+            flex-shrink: 0;
+            width: 320px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .phase-header {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            padding: 16px;
+        }
+
+        .phase-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .phase-header h3 {
+            font-size: 18px;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .phase-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .phase-status-icon {
+            font-size: 20px;
+        }
+
+        .phase-status-icon.success { color: #27ae60; }
+        .phase-status-icon.fail { color: #e74c3c; }
+
+        .phase-meta {
+            font-size: 13px;
+            color: #7f8c8d;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .phase-tasks {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .task-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: #3498db;
+        }
+
+        .task-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .task-icon {
+            font-size: 18px;
+        }
+
+        .task-icon.success { color: #27ae60; }
+        .task-icon.fail { color: #e74c3c; }
+        .task-icon.skip { color: #f39c12; }
+
+        .task-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #2c3e50;
+            flex: 1;
+        }
+
+        .task-duration {
+            font-size: 12px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .task-id {
+            font-size: 11px;
+            color: #95a5a6;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        .task-desc {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .task-type {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            background: #ecf0f1;
+            color: #7f8c8d;
+            border-radius: 3px;
+            margin-top: 4px;
+        }
+
+        .phase-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #95a5a6;
+            flex-shrink: 0;
+        }
+
+        /* Fullscreen mode */
+        .fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+            background: white;
+            padding: 20px;
+        }
+
+        .fullscreen .phase-flow-scroll {
+            height: calc(100vh - 100px);
+        }
+    </style>
+</head>
+<body>
+    <div class="phase-flow-container" id="phaseFlow">
+        <div class="phase-flow-header">
+            <h2>🔄 Pipeline Flow</h2>
+            <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+        </div>
+
+        <div class="phase-flow-scroll">
+            <div class="phase-flow">
+                <!-- Phase 1: Validation -->
+                <div class="phase-container">
+                    <div class="phase-header">
+                        <div class="phase-header-top">
+                            <h3>📦 Phase 1: Validation</h3>
+                            <div class="phase-status">
+                                <span class="phase-status-icon fail">✗</span>
+                            </div>
+                        </div>
+                        <div class="phase-meta">
+                            <span>6 tasks in parallel</span>
+                            <span><strong>1.1s</strong></span>
+                        </div>
+                    </div>
+                    <div class="phase-tasks">
+                        <div class="task-card" data-task-id="go-fmt">
+                            <div class="task-card-header">
+                                <span class="task-icon success">✓</span>
+                                <span class="task-name">Go Format</span>
+                                <span class="task-duration">63ms</span>
+                            </div>
+                            <div class="task-desc">go-fmt - Verifies that Go code is properly formatted according to gofmt standards...</div>
+                            <span class="task-type">check-format</span>
+                        </div>
+
+                        <div class="task-card" data-task-id="go-vet">
+                            <div class="task-card-header">
+                                <span class="task-icon success">✓</span>
+                                <span class="task-name">Go Vet</span>
+                                <span class="task-duration">241ms</span>
+                            </div>
+                            <div class="task-desc">go-vet - Examines Go code for suspicious constructs and common programming errors...</div>
+                            <span class="task-type">check-static</span>
+                        </div>
+
+                        <div class="task-card" data-task-id="golangci-lint">
+                            <div class="task-card-header">
+                                <span class="task-icon fail">✗</span>
+                                <span class="task-name">Golang CI Lint</span>
+                                <span class="task-duration">746ms</span>
+                            </div>
+                            <div class="task-desc">golangci-lint - Runs errcheck, govet, ineffassign, staticcheck, unused, misspell...</div>
+                            <span class="task-type">check-lint</span>
+                        </div>
+
+                        <div class="task-card" data-task-id="gosec">
+                            <div class="task-card-header">
+                                <span class="task-icon fail">✗</span>
+                                <span class="task-name">Security Scan</span>
+                                <span class="task-duration">2.0s</span>
+                            </div>
+                            <div class="task-desc">gosec - Scans Go code for security vulnerabilities: SQL injection, hardcoded credentials...</div>
+                            <span class="task-type">check-security</span>
+                        </div>
+
+                        <div class="task-card" data-task-id="go-mod-tidy">
+                            <div class="task-card-header">
+                                <span class="task-icon fail">✗</span>
+                                <span class="task-name">Go Mod Tidy Check</span>
+                                <span class="task-duration">47ms</span>
+                            </div>
+                            <div class="task-desc">go-mod-tidy - Verifies go.mod and go.sum are tidy and up-to-date with no missing...</div>
+                            <span class="task-type">check-static</span>
+                        </div>
+
+                        <div class="task-card" data-task-id="validate-configs">
+                            <div class="task-card-header">
+                                <span class="task-icon success">✓</span>
+                                <span class="task-name">Validate Configs</span>
+                                <span class="task-duration">16ms</span>
+                            </div>
+                            <div class="task-desc">validate-configs - Validates all example TOML config files for correct syntax...</div>
+                            <span class="task-type">check-static</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="phase-arrow">→</div>
+
+                <!-- Phase 2: Build -->
+                <div class="phase-container">
+                    <div class="phase-header">
+                        <div class="phase-header-top">
+                            <h3>🔨 Phase 2: Build</h3>
+                            <div class="phase-status">
+                                <span class="phase-status-icon success">✓</span>
+                            </div>
+                        </div>
+                        <div class="phase-meta">
+                            <span>2 tasks in parallel</span>
+                            <span><strong>5ms</strong></span>
+                        </div>
+                    </div>
+                    <div class="phase-tasks">
+                        <div class="task-card" data-task-id="build">
+                            <div class="task-card-header">
+                                <span class="task-icon success">✓</span>
+                                <span class="task-name">Build</span>
+                                <span class="task-duration">3ms</span>
+                            </div>
+                            <div class="task-id">build</div>
+                            <span class="task-type">build</span>
+                        </div>
+
+                        <div class="task-card" data-task-id="goreleaser-check">
+                            <div class="task-card-header">
+                                <span class="task-icon success">✓</span>
+                                <span class="task-name">Goreleaser Check</span>
+                                <span class="task-duration">2ms</span>
+                            </div>
+                            <div class="task-id">goreleaser-check</div>
+                            <span class="task-type">check</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="phase-arrow">→</div>
+
+                <!-- Phase 3: End-To-End -->
+                <div class="phase-container">
+                    <div class="phase-header">
+                        <div class="phase-header-top">
+                            <h3>🧪 Phase 3: End-To-End</h3>
+                            <div class="phase-status">
+                                <span class="phase-status-icon success">✓</span>
+                            </div>
+                        </div>
+                        <div class="phase-meta">
+                            <span>4 tasks in parallel</span>
+                            <span><strong>11ms</strong></span>
+                        </div>
+                    </div>
+                    <div class="phase-tasks">
+                        <div class="task-card" data-task-id="e2e-fresh-install">
+                            <div class="task-card-header">
+                                <span class="task-icon success">✓</span>
+                                <span class="task-name">E2E Fresh Install</span>
+                                <span class="task-duration">2ms</span>
+                            </div>
+                            <div class="task-id">e2e-fresh-install</div>
+                            <span class="task-type">test-e2e</span>
+                        </div>
+
+                        <div class="task-card" data-task-id="e2e-ci-pipeline">
+                            <div class="task-card-header">
+                                <span class="task-icon success">✓</span>
+                                <span class="task-name">E2E CI Pipeline</span>
+                                <span class="task-duration">3ms</span>
+                            </div>
+                            <div class="task-id">e2e-ci-pipeline</div>
+                            <span class="task-type">test-e2e</span>
+                        </div>
+
+                        <div class="task-card" data-task-id="e2e-pre-commit">
+                            <div class="task-card-header">
+                                <span class="task-icon success">✓</span>
+                                <span class="task-name">E2E Pre Commit</span>
+                                <span class="task-duration">4ms</span>
+                            </div>
+                            <div class="task-id">e2e-pre-commit</div>
+                            <span class="task-type">test-e2e</span>
+                        </div>
+
+                        <div class="task-card" data-task-id="e2e-failure-scenarios">
+                            <div class="task-card-header">
+                                <span class="task-icon success">✓</span>
+                                <span class="task-name">E2E Failure Scenarios</span>
+                                <span class="task-duration">3ms</span>
+                            </div>
+                            <div class="task-id">e2e-failure-scenarios</div>
+                            <span class="task-type">test-e2e</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleFullscreen() {
+            const container = document.getElementById('phaseFlow');
+            container.classList.toggle('fullscreen');
+            
+            const btn = container.querySelector('.fullscreen-btn');
+            if (container.classList.contains('fullscreen')) {
+                btn.textContent = '✕ Exit Fullscreen';
+            } else {
+                btn.textContent = '⛶ Fullscreen';
+            }
+        }
+
+        // Click handler for task cards
+        document.querySelectorAll('.task-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const taskId = this.getAttribute('data-task-id');
+                
+                // Exit fullscreen if active
+                const container = document.getElementById('phaseFlow');
+                if (container.classList.contains('fullscreen')) {
+                    container.classList.remove('fullscreen');
+                    const btn = container.querySelector('.fullscreen-btn');
+                    btn.textContent = '⛶ Fullscreen';
+                }
+                
+                // Scroll to task section on the page (simulated with alert for mockup)
+                alert('Exiting fullscreen and scrolling to task: ' + taskId + '\n\nIn real implementation, will scroll to #task-' + taskId);
+                
+                // In real implementation:
+                // const taskElement = document.getElementById('task-' + taskId);
+                // if (taskElement) {
+                //     taskElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // }
+            });
+        });
+    </script>
+</body>
+</html>

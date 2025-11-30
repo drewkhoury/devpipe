@@ -94,7 +94,7 @@ func main() {
 	flag.Parse()
 
 	// Load configuration first to get UI mode
-	cfg, configTaskOrder, phaseNames, err := config.LoadConfig(flagConfig)
+	cfg, configTaskOrder, phaseNames, taskToPhase, err := config.LoadConfig(flagConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		os.Exit(1)
@@ -150,7 +150,7 @@ func main() {
 			fmt.Printf("  Full reference: https://github.com/drewkhoury/devpipe/blob/main/config.example.toml\n\n")
 
 			// Reload config after generating
-			cfg, configTaskOrder, phaseNames, _ = config.LoadConfig(defaultConfigPath)
+			cfg, configTaskOrder, phaseNames, taskToPhase, _ = config.LoadConfig(defaultConfigPath)
 			mergedCfg = config.MergeWithDefaults(cfg)
 		} else {
 			fmt.Fprintf(os.Stderr, "ERROR: No config.toml found. Create one or specify with --config flag\n")
@@ -234,7 +234,7 @@ func main() {
 	// Load historical averages
 	historicalAvg := loadHistoricalAverages(outputRoot)
 
-	// Build task definitions
+	// Build task list
 	var taskDefs []model.TaskDefinition
 	for _, id := range taskOrder {
 		// Check if this is a "wait" or "wait-*" marker
@@ -270,9 +270,23 @@ func main() {
 			isGuess = false // Historical data, not a guess
 		}
 
+		// Get phase name from taskToPhase mapping
+		phaseName := ""
+		if phaseID, ok := taskToPhase[id]; ok {
+			// Look up the phase name using the phase ID
+			for _, phaseInfo := range phaseNames {
+				if phaseInfo.ID == phaseID {
+					phaseName = phaseInfo.Name
+					break
+				}
+			}
+		}
+
 		taskDef := model.TaskDefinition{
 			ID:               id,
 			Name:             resolved.Name,
+			Desc:             resolved.Desc,
+			Phase:            phaseName,
 			Type:             resolved.Type,
 			Command:          resolved.Command,
 			Workdir:          resolved.Workdir,
@@ -426,6 +440,8 @@ func main() {
 				results = append(results, model.TaskResult{
 					ID:               st.ID,
 					Name:             st.Name,
+					Desc:             st.Desc,
+					Phase:            st.Phase,
 					Type:             st.Type,
 					Status:           model.StatusSkipped,
 					Skipped:          true,
@@ -807,16 +823,6 @@ func loadHistoricalAverages(outputRoot string) map[string]int {
 }
 
 func buildCommandString() string {
-	// Get username and hostname
-	username := os.Getenv("USER")
-	if username == "" {
-		username = os.Getenv("USERNAME") // Windows fallback
-	}
-	hostname, _ := os.Hostname()
-
-	// Get current working directory
-	cwd, _ := os.Getwd()
-
 	// Build command line from os.Args
 	cmdLine := ""
 	for i, arg := range os.Args {
@@ -831,8 +837,7 @@ func buildCommandString() string {
 		}
 	}
 
-	// Format like: drew@drews-MBP devpipe % ./devpipe --config ...
-	return fmt.Sprintf("%s@%s %s %% %s", username, hostname, filepath.Base(cwd), cmdLine)
+	return cmdLine
 }
 
 func containsSpace(s string) bool {
@@ -1038,6 +1043,8 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 	res := model.TaskResult{
 		ID:               st.ID,
 		Name:             st.Name,
+		Desc:             st.Desc,
+		Phase:            st.Phase,
 		Type:             st.Type,
 		Status:           model.StatusPending,
 		Command:          st.Command,

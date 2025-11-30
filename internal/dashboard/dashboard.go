@@ -13,10 +13,12 @@ import (
 
 // Summary holds aggregated data across all runs
 type Summary struct {
-	TotalRuns     int                  `json:"totalRuns"`
-	RecentRuns    []RunSummary         `json:"recentRuns"`
-	TaskStats     map[string]TaskStats `json:"taskStats"`
-	LastGenerated string               `json:"lastGenerated"`
+	TotalRuns       int                  `json:"totalRuns"`
+	RecentRuns      []RunSummary         `json:"recentRuns"`
+	TaskStats       map[string]TaskStats `json:"taskStats"`       // All runs
+	TaskStatsRecent map[string]TaskStats `json:"taskStatsRecent"` // Most recent run only
+	TaskStatsLast25 map[string]TaskStats `json:"taskStatsLast25"` // Last 25 runs
+	LastGenerated   string               `json:"lastGenerated"`
 }
 
 // RunSummary is a condensed view of a single run
@@ -29,6 +31,7 @@ type RunSummary struct {
 	FailCount  int    `json:"failCount"`
 	SkipCount  int    `json:"skipCount"`
 	TotalTasks int    `json:"totalTasks"`
+	Command    string `json:"command"` // Full command line that was executed
 }
 
 // TaskStats holds statistics for a specific task across runs
@@ -122,26 +125,41 @@ func loadAllRuns(runsDir string) ([]model.RunRecord, error) {
 // aggregateRuns creates a summary from all runs
 func aggregateRuns(runs []model.RunRecord) Summary {
 	summary := Summary{
-		TotalRuns:     len(runs),
-		RecentRuns:    []RunSummary{},
-		TaskStats:     make(map[string]TaskStats),
-		LastGenerated: time.Now().UTC().Format(time.RFC3339),
+		TotalRuns:       len(runs),
+		RecentRuns:      []RunSummary{},
+		TaskStats:       make(map[string]TaskStats),
+		TaskStatsRecent: make(map[string]TaskStats),
+		TaskStatsLast25: make(map[string]TaskStats),
+		LastGenerated:   time.Now().UTC().Format(time.RFC3339),
 	}
 
-	// Track task statistics
-	taskDurations := make(map[string][]int64)
-
-	// Process each run
+	// Add recent runs (limit to 100 for pagination)
 	for i, run := range runs {
-		// Add to recent runs (limit to 20)
-		if i < 20 {
+		if i < 100 {
 			runSummary := summarizeRun(run)
 			summary.RecentRuns = append(summary.RecentRuns, runSummary)
 		}
+	}
 
-		// Aggregate task stats
+	// Calculate task stats for different ranges
+	summary.TaskStats = calculateTaskStats(runs, len(runs))                // All runs
+	summary.TaskStatsRecent = calculateTaskStats(runs, 1)                  // Most recent run
+	summary.TaskStatsLast25 = calculateTaskStats(runs, min(25, len(runs))) // Last 25 runs
+
+	return summary
+}
+
+// calculateTaskStats aggregates task statistics for a given number of recent runs
+func calculateTaskStats(runs []model.RunRecord, numRuns int) map[string]TaskStats {
+	taskStats := make(map[string]TaskStats)
+	taskDurations := make(map[string][]int64)
+
+	// Process only the specified number of runs
+	for i := 0; i < numRuns && i < len(runs); i++ {
+		run := runs[i]
+
 		for _, task := range run.Tasks {
-			stats, exists := summary.TaskStats[task.ID]
+			stats, exists := taskStats[task.ID]
 			if !exists {
 				stats = TaskStats{
 					ID:   task.ID,
@@ -164,12 +182,12 @@ func aggregateRuns(runs []model.RunRecord) Summary {
 				taskDurations[task.ID] = append(taskDurations[task.ID], task.DurationMs)
 			}
 
-			// Update last status (from most recent run)
+			// Update last status (from most recent run in this range)
 			if i == 0 {
 				stats.LastStatus = string(task.Status)
 			}
 
-			summary.TaskStats[task.ID] = stats
+			taskStats[task.ID] = stats
 		}
 	}
 
@@ -180,13 +198,21 @@ func aggregateRuns(runs []model.RunRecord) Summary {
 			for _, d := range durations {
 				sum += d
 			}
-			stats := summary.TaskStats[id]
+			stats := taskStats[id]
 			stats.AvgDuration = float64(sum) / float64(len(durations))
-			summary.TaskStats[id] = stats
+			taskStats[id] = stats
 		}
 	}
 
-	return summary
+	return taskStats
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // summarizeRun creates a RunSummary from a RunRecord
@@ -195,6 +221,7 @@ func summarizeRun(run model.RunRecord) RunSummary {
 		RunID:      run.RunID,
 		Timestamp:  run.Timestamp,
 		TotalTasks: len(run.Tasks),
+		Command:    cleanCommand(run.Command),
 	}
 
 	anyFailed := false
@@ -234,4 +261,20 @@ func writeSummaryJSON(path string, summary Summary) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0644)
+}
+
+// cleanCommand removes shell prompt cruft from old command strings
+// Old format: "drew@drews-MBP.attlocal.net devpipe % ./devpipe --config ..."
+// New format: "./devpipe --config ..."
+func cleanCommand(cmd string) string {
+	// Look for the pattern: username@hostname directory % command
+	// We want to extract just the command part after the %
+	for i := 0; i < len(cmd); i++ {
+		if cmd[i] == '%' && i+1 < len(cmd) && cmd[i+1] == ' ' {
+			// Found "% ", return everything after it
+			return cmd[i+2:]
+		}
+	}
+	// No cruft found, return as-is
+	return cmd
 }

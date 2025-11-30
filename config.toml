@@ -24,6 +24,12 @@ fixType = "helper"
 name = "Validation"
 desc = "Static analysis, linting, security scans, and all tests"
 
+
+[tasks.echoooooooooooo_oooooooooooooo_after30____x_weeeeeeeeee_foo_bar_baz]
+name = "ECHO oooooooooo oooooooooooooo after30____x"
+desc = "Echoes a message"
+command = "echo '→ hello world'"
+
 # Static checks (no execution)
 [tasks.go-fmt]
 name = "Go Format"
@@ -53,12 +59,14 @@ type = "check-security"
 
 [tasks.go-mod-tidy]
 name = "Go Mod Tidy Check"
-command = "echo '→ go mod tidy -diff'"
+desc = "Verifies go.mod and go.sum are tidy and up-to-date with no missing or unused dependencies"
+command = "go mod tidy -diff"
 type = "check-static"
 
 [tasks.validate-configs]
 name = "Validate Example Configs"
-command = "echo '→ ./devpipe validate config/*.toml'"
+desc = "Validates all example TOML config files for correct syntax and valid configuration options"
+command = "./devpipe validate config.toml config/*.toml"
 type = "check-static"
 
 # Tests (all can run in parallel with checks)

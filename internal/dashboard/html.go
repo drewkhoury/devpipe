@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/drew/devpipe/internal/model"
@@ -27,6 +28,9 @@ func writeHTMLDashboard(path string, summary Summary) error {
 		"formatTime":     formatTime,
 		"statusClass":    statusClass,
 		"statusSymbol":   statusSymbol,
+		"shortRunID":     shortRunID,
+		"truncate":       truncateString,
+		"phaseEmoji":     phaseEmoji,
 		"float64":        func(i int) float64 { return float64(i) },
 		"mul":            func(a, b float64) float64 { return a * b },
 		"div":            func(a, b float64) float64 { return a / b },
@@ -101,6 +105,69 @@ func statusSymbol(status string) string {
 	}
 }
 
+// shortRunID extracts the short ID from a full run ID
+// Example: "2025-11-30T08-15-34Z_003617" -> "003617"
+func shortRunID(fullID string) string {
+	// Find the last underscore and return everything after it
+	for i := len(fullID) - 1; i >= 0; i-- {
+		if fullID[i] == '_' {
+			return fullID[i+1:]
+		}
+	}
+	// If no underscore found, return the full ID
+	return fullID
+}
+
+// truncateString truncates a string to maxLen characters and adds "..." if truncated
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
+// phaseEmoji returns an emoji for a phase based on its name or ID
+func phaseEmoji(phaseName string) string {
+	// Normalize to lowercase for matching
+	name := strings.ToLower(phaseName)
+	
+	// Map phase names/keywords to emojis
+	emojiMap := map[string]string{
+		"validation": "🧪",  // Test tube for validation/testing
+		"test":       "🧪",  // Test tube
+		"testing":    "🧪",  // Test tube
+		"build":      "📦",  // Package for build
+		"package":    "📦",  // Package
+		"compile":    "🔨",  // Hammer for compilation
+		"deploy":     "🚀",  // Rocket for deployment
+		"release":    "🚀",  // Rocket for release
+		"lint":       "🔍",  // Magnifying glass for linting
+		"security":   "🔒",  // Lock for security
+		"e2e":        "🎯",  // Target for end-to-end tests
+		"end-to-end": "🎯",  // Target
+		"integration":"🔗",  // Link for integration
+		"setup":      "⚙️",   // Gear for setup
+		"cleanup":    "🧹",  // Broom for cleanup
+		"docs":       "📚",  // Books for documentation
+		"publish":    "📤",  // Outbox for publishing
+	}
+	
+	// Check for exact match first
+	if emoji, ok := emojiMap[name]; ok {
+		return emoji
+	}
+	
+	// Check if any keyword is contained in the phase name
+	for keyword, emoji := range emojiMap {
+		if strings.Contains(name, keyword) {
+			return emoji
+		}
+	}
+	
+	// Default emoji
+	return "📋"  // Clipboard as default
+}
+
 // writeRunDetailHTML generates a detail page for a single run
 func writeRunDetailHTML(path string, run model.RunRecord) error {
 	// Prepare data with log previews
@@ -116,6 +183,7 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 		TasksWithLogs    []TaskWithLog
 		Timezone         string
 		RawConfigContent string
+		Phases           []PhaseGroup
 	}
 
 	data := DetailData{
@@ -125,12 +193,16 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 	}
 
 	// Load raw config file if it exists
+	configPath := filepath.Join(filepath.Dir(path), "config.toml")
 	if run.ConfigPath != "" {
-		// The config.toml should be in the same directory as the report
-		configPath := filepath.Join(filepath.Dir(path), "config.toml")
 		if configData, err := os.ReadFile(configPath); err == nil {
 			data.RawConfigContent = string(configData)
 		}
+	}
+
+	// Parse phases from config
+	if phases, err := ParsePhasesFromConfig(configPath, run.Tasks); err == nil {
+		data.Phases = phases
 	}
 
 	// Load log previews and artifact info for each task
@@ -155,6 +227,7 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 		"formatTime":     formatTime,
 		"statusClass":    statusClass,
 		"statusSymbol":   statusSymbol,
+		"phaseEmoji":     phaseEmoji,
 		"string":         func(s model.TaskStatus) string { return string(s) },
 		"deref": func(i *int) int {
 			if i != nil {
@@ -172,6 +245,12 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 		"slice": func() []model.ConfigValue { return []model.ConfigValue{} },
 		"append": func(slice []model.ConfigValue, item model.ConfigValue) []model.ConfigValue {
 			return append(slice, item)
+		},
+		"truncate": func(s string, maxLen int) string {
+			if len(s) <= maxLen {
+				return s
+			}
+			return s[:maxLen-3] + "..."
 		},
 	}).Parse(runDetailTemplate)
 
@@ -312,6 +391,7 @@ const dashboardTemplate = `<!DOCTYPE html>
         table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
         }
         
         th {
@@ -327,6 +407,20 @@ const dashboardTemplate = `<!DOCTYPE html>
             padding: 12px;
             border-bottom: 1px solid #dee2e6;
         }
+        
+        /* Fixed column widths for Recent Runs table */
+        #runsTable th:nth-child(1),
+        #runsTable td:nth-child(1) { width: 90px; white-space: nowrap; } /* Run ID (short) */
+        #runsTable th:nth-child(2),
+        #runsTable td:nth-child(2) { width: 170px; white-space: nowrap; } /* Timestamp */
+        #runsTable th:nth-child(3),
+        #runsTable td:nth-child(3) { width: 90px; } /* Status */
+        #runsTable th:nth-child(4),
+        #runsTable td:nth-child(4) { width: 80px; white-space: nowrap; } /* Duration */
+        #runsTable th:nth-child(5),
+        #runsTable td:nth-child(5) { width: 60px; text-align: center; } /* Tasks */
+        #runsTable th:nth-child(6),
+        #runsTable td:nth-child(6) { width: auto; min-width: 300px; } /* Command - takes remaining space */
         
         tr:hover {
             background: #f8f9fa;
@@ -385,6 +479,27 @@ const dashboardTemplate = `<!DOCTYPE html>
             font-size: 48px;
             margin-bottom: 20px;
         }
+        
+        .load-more-btn {
+            padding: 12px 24px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .load-more-btn:hover {
+            background: #2980b9;
+        }
+        
+        .load-more-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -408,19 +523,21 @@ const dashboardTemplate = `<!DOCTYPE html>
         <div class="section">
             <h2>Recent Runs</h2>
             {{if .RecentRuns}}
-            <table>
+            <table id="runsTable">
                 <thead>
                     <tr>
                         <th>Run ID</th>
                         <th>Timestamp ({{.Timezone}})</th>
                         <th>Status</th>
                         <th>Duration</th>
+                        <th>Tasks</th>
+                        <th>Command</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="runsTableBody">
                     {{range .RecentRuns}}
-                    <tr>
-                        <td class="mono"><a href="runs/{{.RunID}}/report.html">{{.RunID}}</a></td>
+                    <tr class="run-row" data-index="{{$.RecentRuns | len}}">
+                        <td class="mono"><a href="runs/{{.RunID}}/report.html" title="{{.RunID}}">{{shortRunID .RunID}}</a></td>
                         <td>{{formatTime .Timestamp}}</td>
                         <td>
                             <span class="badge badge-{{.Status | statusClass}}">
@@ -428,10 +545,17 @@ const dashboardTemplate = `<!DOCTYPE html>
                             </span>
                         </td>
                         <td>{{formatDuration .Duration}}</td>
+                        <td>{{.TotalTasks}}</td>
+                        <td class="mono" style="font-size: 11px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{.Command}}">{{.Command}}</td>
                     </tr>
                     {{end}}
                 </tbody>
             </table>
+            <div id="loadMoreContainer" style="text-align: center; margin-top: 20px;">
+                <button id="loadMoreBtn" class="load-more-btn" onclick="loadMoreRuns()" style="display: none;">
+                    Load More (25)
+                </button>
+            </div>
             {{else}}
             <div class="empty-state">
                 <div class="empty-state-icon">📭</div>
@@ -441,9 +565,21 @@ const dashboardTemplate = `<!DOCTYPE html>
         </div>
         
         <div class="section">
-            <h2>Task Statistics</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Task Statistics</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="statsFilter" style="font-size: 14px; color: #7f8c8d;">Show stats for:</label>
+                    <select id="statsFilter" onchange="filterTaskStats()" style="padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; background: white; cursor: pointer;">
+                        <option value="recent">Most Recent Run</option>
+                        <option value="last25" selected>Last 25 Runs</option>
+                        <option value="all">All Runs</option>
+                    </select>
+                </div>
+            </div>
             {{if .TaskStats}}
-            <table>
+            
+            <!-- All Runs Stats -->
+            <table class="task-stats-table" data-filter="all" style="display: none;">
                 <thead>
                     <tr>
                         <th>Task</th>
@@ -470,6 +606,65 @@ const dashboardTemplate = `<!DOCTYPE html>
                     {{end}}
                 </tbody>
             </table>
+            
+            <!-- Last 25 Runs Stats -->
+            <table class="task-stats-table" data-filter="last25" style="display: table;">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Total Runs</th>
+                        <th>Pass Rate</th>
+                        <th>Avg Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .TaskStatsLast25}}
+                    <tr>
+                        <td><strong>{{.Name}}</strong> <span class="mono" style="color: #7f8c8d;">({{.ID}})</span></td>
+                        <td>{{.TotalRuns}}</td>
+                        <td>
+                            {{if gt .TotalRuns 0}}
+                            {{printf "%.0f%%" (div (mul (float64 .PassCount) 100.0) (float64 .TotalRuns))}}
+                            ({{.PassCount}}/{{.TotalRuns}})
+                            {{else}}
+                            N/A
+                            {{end}}
+                        </td>
+                        <td>{{formatDuration (int64 .AvgDuration)}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            
+            <!-- Most Recent Run Stats -->
+            <table class="task-stats-table" data-filter="recent" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Total Runs</th>
+                        <th>Pass Rate</th>
+                        <th>Avg Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .TaskStatsRecent}}
+                    <tr>
+                        <td><strong>{{.Name}}</strong> <span class="mono" style="color: #7f8c8d;">({{.ID}})</span></td>
+                        <td>{{.TotalRuns}}</td>
+                        <td>
+                            {{if gt .TotalRuns 0}}
+                            {{printf "%.0f%%" (div (mul (float64 .PassCount) 100.0) (float64 .TotalRuns))}}
+                            ({{.PassCount}}/{{.TotalRuns}})
+                            {{else}}
+                            N/A
+                            {{end}}
+                        </td>
+                        <td>{{formatDuration (int64 .AvgDuration)}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            
             {{else}}
             <div class="empty-state">
                 <div class="empty-state-icon">📊</div>
@@ -478,6 +673,81 @@ const dashboardTemplate = `<!DOCTYPE html>
             {{end}}
         </div>
     </div>
+    
+    <script>
+        // Pagination for Recent Runs
+        let visibleRunCount = 25;
+        const runsPerLoad = 25;
+        const maxRuns = 100;
+        
+        function initializePagination() {
+            const allRows = document.querySelectorAll('.run-row');
+            const totalRuns = allRows.length;
+            
+            // Hide rows beyond the initial count
+            allRows.forEach((row, index) => {
+                if (index >= visibleRunCount) {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Show "Load More" button if there are more runs to display
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (totalRuns > visibleRunCount) {
+                loadMoreBtn.style.display = 'inline-block';
+                updateLoadMoreButton(totalRuns);
+            }
+        }
+        
+        function loadMoreRuns() {
+            const allRows = document.querySelectorAll('.run-row');
+            const totalRuns = allRows.length;
+            
+            // Show next batch of runs
+            const newVisibleCount = Math.min(visibleRunCount + runsPerLoad, totalRuns);
+            
+            for (let i = visibleRunCount; i < newVisibleCount; i++) {
+                allRows[i].style.display = '';
+            }
+            
+            visibleRunCount = newVisibleCount;
+            
+            // Update or hide the button
+            if (visibleRunCount >= totalRuns) {
+                document.getElementById('loadMoreBtn').style.display = 'none';
+            } else {
+                updateLoadMoreButton(totalRuns);
+            }
+        }
+        
+        function updateLoadMoreButton(totalRuns) {
+            const remaining = totalRuns - visibleRunCount;
+            const nextBatch = Math.min(runsPerLoad, remaining);
+            document.getElementById('loadMoreBtn').textContent = 'Load More (' + nextBatch + ')';
+        }
+        
+        // Task Statistics Filtering - Simple table toggling
+        function filterTaskStats() {
+            const filter = document.getElementById('statsFilter').value;
+            const tables = document.querySelectorAll('.task-stats-table');
+            
+            // Hide all tables
+            tables.forEach(table => {
+                table.style.display = 'none';
+            });
+            
+            // Show the selected table
+            const selectedTable = document.querySelector('.task-stats-table[data-filter="' + filter + '"]');
+            if (selectedTable) {
+                selectedTable.style.display = 'table';
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePagination();
+        });
+    </script>
 </body>
 </html>
 `
@@ -684,6 +954,266 @@ const runDetailTemplate = `<!DOCTYPE html>
             padding: 15px;
             margin-top: 15px;
             border-radius: 4px;
+        }
+        
+        /* Phase Flow Styles */
+        .phase-flow-container {
+            position: relative;
+        }
+        
+        .phase-flow-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+            background: white;
+            padding: 20px;
+            overflow-y: auto;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .phase-flow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+        
+        .fullscreen-btn {
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .fullscreen-btn:hover {
+            background: #2980b9;
+        }
+        
+        .fullscreen-btn.active {
+            background: #27ae60;
+        }
+        
+        .fullscreen-btn.active:hover {
+            background: #229954;
+        }
+        
+        /* Column slider styles */
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .slider-label {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .column-slider {
+            width: 120px;
+            height: 6px;
+            border-radius: 3px;
+            background: #dee2e6;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .column-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+        }
+        
+        .column-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .phase-flow-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 10px;
+        }
+        
+        .phase-flow-container.fullscreen .phase-flow-scroll {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        .phase-flow {
+            display: flex;
+            gap: 40px;
+            min-width: min-content;
+        }
+        
+        .phase-container {
+            flex-shrink: 0;
+            width: fit-content;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            overflow: visible;
+        }
+        
+        .phase-header {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            padding: 12px;
+        }
+        
+        .phase-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .phase-header h3 {
+            font-size: 18px;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .phase-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .phase-status-icon {
+            font-size: 20px;
+        }
+        
+        .phase-status-icon.success { color: #27ae60; }
+        .phase-status-icon.fail { color: #e74c3c; }
+        
+        .phase-desc {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 6px;
+            margin-bottom: 4px;
+            line-height: 1.5;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        .phase-meta {
+            font-size: 13px;
+            color: #7f8c8d;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .phase-tasks {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .phase-tasks.compact {
+            display: grid;
+            grid-auto-flow: column;
+        }
+        
+        .phase-task-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+        
+        .phase-task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: #3498db;
+        }
+        
+        .phase-task-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        
+        .phase-task-icon {
+            font-size: 18px;
+        }
+        
+        .phase-task-icon.success { color: #27ae60; }
+        .phase-task-icon.fail { color: #e74c3c; }
+        .phase-task-icon.skip { color: #f39c12; }
+        
+        .phase-task-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #2c3e50;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        
+        .phase-task-duration {
+            font-size: 12px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+        
+        .phase-task-desc {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .phase-task-type {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            background: #ecf0f1;
+            color: #7f8c8d;
+            border-radius: 3px;
+            margin-top: 4px;
+        }
+        
+        .phase-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #95a5a6;
+            flex-shrink: 0;
         }
         
         .metrics-title {
@@ -964,6 +1494,76 @@ const runDetailTemplate = `<!DOCTYPE html>
         </div>
         {{end}}
         
+        {{if .Phases}}
+        <div class="section phase-flow-container" id="phaseFlow">
+            <div class="phase-flow-header">
+                <h2>🔄 Pipeline Flow</h2>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div class="slider-container">
+                        <span class="slider-label">Density:</span>
+                        <input type="range" min="1" max="4" value="4" class="column-slider" id="columnSlider" oninput="updateColumns()">
+                    </div>
+                    <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+                </div>
+            </div>
+            
+            <div class="phase-flow-scroll">
+                <div class="phase-flow">
+                    {{range $phaseIndex, $phase := .Phases}}
+                    {{if $phaseIndex}}<div class="phase-arrow">→</div>{{end}}
+                    
+                    <div class="phase-container">
+                        <div class="phase-header">
+                            <div class="phase-header-top">
+                                <h3>{{phaseEmoji $phase.ID}} {{$phase.Name}}</h3>
+                                <div class="phase-status">
+                                    {{if eq $phase.Status "PASS"}}
+                                    <span class="phase-status-icon success">✓</span>
+                                    {{else}}
+                                    <span class="phase-status-icon fail">✗</span>
+                                    {{end}}
+                                </div>
+                            </div>
+                            {{if $phase.Desc}}
+                            <div class="phase-desc" title="{{$phase.Desc}}">{{truncate $phase.Desc 50}}</div>
+                            {{end}}
+                            <div class="phase-meta">
+                                <span>{{$phase.TaskCount}} tasks in parallel</span>
+                                <span><strong>{{formatDuration $phase.TotalMs}}</strong></span>
+                            </div>
+                        </div>
+                        <div class="phase-tasks compact">
+                            {{range $phase.Tasks}}
+                            <div class="phase-task-card" data-task-id="{{.ID}}" onclick="scrollToTask('{{.ID}}')">
+                                <div class="phase-task-card-header">
+                                    {{if eq (string .Status) "PASS"}}
+                                    <span class="phase-task-icon success">✓</span>
+                                    {{else if eq (string .Status) "FAIL"}}
+                                    <span class="phase-task-icon fail">✗</span>
+                                    {{else}}
+                                    <span class="phase-task-icon skip">⊘</span>
+                                    {{end}}
+                                    <span class="phase-task-name" title="{{.Name}}">{{.Name}}</span>
+                                    <span class="phase-task-duration">{{formatDuration .DurationMs}}</span>
+                                </div>
+                                {{if .Desc}}
+                                <div class="phase-task-desc" title="{{.Desc}}">{{truncate .Desc 80}}</div>
+                                {{else}}
+                                <div class="phase-task-desc">{{.ID}}</div>
+                                {{end}}
+                                {{if .Type}}
+                                <span class="phase-task-type">{{.Type}}</span>
+                                {{end}}
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+        {{end}}
+        
         <div class="section">
             <h2>Tasks ({{len .TasksWithLogs}})</h2>
             {{range .TasksWithLogs}}
@@ -1114,6 +1714,105 @@ const runDetailTemplate = `<!DOCTYPE html>
             {{end}}
         </div>
     </div>
+    
+    <script>
+        function updateColumns() {
+            const slider = document.getElementById('columnSlider');
+            const phaseTasks = document.querySelectorAll('.phase-tasks');
+            
+            const maxCols = parseInt(slider.value);
+            
+            // Update each phase based on its task count
+            phaseTasks.forEach(tasks => {
+                const taskCount = tasks.querySelectorAll('.phase-task-card').length;
+                
+                // Calculate actual columns needed
+                // Use min(maxCols, ceil(taskCount / 5)) to determine columns
+                const neededCols = Math.min(maxCols, Math.ceil(taskCount / 5));
+                
+                // Calculate rows per column (distribute evenly)
+                const rowsPerCol = Math.ceil(taskCount / neededCols);
+                
+                // Set grid properties
+                const colWidth = 280;
+                const gap = 8;
+                const padding = 12;
+                
+                // Width = padding-left + (colWidth * cols) + (gap * (cols - 1)) + padding-right
+                // Simplifies to: (colWidth * cols) + (gap * (cols - 1)) + (padding * 2)
+                const gridContentWidth = (colWidth * neededCols) + (gap * (neededCols - 1));
+                const totalWidth = gridContentWidth + (padding * 2);
+                
+                tasks.style.gridTemplateColumns = 'repeat(' + neededCols + ', ' + colWidth + 'px)';
+                tasks.style.gridTemplateRows = 'repeat(' + rowsPerCol + ', auto)';
+                tasks.style.width = totalWidth + 'px';
+                tasks.style.gap = gap + 'px';
+                tasks.style.padding = padding + 'px';
+            });
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', updateColumns);
+        
+        function toggleFullscreen() {
+            const container = document.getElementById('phaseFlow');
+            const fullscreenBtns = container.querySelectorAll('.fullscreen-btn');
+            
+            container.classList.toggle('fullscreen');
+            
+            // Find the fullscreen button (not the compact button)
+            fullscreenBtns.forEach(btn => {
+                if (btn.id !== 'compactBtn') {
+                    if (container.classList.contains('fullscreen')) {
+                        btn.textContent = '✕ Exit Fullscreen';
+                    } else {
+                        btn.textContent = '⛶ Fullscreen';
+                    }
+                }
+            });
+        }
+        
+        function scrollToTask(taskId) {
+            // Exit fullscreen if active
+            const container = document.getElementById('phaseFlow');
+            const wasFullscreen = container && container.classList.contains('fullscreen');
+            
+            if (wasFullscreen) {
+                container.classList.remove('fullscreen');
+                // Update the fullscreen button (not the slider)
+                const fullscreenBtns = container.querySelectorAll('.fullscreen-btn');
+                fullscreenBtns.forEach(btn => {
+                    if (btn.id !== 'compactBtn') {
+                        btn.textContent = '⛶ Fullscreen';
+                    }
+                });
+            }
+            
+            // Function to find and scroll to task
+            const doScroll = () => {
+                const taskCards = document.querySelectorAll('.task-card');
+                for (const card of taskCards) {
+                    const titleEl = card.querySelector('.task-id');
+                    if (titleEl && titleEl.textContent.includes(taskId)) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        // Highlight the card briefly
+                        card.style.boxShadow = '0 0 0 3px #3498db';
+                        setTimeout(() => {
+                            card.style.boxShadow = '';
+                        }, 2000);
+                        break;
+                    }
+                }
+            };
+            
+            // If we exited fullscreen, wait for DOM to reflow before scrolling
+            if (wasFullscreen) {
+                setTimeout(doScroll, 100);
+            } else {
+                doScroll();
+            }
+        }
+    </script>
 </body>
 </html>
 `

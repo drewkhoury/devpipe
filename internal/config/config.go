@@ -55,8 +55,8 @@ type TaskConfig struct {
 }
 
 // LoadConfig loads configuration from a TOML file
-// Returns nil if file doesn't exist (use built-in defaults)
-func LoadConfig(path string) (*Config, []string, map[string]PhaseInfo, error) {
+// Returns config, task order, phase info, task-to-phase mapping, and error
+func LoadConfig(path string) (*Config, []string, map[string]PhaseInfo, map[string]string, error) {
 	// If no path specified, look for config.toml in current directory
 	explicitPath := path != ""
 	if path == "" {
@@ -67,24 +67,24 @@ func LoadConfig(path string) (*Config, []string, map[string]PhaseInfo, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		// If user explicitly specified a config file, fail
 		if explicitPath {
-			return nil, nil, nil, fmt.Errorf("config file not found: %s", path)
+			return nil, nil, nil, nil, fmt.Errorf("config file not found: %s", path)
 		}
 		// Otherwise, return nil to allow auto-generation
-		return nil, nil, nil, nil
+		return nil, nil, nil, nil, nil
 	}
 
 	var cfg Config
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to parse config file %s: %w", path, err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to parse config file %s: %w", path, err)
 	}
 
-	// Extract task order and phase names from the TOML file by parsing it manually
-	taskOrder, phaseNames, err := extractTaskOrder(path)
+	// Extract task order, phase names, and task-to-phase mapping from the TOML file
+	taskOrder, phaseNames, taskToPhase, err := extractTaskOrder(path)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to extract task order: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to extract task order: %w", err)
 	}
 
-	return &cfg, taskOrder, phaseNames, nil
+	return &cfg, taskOrder, phaseNames, taskToPhase, nil
 }
 
 // GetDefaults returns the default configuration
@@ -192,6 +192,7 @@ func trimSpace(s string) string {
 
 // PhaseInfo holds information about a phase
 type PhaseInfo struct {
+	ID   string
 	Name string
 	Desc string
 }
@@ -199,18 +200,20 @@ type PhaseInfo struct {
 // extractTaskOrder parses the TOML file to extract the order of [tasks.X] sections
 // Tasks starting with "phase-" are treated as phase headers - all tasks after a phase
 // header belong to that phase until the next phase header
-// Returns task order and a map of phase names
-func extractTaskOrder(path string) ([]string, map[string]PhaseInfo, error) {
+// Returns task order, phase info map, and task-to-phase mapping
+func extractTaskOrder(path string) ([]string, map[string]PhaseInfo, map[string]string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	var order []string
 	phaseNames := make(map[string]PhaseInfo)
+	taskToPhase := make(map[string]string)
 	lines := splitLines(string(data))
 	phaseCounter := 0
 	var currentPhaseID string
+	var currentPhaseMarker string
 
 	// Parse [tasks.X] sections to build order
 	// When we see [tasks.phase-*], insert a wait marker before it (except for the first phase)
@@ -236,6 +239,7 @@ func extractTaskOrder(path string) ([]string, map[string]PhaseInfo, error) {
 					}
 					phaseCounter++
 					currentPhaseID = "wait-" + intToString(phaseCounter)
+					currentPhaseMarker = taskID // Save the actual phase ID (e.g., "phase-validation")
 
 					// Extract phase name and desc from following lines
 					phaseName := ""
@@ -254,19 +258,27 @@ func extractTaskOrder(path string) ([]string, map[string]PhaseInfo, error) {
 					}
 
 					if phaseName != "" {
-						phaseNames[currentPhaseID] = PhaseInfo{Name: phaseName, Desc: phaseDesc}
+						phaseNames[currentPhaseID] = PhaseInfo{
+							ID:   currentPhaseMarker,
+							Name: phaseName,
+							Desc: phaseDesc,
+						}
 					}
 
 					// Don't add the phase header itself to the order
 					continue
 				}
 
+				// Regular task - map it to current phase
+				if currentPhaseMarker != "" {
+					taskToPhase[taskID] = currentPhaseMarker
+				}
 				order = append(order, taskID)
 			}
 		}
 	}
 
-	return order, phaseNames, nil
+	return order, phaseNames, taskToPhase, nil
 }
 
 func extractQuotedValue(s string) string {
