@@ -9,7 +9,6 @@ artifacts/
 
 # Test config file (anywhere in repo)
 **/config.tmp.toml
-**/config.toml
 
 # Go build artifacts
 *.exe

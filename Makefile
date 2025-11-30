@@ -1,7 +1,10 @@
-.PHONY: help build run test clean demo demo-verbose demo-fast demo-fail-fast demo-only demo-skip demo-dry-run test-failures test-fail-fast test-continue-on-fail
+.PHONY: help build run test clean demo demo-verbose demo-fast demo-fail-fast demo-only demo-skip demo-dry-run test-failures test-fail-fast test-continue-on-fail install-deps
 
 help:
 	@echo "devpipe - Makefile commands"
+	@echo ""
+	@echo "Setup:"
+	@echo "  make install-deps   - Install development dependencies (requires Homebrew)"
 	@echo ""
 	@echo "Build & Run:"
 	@echo "  make build          - Build the devpipe binary"
@@ -30,6 +33,24 @@ help:
 	@echo "  make validate       - Validate default config.toml"
 	@echo "  make validate-all   - Validate all config files in config/"
 
+install-deps:
+	@echo "Installing development dependencies..."
+	@if ! command -v brew >/dev/null 2>&1; then \
+		echo "❌ Error: Homebrew is not installed"; \
+		echo "Install from: https://brew.sh"; \
+		exit 1; \
+	fi
+	@echo "Running: brew bundle"
+	@brew bundle
+	@echo "✓ Dependencies installed"
+	@echo ""
+	@echo "Installed tools:"
+	@command -v go >/dev/null 2>&1 && echo "  ✓ go $$(go version | awk '{print $$3}')" || echo "  ✗ go"
+	@command -v golangci-lint >/dev/null 2>&1 && echo "  ✓ golangci-lint $$(golangci-lint --version | head -1 | awk '{print $$4}')" || echo "  ✗ golangci-lint"
+	@command -v gosec >/dev/null 2>&1 && echo "  ✓ gosec $$(gosec -version 2>&1 | head -1)" || echo "  ✗ gosec"
+	@command -v goreleaser >/dev/null 2>&1 && echo "  ✓ goreleaser $$(goreleaser --version | head -1 | awk '{print $$3}')" || echo "  ✗ goreleaser"
+	@command -v jq >/dev/null 2>&1 && echo "  ✓ jq $$(jq --version)" || echo "  ✗ jq"
+
 build:
 	@echo "Building devpipe..."
 	go build -o devpipe .
@@ -50,6 +71,14 @@ fmt:
 	@echo "Formatting Go files..."
 	@gofmt -w .
 	@echo "✓ All files formatted"
+
+lint:
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run ./...; \
+	else \
+		echo "⚠️  golangci-lint not installed, skipping advanced linting"; \
+		echo "Install: https://golangci-lint.run/usage/install/"; \
+	fi
 
 clean:
 	@echo "Cleaning up..."

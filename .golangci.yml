@@ -1,0 +1,44 @@
+# golangci-lint configuration
+# See: https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    # Enabled by default
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Vet examines Go source code
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Advanced Go linter
+    - unused        # Check for unused code
+    
+    # Additional recommended linters
+    - gofmt         # Check formatting
+    - goimports     # Check import formatting
+    - misspell      # Check for misspelled words
+    - revive        # Fast, configurable, extensible linter
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Find unused function parameters
+    - gocritic      # Opinionated Go linter
+    - gocyclo       # Check cyclomatic complexity
+    - dupl          # Check for duplicate code
+    
+    # Optional: More strict linters (can be noisy)
+    # - gosec       # Security-focused (you have this as separate task)
+    # - stylecheck  # Style checker
+    # - prealloc    # Find slice declarations that could be preallocated
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15  # Warn on functions with complexity > 15
+  
+  dupl:
+    threshold: 100  # Tokens threshold for duplicate detection
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
