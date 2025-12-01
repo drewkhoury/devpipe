@@ -1344,9 +1344,8 @@ func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics 
 	case "junit":
 		m, err := metrics.ParseJUnitXML(metricsPath)
 		if err != nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "[%-15s] Failed to parse JUnit XML: %v\n", st.ID, err)
-			}
+			// Always warn about parse failures (not just in verbose mode)
+			fmt.Fprintf(os.Stderr, "[%-15s] ⚠️  WARNING: Failed to parse JUnit XML: %v\n", st.ID, err)
 			return nil
 		}
 		return m
