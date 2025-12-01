@@ -1,0 +1,4 @@
+<testsuite name="NoDeclaration" tests="2" failures="0" errors="0" skipped="0" time="1.0">
+  <testcase name="test1" classname="MyClass" time="0.5"/>
+  <testcase name="test2" classname="MyClass" time="0.5"/>
+</testsuite>

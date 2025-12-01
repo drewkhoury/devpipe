@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="MyTests" tests="5" failures="1" errors="1" skipped="1" time="2.5">
+  <testcase name="test_success_1" classname="MyClass" time="0.5"/>
+  <testcase name="test_success_2" classname="MyClass" time="0.3"/>
+  <testcase name="test_failure" classname="MyClass" time="0.8">
+    <failure message="Expected 5 but got 3">AssertionError: Expected 5 but got 3</failure>
+  </testcase>
+  <testcase name="test_error" classname="MyClass" time="0.2">
+    <error message="NullPointerException">java.lang.NullPointerException at line 42</error>
+  </testcase>
+  <testcase name="test_skipped" classname="MyClass" time="0.0">
+    <skipped message="Not implemented yet"/>
+  </testcase>
+</testsuite>

@@ -229,6 +229,20 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 		"statusSymbol":   statusSymbol,
 		"phaseEmoji":     phaseEmoji,
 		"string":         func(s model.TaskStatus) string { return string(s) },
+		"sub": func(a, b interface{}) float64 {
+			return toFloat64(a) - toFloat64(b)
+		},
+		"mul": func(a, b interface{}) float64 {
+			return toFloat64(a) * toFloat64(b)
+		},
+		"div": func(a, b interface{}) float64 {
+			aVal := toFloat64(a)
+			bVal := toFloat64(b)
+			if bVal == 0 {
+				return 0
+			}
+			return aVal / bVal
+		},
 		"deref": func(i *int) int {
 			if i != nil {
 				return *i
@@ -265,6 +279,22 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 	defer f.Close()
 
 	return tmpl.Execute(f, data)
+}
+
+// toFloat64 converts various numeric types to float64 for template arithmetic
+func toFloat64(v interface{}) float64 {
+	switch val := v.(type) {
+	case int:
+		return float64(val)
+	case int64:
+		return float64(val)
+	case float64:
+		return val
+	case float32:
+		return float64(val)
+	default:
+		return 0
+	}
 }
 
 // readLastLines reads the last N lines from a file
@@ -1981,7 +2011,12 @@ const runDetailTemplate = `<!DOCTYPE html>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Passed</div>
-                            <div class="detail-value" style="color: #27ae60; font-weight: bold;">{{index .Metrics.Data "tests"}} ✓</div>
+                            {{$total := index .Metrics.Data "tests"}}
+                            {{$failures := index .Metrics.Data "failures"}}
+                            {{$errors := index .Metrics.Data "errors"}}
+                            {{$skipped := index .Metrics.Data "skipped"}}
+                            {{$passed := sub (sub (sub $total $failures) $errors) $skipped}}
+                            <div class="detail-value" style="color: #27ae60; font-weight: bold;">{{$passed}} ✓</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Failed</div>
@@ -1997,9 +2032,66 @@ const runDetailTemplate = `<!DOCTYPE html>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Duration</div>
-                            <div class="detail-value">{{index .Metrics.Data "time"}}s</div>
+                            <div class="detail-value">{{printf "%.2f" (index .Metrics.Data "time")}}s</div>
                         </div>
                     </div>
+                    <details style="margin-top: 15px;" {{if or (gt $failures 0.0) (gt $errors 0.0)}}open{{end}}>
+                        <summary style="cursor: pointer; color: #3498db; font-weight: 600; user-select: none;">
+                            📋 View Detailed Breakdown
+                        </summary>
+                        <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; font-size: 13px;">
+                            <div style="margin-bottom: 8px;">
+                                <strong>Pass Rate:</strong> 
+                                {{$passRate := mul (div (sub (sub (sub $total $failures) $errors) $skipped) $total) 100.0}}
+                                <span style="color: {{if ge $passRate 80.0}}#27ae60{{else if ge $passRate 50.0}}#f39c12{{else}}#e74c3c{{end}}; font-weight: bold;">
+                                    {{printf "%.1f" $passRate}}%
+                                </span>
+                            </div>
+                            <div style="margin-bottom: 8px;">
+                                <strong>Status Distribution:</strong>
+                                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                                    <span style="color: #27ae60;">✓ Passed: {{$passed}}</span>
+                                    <span style="color: #e74c3c;">✗ Failed: {{$failures}}</span>
+                                    <span style="color: #e74c3c;">⚠ Errors: {{$errors}}</span>
+                                    <span style="color: #f39c12;">⊘ Skipped: {{$skipped}}</span>
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 15px;">
+                                <strong>Average Test Duration:</strong> 
+                                {{$avgDuration := div (index .Metrics.Data "time") $total}}
+                                {{printf "%.3f" $avgDuration}}s per test
+                            </div>
+                            {{$testcases := index .Metrics.Data "testcases"}}
+                            {{if $testcases}}
+                            <div style="border-top: 1px solid #dee2e6; padding-top: 15px;">
+                                <strong style="display: block; margin-bottom: 10px;">Individual Test Cases:</strong>
+                                <div style="max-height: 400px; overflow-y: auto;">
+                                    {{range $testcases}}
+                                    <div style="padding: 8px; margin-bottom: 6px; background: #f8f9fa; border-left: 3px solid {{if eq .status "passed"}}#27ae60{{else if eq .status "failed"}}#e74c3c{{else if eq .status "error"}}#e74c3c{{else}}#f39c12{{end}}; border-radius: 3px; font-size: 12px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                                            <div style="flex: 1;">
+                                                <span style="font-weight: 600; color: #2c3e50;">{{.name}}</span>
+                                                {{if .classname}}
+                                                <span style="color: #7f8c8d; font-size: 11px; margin-left: 5px;">({{.classname}})</span>
+                                                {{end}}
+                                                {{if .message}}
+                                                <div style="color: #e74c3c; margin-top: 4px; font-size: 11px;">{{.message}}</div>
+                                                {{end}}
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+                                                <span style="color: {{if eq .status "passed"}}#27ae60{{else if eq .status "failed"}}#e74c3c{{else if eq .status "error"}}#e74c3c{{else}}#f39c12{{end}}; font-weight: bold; white-space: nowrap;">
+                                                    {{if eq .status "passed"}}✓{{else if eq .status "failed"}}✗{{else if eq .status "error"}}⚠{{else}}⊘{{end}} {{.status}}
+                                                </span>
+                                                <span style="color: #95a5a6; font-size: 11px; white-space: nowrap;">{{printf "%.3f" .time}}s</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {{end}}
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </details>
                     {{else}}
                     <div class="metrics-title">📊 Metrics ({{.Metrics.SummaryFormat}})</div>
                     <div class="metrics-grid">

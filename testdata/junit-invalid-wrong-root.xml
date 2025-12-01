@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wrongroot name="Invalid" tests="1">
+  <testcase name="test1" classname="MyClass" time="0.5"/>
+</wrongroot>

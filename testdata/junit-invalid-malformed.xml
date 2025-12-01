@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Broken Tests" tests="2" failures="0" errors="0" skipped="0" time="1.0">
+  <testcase name="test1" classname="MyClass" time="0.5"/>
+  <!-- Missing closing tag for testcase -->
+  <testcase name="test2" classname="MyClass" time="0.5">
+</testsuite>

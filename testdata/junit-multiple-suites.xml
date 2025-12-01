@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="8" failures="2" errors="0" skipped="1" time="5.2">
+  <testsuite name="Frontend Tests" tests="4" failures="1" errors="0" skipped="0" time="2.5">
+    <testcase name="Homepage loads correctly" classname="e2e.homepage" time="1.2"/>
+    <testcase name="Login form validates" classname="e2e.auth" time="0.8"/>
+    <testcase name="Navigation works" classname="e2e.nav" time="0.3">
+      <failure message="Element not found">#navbar not found in DOM</failure>
+    </testcase>
+    <testcase name="Footer displays" classname="e2e.footer" time="0.2"/>
+  </testsuite>
+  <testsuite name="Backend Tests" tests="4" failures="1" errors="0" skipped="1" time="2.7">
+    <testcase name="API returns 200" classname="api.health" time="0.5"/>
+    <testcase name="Database connects" classname="db.connection" time="1.2"/>
+    <testcase name="Auth middleware works" classname="api.auth" time="0.8">
+      <failure message="Token expired">JWT token validation failed</failure>
+    </testcase>
+    <testcase name="Cache integration" classname="cache.redis" time="0.0">
+      <skipped message="Redis not available in CI"/>
+    </testcase>
+  </testsuite>
+</testsuites>

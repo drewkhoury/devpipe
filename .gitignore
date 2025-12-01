@@ -3,6 +3,7 @@ devpipe
 
 # devpipe output
 .devpipe/
+.devpipe-test/
 
 # goreleaser build artifacts
 dist/

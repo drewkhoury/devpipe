@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites id="" name="" tests="3" failures="0" skipped="0" errors="0" time="7.702507">
+  <testsuite name="e2e/features/homepage.feature.spec.js" timestamp="2025-12-01T23:07:07.569Z" hostname="chromium" tests="1" failures="0" skipped="0" time="1.802" errors="0">
+    <testcase name="Homepage › User visits the homepage" classname="e2e/features/homepage.feature.spec.js" time="1.802">
+      <system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/homepage-chromium/test-finished-1.png]]
+]]>
+      </system-out>
+    </testcase>
+  </testsuite>
+  <testsuite name="e2e/features/vsm-list.feature.spec.js" timestamp="2025-12-01T23:07:07.569Z" hostname="chromium" tests="2" failures="0" skipped="0" time="5.426" errors="0">
+    <testcase name="VSM List › User views all VSMs" classname="e2e/features/vsm-list.feature.spec.js" time="2.812">
+      <system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/vsm-list-chromium/test-finished-1.png]]
+]]>
+      </system-out>
+    </testcase>
+    <testcase name="VSM List › User navigates from homepage to VSM list" classname="e2e/features/vsm-list.feature.spec.js" time="2.614">
+      <system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/vsm-list-nav-chromium/test-finished-1.png]]
+]]>
+      </system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

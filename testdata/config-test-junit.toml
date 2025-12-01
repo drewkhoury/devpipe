@@ -1,0 +1,29 @@
+# Test configuration for JUnit XML parsing
+# Tests various JUnit XML formats
+
+[defaults]
+outputRoot = ".devpipe-test"
+
+[tasks.test-single-suite]
+name = "Test Single Suite Format"
+command = "echo 'Testing single suite format' && sleep 1"
+metricsFormat = "junit"
+metricsPath = "testdata/junit-single-suite.xml"
+
+[tasks.test-multiple-suites]
+name = "Test Multiple Suites Format"
+command = "echo 'Testing multiple suites format' && sleep 1"
+metricsFormat = "junit"
+metricsPath = "testdata/junit-multiple-suites.xml"
+
+[tasks.test-playwright]
+name = "Test Playwright Format"
+command = "echo 'Testing Playwright format' && sleep 1"
+metricsFormat = "junit"
+metricsPath = "testdata/junit-playwright-style.xml"
+
+[tasks.test-no-declaration]
+name = "Test No XML Declaration"
+command = "echo 'Testing no XML declaration' && sleep 1"
+metricsFormat = "junit"
+metricsPath = "testdata/junit-no-xml-declaration.xml"
