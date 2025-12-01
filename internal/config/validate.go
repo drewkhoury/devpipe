@@ -28,6 +28,32 @@ type ValidationResult struct {
 	Warnings []ValidationError
 }
 
+// ValidateConfig validates an already-loaded config
+func ValidateConfig(cfg *Config) (*ValidationResult, error) {
+	result := &ValidationResult{
+		Valid:    true,
+		Errors:   []ValidationError{},
+		Warnings: []ValidationError{},
+	}
+
+	if cfg == nil {
+		return result, nil
+	}
+
+	// Validate defaults section
+	validateDefaults(&cfg.Defaults, result)
+
+	// Validate task_defaults section
+	validateTaskDefaults(&cfg.TaskDefaults, result)
+
+	// Validate tasks
+	for taskID, task := range cfg.Tasks {
+		validateTask(taskID, task, result)
+	}
+
+	return result, nil
+}
+
 // ValidateConfigFile validates a TOML config file
 func ValidateConfigFile(path string) (*ValidationResult, error) {
 	result := &ValidationResult{

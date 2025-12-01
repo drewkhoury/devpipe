@@ -74,8 +74,19 @@ func LoadConfig(path string) (*Config, []string, map[string]PhaseInfo, map[strin
 	}
 
 	var cfg Config
-	if _, err := toml.DecodeFile(path, &cfg); err != nil {
+	metadata, err := toml.DecodeFile(path, &cfg)
+	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to parse config file %s: %w", path, err)
+	}
+
+	// Check for unknown fields
+	undecoded := metadata.Undecoded()
+	if len(undecoded) > 0 {
+		var unknownFields []string
+		for _, key := range undecoded {
+			unknownFields = append(unknownFields, key.String())
+		}
+		return nil, nil, nil, nil, fmt.Errorf("unknown fields in config: %s", strings.Join(unknownFields, ", "))
 	}
 
 	// Extract task order, phase names, and task-to-phase mapping from the TOML file

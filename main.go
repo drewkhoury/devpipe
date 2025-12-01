@@ -114,6 +114,25 @@ func main() {
 	// Merge with defaults
 	mergedCfg := config.MergeWithDefaults(cfg)
 
+	// Validate configuration before running
+	result, err := config.ValidateConfig(&mergedCfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to validate config: %v\n", err)
+		os.Exit(1)
+	}
+	if !result.Valid {
+		fmt.Fprintf(os.Stderr, "ERROR: Configuration validation failed:\n")
+		for _, e := range result.Errors {
+			fmt.Fprintf(os.Stderr, "  - %s: %s\n", e.Field, e.Message)
+		}
+		os.Exit(1)
+	}
+	if len(result.Warnings) > 0 && flagVerbose {
+		for _, w := range result.Warnings {
+			fmt.Fprintf(os.Stderr, "WARNING: %s: %s\n", w.Field, w.Message)
+		}
+	}
+
 	// Parse UI mode (CLI flag overrides config)
 	uiModeStr := flagUI
 	if flagUI == "basic" && cfg != nil && mergedCfg.Defaults.UIMode != "" {
