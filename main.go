@@ -789,7 +789,7 @@ func main() {
 	}
 
 	// Generate dashboard
-	if err := dashboard.GenerateDashboard(outputRoot); err != nil {
+	if err := dashboard.GenerateDashboardWithVersion(outputRoot, version); err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to generate dashboard: %v\n", err)
 	}
 

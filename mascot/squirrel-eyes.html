@@ -660,36 +660,36 @@
 
         // Optional: Load your actual squirrel image
         // Uncomment and update the path below:
-        document.getElementById('squirrelImage').src = './squirrel.png';
+        document.getElementById('squirrelImage').src = './squirrel-blank-eyes-transparent-cropped.png';
 
-        // Dev Mode State (global)
+        // Dev Mode State (global) - for squirrel-blank-eyes-transparent-cropped.png
         window.devState = {
-            leftTop: 30,
-            leftLeft: 30,
-            rightTop: 30,
-            rightLeft: 51,
+            leftTop: 29.500000000000007,
+            leftLeft: 13.1,
+            rightTop: 29.699999999999996,
+            rightLeft: 37.39999999999999,
             eyeWidth: 50,
             eyeHeight: 60,
-            pupilWidth: 28,
-            pupilHeight: 28,
-            pupilColor: '#1a1a1a',
+            pupilWidth: 20,
+            pupilHeight: 24,
+            pupilColor: '#ffffff',
             maxDistanceX: 12,
             maxDistanceY: 12,
-            leftMaxDistanceX: 12,
-            leftMaxDistanceY: 12,
-            rightMaxDistanceX: 12,
-            rightMaxDistanceY: 12,
+            leftMaxDistanceX: 4,
+            leftMaxDistanceY: 16,
+            rightMaxDistanceX: 10,
+            rightMaxDistanceY: 16,
             boundsVisible: true,
             boundsColor: '#3498db',
-            boundsLinked: true,
+            boundsLinked: false,
             keyboardMode: 'both', // 'both', 'left', 'right'
             containerVisible: false,
             containerColor: '#ff0000',
-            containerLinked: true,
-            leftEyeWidth: 50,
-            leftEyeHeight: 60,
-            rightEyeWidth: 50,
-            rightEyeHeight: 60
+            containerLinked: false,
+            leftEyeWidth: 46,
+            leftEyeHeight: 70,
+            rightEyeWidth: 58,
+            rightEyeHeight: 76
         };
 
         function toggleDevMode() {
@@ -1196,29 +1196,29 @@ const rightMaxDistanceY = ${devState.rightMaxDistanceY};`}`;
         // Initialize code output
         updateCodeOutput();
 
-        // Load preset settings
+        // Load preset settings - for squirrel-blank-eyes-transparent-cropped.png
         function loadPreset() {
             // Your saved settings
             const preset = {
-                leftTop: 35.2,
-                leftLeft: 24.7,
-                rightTop: 35.5,
-                rightLeft: 43.1,
+                leftTop: 29.500000000000007,
+                leftLeft: 13.1,
+                rightTop: 29.699999999999996,
+                rightLeft: 37.39999999999999,
                 eyeWidth: 50,
                 eyeHeight: 60,
-                leftEyeWidth: 32,
-                leftEyeHeight: 54,
-                rightEyeWidth: 44,
-                rightEyeHeight: 56,
-                pupilWidth: 14,
-                pupilHeight: 17,
+                leftEyeWidth: 46,
+                leftEyeHeight: 70,
+                rightEyeWidth: 58,
+                rightEyeHeight: 76,
+                pupilWidth: 20,
+                pupilHeight: 24,
                 pupilColor: '#ffffff',
                 maxDistanceX: 12,
                 maxDistanceY: 12,
                 leftMaxDistanceX: 4,
-                leftMaxDistanceY: 8,
-                rightMaxDistanceX: 9,
-                rightMaxDistanceY: 8,
+                leftMaxDistanceY: 16,
+                rightMaxDistanceX: 10,
+                rightMaxDistanceY: 16,
                 boundsLinked: false,
                 containerLinked: false
             };

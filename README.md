@@ -2,9 +2,9 @@
 
 Fast, local pipeline runner for development workflows.
 
-`devpipe` reads your config.toml and runs the tasks you specify.
+<img src="mascot/squirrel.png" alt="devpipe mascot - Flowmunk" width="300">
 
-## Features
+`devpipe` reads your config.toml and runs the tasks you specify.
 
 - 🚀 **Single binary** - No dependencies, just download and run
 - 🎨 **Beautiful UI** - Animated progress, colored output, grouping
@@ -14,8 +14,6 @@ Fast, local pipeline runner for development workflows.
 - 🔀 **Git integration** - Run checks on staged, unstaged, or ref-based changes
 - 📊 **Metrics & Dashboard** - JUnit/artifact parsing, HTML reports
 - 🎯 **Flexible** - Run all, skip some, or target specific tasks
-
-![devpipe in action](devpipe.png)
 
 ## Quick Start
 

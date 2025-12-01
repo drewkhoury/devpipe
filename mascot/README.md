@@ -4,7 +4,7 @@
 
 A geometric, stylized squirrel designed for speed, clarity, and pipeline excellence.
 
----
+![devpipe mascot - Flowmunk](squirrel.png)
 
 ## 🎨 Design Concept
 
@@ -48,8 +48,8 @@ The Flowmunk is:
 
 ## 🖼️ Files
 
-- **`squirrel.png`** - The main mascot image without whites in the eyes
-- **`squirrel-original.png`** - Original design reference
+- **`squirrel.png`** - The main mascot image (full version with eyes)
+- **`squirrel-blank-eyes.png`** - Version without whites in the eyes (used for animation overlay) - also cropped and cropped-200 versions used
 - **`squirrel-eyes.html`** - Interactive demo with eye-tracking animation
 
 ---

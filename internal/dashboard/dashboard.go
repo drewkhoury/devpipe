@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/drew/devpipe/assets"
 	"github.com/drew/devpipe/internal/model"
 )
 
@@ -19,6 +20,9 @@ type Summary struct {
 	TaskStatsRecent map[string]TaskStats `json:"taskStatsRecent"` // Most recent run only
 	TaskStatsLast25 map[string]TaskStats `json:"taskStatsLast25"` // Last 25 runs
 	LastGenerated   string               `json:"lastGenerated"`
+	Username        string               `json:"username"`
+	Greeting        string               `json:"greeting"`
+	Version         string               `json:"version"`
 }
 
 // RunSummary is a condensed view of a single run
@@ -48,6 +52,11 @@ type TaskStats struct {
 
 // GenerateDashboard reads all runs and generates summary.json and report.html
 func GenerateDashboard(outputRoot string) error {
+	return GenerateDashboardWithVersion(outputRoot, "dev")
+}
+
+// GenerateDashboardWithVersion generates dashboard with version info
+func GenerateDashboardWithVersion(outputRoot, version string) error {
 	runsDir := filepath.Join(outputRoot, "runs")
 
 	// Read all run.json files
@@ -56,13 +65,19 @@ func GenerateDashboard(outputRoot string) error {
 		return fmt.Errorf("failed to load runs: %w", err)
 	}
 
-	// Generate summary
-	summary := aggregateRuns(runs)
+	// Aggregate data
+	summary := aggregateRuns(runs, version)
 
 	// Write summary.json
 	summaryPath := filepath.Join(outputRoot, "summary.json")
 	if err := writeSummaryJSON(summaryPath, summary); err != nil {
 		return fmt.Errorf("failed to write summary.json: %w", err)
+	}
+
+	// Copy mascot image to output directory
+	if err := copyMascotAssets(outputRoot); err != nil {
+		// Don't fail if mascot copy fails, just warn
+		fmt.Fprintf(os.Stderr, "WARNING: failed to copy mascot assets: %v\n", err)
 	}
 
 	// Generate HTML dashboard
@@ -123,7 +138,31 @@ func loadAllRuns(runsDir string) ([]model.RunRecord, error) {
 }
 
 // aggregateRuns creates a summary from all runs
-func aggregateRuns(runs []model.RunRecord) Summary {
+func aggregateRuns(runs []model.RunRecord, version string) Summary {
+	// Get username
+	username := os.Getenv("USER")
+	if username == "" {
+		username = os.Getenv("USERNAME") // Windows fallback
+	}
+	if username == "" {
+		username = "friend"
+	}
+	
+	// Random greeting
+	greetings := []string{
+		"Hello",
+		"Hi",
+		"Hey",
+		"Howdy",
+		"Greetings",
+		"Welcome back",
+		"Good to see you",
+		"Hey there",
+		"Ahoy",
+		"Yo",
+	}
+	greeting := greetings[time.Now().Unix()%int64(len(greetings))]
+	
 	summary := Summary{
 		TotalRuns:       len(runs),
 		RecentRuns:      []RunSummary{},
@@ -131,6 +170,9 @@ func aggregateRuns(runs []model.RunRecord) Summary {
 		TaskStatsRecent: make(map[string]TaskStats),
 		TaskStatsLast25: make(map[string]TaskStats),
 		LastGenerated:   time.Now().UTC().Format(time.RFC3339),
+		Username:        username,
+		Greeting:        greeting,
+		Version:         version,
 	}
 
 	// Add recent runs (limit to 100 for pagination)
@@ -277,4 +319,19 @@ func cleanCommand(cmd string) string {
 	}
 	// No cruft found, return as-is
 	return cmd
+}
+
+// copyMascotAssets writes the embedded mascot image to the output directory
+func copyMascotAssets(outputRoot string) error {
+	mascotDir := filepath.Join(outputRoot, "mascot")
+	if err := os.MkdirAll(mascotDir, 0755); err != nil {
+		return fmt.Errorf("failed to create mascot directory: %w", err)
+	}
+
+	mascotPath := filepath.Join(mascotDir, "squirrel-blank-eyes-transparent-cropped.png")
+	if err := os.WriteFile(mascotPath, assets.MascotImage, 0644); err != nil {
+		return fmt.Errorf("failed to write mascot image: %w", err)
+	}
+
+	return nil
 }

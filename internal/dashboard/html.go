@@ -324,7 +324,7 @@ const dashboardTemplate = `<!DOCTYPE html>
         }
         
         .container {
-            max-width: 1400px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -335,17 +335,98 @@ const dashboardTemplate = `<!DOCTYPE html>
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-content {
+            flex: 1;
         }
         
         h1 {
             font-size: 32px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             color: #2c3e50;
         }
         
-        .subtitle {
+        .tagline {
+            color: #7f8c8d;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .header-stats {
             color: #7f8c8d;
             font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .header-stats strong {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            color: #95a5a6;
+            font-size: 13px;
+        }
+        
+        .mascot-label {
+            text-align: center;
+            color: #95a5a6;
+            font-size: 12px;
+        }
+        
+        .mascot-wrapper {
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .speech-bubble {
+            position: relative;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: #2c3e50;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-top: 50px;
+        }
+        
+        .speech-bubble:after {
+            content: '';
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid #dee2e6;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+        }
+        
+        .speech-bubble:before {
+            content: '';
+            position: absolute;
+            right: -7px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid #f8f9fa;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            z-index: 1;
+        }
+        
+        .version-info {
+            color: #95a5a6;
+            font-size: 13px;
+            font-family: monospace;
         }
         
         .stats-grid {
@@ -414,7 +495,7 @@ const dashboardTemplate = `<!DOCTYPE html>
         #runsTable th:nth-child(2),
         #runsTable td:nth-child(2) { width: 170px; white-space: nowrap; } /* Timestamp */
         #runsTable th:nth-child(3),
-        #runsTable td:nth-child(3) { width: 90px; } /* Status */
+        #runsTable td:nth-child(3) { width: 110px; } /* Status */
         #runsTable th:nth-child(4),
         #runsTable td:nth-child(4) { width: 80px; white-space: nowrap; } /* Duration */
         #runsTable th:nth-child(5),
@@ -500,25 +581,101 @@ const dashboardTemplate = `<!DOCTYPE html>
             background: #95a5a6;
             cursor: not-allowed;
         }
+        
+        /* Mascot Styles */
+        .mascot {
+            width: 200px;
+            height: 200px;
+            flex-shrink: 0;
+            pointer-events: none;
+            margin-left: 30px;
+        }
+        
+        .mascot-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .mascot-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .mascot-eyes-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .mascot-eye {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mascot-eye-left {
+            top: 29.5%;
+            left: 13.1%;
+            width: 13.08px;
+            height: 19.91px;
+        }
+        
+        .mascot-eye-right {
+            top: 29.7%;
+            left: 37.4%;
+            width: 16.50px;
+            height: 21.61px;
+        }
+        
+        .mascot-pupil {
+            position: relative;
+            width: 5.69px;
+            height: 6.83px;
+            background: #ffffff;
+            border-radius: 50%;
+            transition: transform 0.1s ease-out;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📊 devpipe Dashboard</h1>
-            <div class="subtitle">Last updated: {{formatTime .LastGenerated}}</div>
+            <div class="header-content">
+                <h1>📊 DevPipe Dashboard</h1>
+                <div class="tagline">Fast, local pipeline runner for development workflows.</div>
+                <div class="header-stats"><strong>{{.TotalRuns}}</strong> Total Runs, <strong>{{len .TaskStats}}</strong> Tasks.</div>
+                <br />
+                <div class="version-info">{{.Version}}</div>
+                <div class="subtitle">Last updated: {{formatTime .LastGenerated}}</div>
+            </div>
+            <!-- Mascot -->
+            <div class="mascot-wrapper">
+                <div class="speech-bubble">{{.Greeting}} {{.Username}}!</div>
+                <div>
+                    <div class="mascot">
+                        <div class="mascot-container">
+                            <img src="mascot/squirrel-blank-eyes-transparent-cropped.png" alt="DevPipe Squirrel" class="mascot-image" onerror="this.style.display='none'">
+                            <div class="mascot-eyes-overlay">
+                                <div class="mascot-eye mascot-eye-left">
+                                    <div class="mascot-pupil"></div>
+                                </div>
+                                <div class="mascot-eye mascot-eye-right">
+                                    <div class="mascot-pupil"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mascot-label">(flowmunk)</div>
+                </div>
+            </div>
         </header>
-        
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">{{.TotalRuns}}</div>
-                <div class="stat-label">Total Runs</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{len .TaskStats}}</div>
-                <div class="stat-label">Tasks</div>
-            </div>
-        </div>
         
         <div class="section">
             <h2>Recent Runs</h2>
@@ -747,6 +904,64 @@ const dashboardTemplate = `<!DOCTYPE html>
         document.addEventListener('DOMContentLoaded', function() {
             initializePagination();
         });
+        
+        // Mascot eye tracking
+        (function() {
+            const pupils = document.querySelectorAll('.mascot-pupil');
+            const eyes = document.querySelectorAll('.mascot-eye');
+            const mascot = document.querySelector('.mascot');
+            
+            // Base movement bounds for 200px mascot
+            const baseLeftMaxDistanceX = 1.3;
+            const baseLeftMaxDistanceY = 2.7;
+            const baseRightMaxDistanceX = 3.0;
+            const baseRightMaxDistanceY = 2.7;
+            
+            document.addEventListener('mousemove', function(e) {
+                pupils.forEach(function(pupil, index) {
+                    const eye = eyes[index];
+                    const eyeRect = eye.getBoundingClientRect();
+                    
+                    // Get eye center position
+                    const eyeCenterX = eyeRect.left + eyeRect.width / 2;
+                    const eyeCenterY = eyeRect.top + eyeRect.height / 2;
+                    
+                    // Calculate angle to mouse
+                    const angleRad = Math.atan2(e.clientY - eyeCenterY, e.clientX - eyeCenterX);
+                    
+                    // Get current mascot size and calculate scale factor
+                    const currentSize = parseFloat(mascot.style.width) || 200;
+                    const scaleFactor = currentSize / 200;
+                    
+                    // Scale movement bounds based on current size
+                    const leftMaxDistanceX = baseLeftMaxDistanceX * scaleFactor;
+                    const leftMaxDistanceY = baseLeftMaxDistanceY * scaleFactor;
+                    const rightMaxDistanceX = baseRightMaxDistanceX * scaleFactor;
+                    const rightMaxDistanceY = baseRightMaxDistanceY * scaleFactor;
+                    
+                    // Get max distance for this eye
+                    const maxDistanceX = index === 0 ? leftMaxDistanceX : rightMaxDistanceX;
+                    const maxDistanceY = index === 0 ? leftMaxDistanceY : rightMaxDistanceY;
+                    
+                    // Calculate pupil position
+                    let pupilX = Math.cos(angleRad) * maxDistanceX;
+                    let pupilY = Math.sin(angleRad) * maxDistanceY;
+                    
+                    // Constrain to ellipse
+                    const normalizedX = pupilX / maxDistanceX;
+                    const normalizedY = pupilY / maxDistanceY;
+                    const distanceFromCenter = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+                    
+                    if (distanceFromCenter > 1) {
+                        pupilX = (normalizedX / distanceFromCenter) * maxDistanceX;
+                        pupilY = (normalizedY / distanceFromCenter) * maxDistanceY;
+                    }
+                    
+                    // Apply transform
+                    pupil.style.transform = 'translate(' + pupilX + 'px, ' + pupilY + 'px)';
+                });
+            });
+        })();
     </script>
 </body>
 </html>
@@ -773,7 +988,7 @@ const runDetailTemplate = `<!DOCTYPE html>
         }
         
         .container {
-            max-width: 1400px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -854,14 +1069,21 @@ const runDetailTemplate = `<!DOCTYPE html>
         .task-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 15px;
+            gap: 15px;
+        }
+        
+        .task-header > div:first-child {
+            flex: 1;
+            min-width: 0;
         }
         
         .task-title {
             font-size: 18px;
             font-weight: 600;
             color: #2c3e50;
+            word-break: break-word;
         }
         
         .task-id {
@@ -1239,9 +1461,99 @@ const runDetailTemplate = `<!DOCTYPE html>
         .log-link:hover {
             text-decoration: underline;
         }
+        
+        /* Mascot Styles */
+        .mascot {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            z-index: 1000;
+            pointer-events: none;
+            transition: opacity 0.3s ease-out;
+        }
+        
+        .mascot.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        @media (max-width: 1500px) {
+            .mascot {
+                display: none;
+            }
+        }
+        
+        .mascot-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .mascot-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .mascot-eyes-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .mascot-eye {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mascot-eye-left {
+            top: 29.5%;
+            left: 13.1%;
+            width: 13.08px;
+            height: 19.91px;
+        }
+        
+        .mascot-eye-right {
+            top: 29.7%;
+            left: 37.4%;
+            width: 16.50px;
+            height: 21.61px;
+        }
+        
+        .mascot-pupil {
+            position: relative;
+            width: 5.69px;
+            height: 6.83px;
+            background: #ffffff;
+            border-radius: 50%;
+            transition: transform 0.1s ease-out;
+        }
     </style>
 </head>
 <body>
+    <!-- Mascot -->
+    <div class="mascot">
+        <div class="mascot-container">
+            <img src="../../mascot/squirrel-blank-eyes-transparent.png" alt="DevPipe Squirrel" class="mascot-image" onerror="this.style.display='none'">
+            <div class="mascot-eyes-overlay">
+                <div class="mascot-eye mascot-eye-left">
+                    <div class="mascot-pupil"></div>
+                </div>
+                <div class="mascot-eye mascot-eye-right">
+                    <div class="mascot-pupil"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <div class="breadcrumb">
             <a href="../../report.html">← Back to Dashboard</a>
@@ -1485,7 +1797,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                             <p style="color: #7f8c8d; margin: 15px 0 10px 0; font-size: 13px;">
                                 Configuration file as it was on disk at the time of the run.
                             </p>
-                            <pre style="background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 11px; line-height: 1.5; font-family: 'Monaco', 'Menlo', 'Courier New', monospace;">{{.RawConfigContent}}</pre>
+                            <pre style="background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 11px; line-height: 1.5; font-family: 'Monaco', 'Menlo', 'Courier New', monospace; max-width: 100%; white-space: pre; margin: 0;">{{.RawConfigContent}}</pre>
                         </div>
                     </div>
                     {{end}}
@@ -1812,6 +2124,71 @@ const runDetailTemplate = `<!DOCTYPE html>
                 doScroll();
             }
         }
+        
+        // Mascot keyboard toggle (h = hide, s = show)
+        (function() {
+            const mascot = document.querySelector('.mascot');
+            
+            document.addEventListener('keydown', function(e) {
+                // Ignore if user is typing in an input field
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+                
+                if (e.key === 'h' || e.key === 'H') {
+                    mascot.classList.add('hidden');
+                } else if (e.key === 's' || e.key === 'S') {
+                    mascot.classList.remove('hidden');
+                }
+            });
+        })();
+        
+        // Mascot eye tracking
+        (function() {
+            const pupils = document.querySelectorAll('.mascot-pupil');
+            const eyes = document.querySelectorAll('.mascot-eye');
+            
+            // Movement bounds for 200px mascot (scaled from 777px original, accounting for aspect ratio)
+            const leftMaxDistanceX = 1.14;
+            const leftMaxDistanceY = 4.55;
+            const rightMaxDistanceX = 2.84;
+            const rightMaxDistanceY = 4.55;
+            
+            document.addEventListener('mousemove', function(e) {
+                pupils.forEach(function(pupil, index) {
+                    const eye = eyes[index];
+                    const eyeRect = eye.getBoundingClientRect();
+                    
+                    // Get eye center position
+                    const eyeCenterX = eyeRect.left + eyeRect.width / 2;
+                    const eyeCenterY = eyeRect.top + eyeRect.height / 2;
+                    
+                    // Calculate angle to mouse
+                    const angleRad = Math.atan2(e.clientY - eyeCenterY, e.clientX - eyeCenterX);
+                    
+                    // Get max distance for this eye
+                    const maxDistanceX = index === 0 ? leftMaxDistanceX : rightMaxDistanceX;
+                    const maxDistanceY = index === 0 ? leftMaxDistanceY : rightMaxDistanceY;
+                    
+                    // Calculate pupil position
+                    let pupilX = Math.cos(angleRad) * maxDistanceX;
+                    let pupilY = Math.sin(angleRad) * maxDistanceY;
+                    
+                    // Constrain to ellipse
+                    const normalizedX = pupilX / maxDistanceX;
+                    const normalizedY = pupilY / maxDistanceY;
+                    const distanceFromCenter = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+                    
+                    if (distanceFromCenter > 1) {
+                        pupilX = (normalizedX / distanceFromCenter) * maxDistanceX;
+                        pupilY = (normalizedY / distanceFromCenter) * maxDistanceY;
+                    }
+                    
+                    // Apply transform
+                    pupil.style.transform = 'translate(' + pupilX + 'px, ' + pupilY + 'px)';
+                });
+            });
+        })();
     </script>
 </body>
 </html>
