@@ -52,7 +52,14 @@ install-deps:
 
 build:
 	@echo "Building devpipe..."
-	go build -o devpipe .
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "none"); \
+	DATE=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	go build -ldflags "\
+		-X main.version=$$VERSION \
+		-X main.commit=$$COMMIT \
+		-X main.buildDate=$$DATE \
+	" -o devpipe .
 	@echo "✓ Built: ./devpipe"
 
 run: build

@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,13 @@ import (
 	"github.com/drew/devpipe/internal/model"
 	"github.com/drew/devpipe/internal/ui"
 	"golang.org/x/sync/errgroup"
+)
+
+// Version information (set via ldflags during build)
+var (
+	version   = "dev"
+	commit    = "none"
+	buildDate = "unknown"
 )
 
 // sliceFlag allows repeating --skip
@@ -54,6 +62,9 @@ func main() {
 	// Check for subcommands first
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "version", "--version", "-v":
+			printVersion()
+			return
 		case "validate":
 			runValidateCommand()
 			return
@@ -1456,6 +1467,15 @@ func runValidateCommand() {
 	}
 }
 
+// printVersion prints version information
+func printVersion() {
+	fmt.Printf("devpipe version %s\n", version)
+	fmt.Printf("  commit: %s\n", commit)
+	fmt.Printf("  built: %s\n", buildDate)
+	fmt.Printf("  go: %s\n", runtime.Version())
+	fmt.Printf("  platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+}
+
 // printHelp prints usage information
 func printHelp() {
 	fmt.Println("devpipe - Fast, local pipeline runner")
@@ -1463,6 +1483,7 @@ func printHelp() {
 	fmt.Println("USAGE:")
 	fmt.Println("  devpipe [flags]              Run the pipeline")
 	fmt.Println("  devpipe validate [files...]  Validate config file(s)")
+	fmt.Println("  devpipe version              Show version information")
 	fmt.Println("  devpipe help                 Show this help")
 	fmt.Println()
 	fmt.Println("RUN FLAGS:")

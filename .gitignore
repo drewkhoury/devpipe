@@ -4,6 +4,9 @@ devpipe
 # devpipe output
 .devpipe/
 
+# goreleaser build artifacts
+dist/
+
 # Test artifacts from hello-world.sh
 artifacts/
 
