@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Squirrel Eyes Follow Mouse</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Arial', sans-serif;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        .squirrel-container {
+            position: relative;
+            width: 600px;
+            height: 600px;
+            margin: 0 auto;
+        }
+
+        .squirrel-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .eyes-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .eye {
+            position: absolute;
+            width: 50px;
+            height: 60px;
+            border-radius: 50%;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--container-color);
+            border: 2px solid var(--container-color);
+        }
+
+        .eye-left {
+            top: 30%;
+            left: 30%;
+        }
+
+        .eye-right {
+            top: 30%;
+            left: 51%;
+        }
+
+        .pupil {
+            position: relative;
+            width: 28px;
+            height: 28px;
+            background: #1a1a1a;
+            border-radius: 50%;
+            transition: all 0.1s ease-out;
+        }
+
+        .pupil::before {
+            content: '';
+            position: absolute;
+            width: 30%;
+            height: 30%;
+            background: white;
+            border-radius: 50%;
+            top: 18%;
+            left: 22%;
+        }
+
+        /* Movement bounds visualization */
+        .eye {
+            --bounds-width: 52px;
+            --bounds-height: 52px;
+            --bounds-color: rgba(52, 152, 219, 0.5);
+            --container-color: transparent;
+        }
+
+        .eye::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: var(--bounds-width);
+            height: var(--bounds-height);
+            border: 3px solid var(--bounds-color);
+            border-radius: 50%;
+            pointer-events: none;
+            display: none;
+        }
+
+        body:has(.dev-controls.active) .eye::after {
+            display: block;
+        }
+
+        body:has(.dev-controls.active) .eye.bounds-hidden::after {
+            display: none;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-top: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 18px;
+            margin-top: 10px;
+        }
+
+        .info {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.9);
+            padding: 15px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            font-size: 14px;
+            color: #34495e;
+        }
+
+        /* Dev Mode Controls */
+        .dev-controls {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            font-family: monospace;
+            font-size: 13px;
+            width: 350px;
+            max-height: calc(100vh - 90px);
+            overflow-y: auto;
+            display: none;
+        }
+
+        .dev-controls.active {
+            display: block;
+        }
+
+        .dev-controls h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 16px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .control-group h4 {
+            margin: 0 0 10px 0;
+            color: #34495e;
+            font-size: 14px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .control-label {
+            color: #555;
+            min-width: 80px;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .control-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .control-btn:hover {
+            background: #2980b9;
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .value-display {
+            background: #fff;
+            padding: 4px 8px;
+            border-radius: 3px;
+            min-width: 60px;
+            text-align: center;
+            border: 1px solid #ddd;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        .value-input {
+            background: #fff;
+            padding: 4px 8px;
+            border-radius: 3px;
+            width: 60px;
+            text-align: center;
+            border: 1px solid #ddd;
+            color: #2c3e50;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .keyboard-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            font-family: monospace;
+            font-size: 12px;
+            display: none;
+        }
+
+        .keyboard-controls.active {
+            display: block;
+        }
+
+        .keyboard-controls h4 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+
+        .dev-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .dev-toggle:hover {
+            background: #2980b9;
+        }
+
+        .code-output {
+            background: #2c3e50;
+            color: #2ecc71;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 11px;
+            line-height: 1.6;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .copy-btn {
+            background: #2ecc71;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        .copy-btn:hover {
+            background: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="squirrel-container">
+            <!-- Squirrel base image -->
+            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAwIiBoZWlnaHQ9IjYwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjI0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+UGxhY2UgeW91ciBzcXVpcnJlbCBpbWFnZSBoZXJlPC90ZXh0Pjwvc3ZnPg==" 
+                 alt="Squirrel" 
+                 class="squirrel-image"
+                 id="squirrelImage">
+            
+            <!-- Eyes overlay -->
+            <div class="eyes-overlay">
+                <div class="eye eye-left">
+                    <div class="pupil"></div>
+                </div>
+                <div class="eye eye-right">
+                    <div class="pupil"></div>
+                </div>
+            </div>
+        </div>
+        
+        <h1>🐿️ DevPipe Squirrel</h1>
+        <p class="subtitle">Move your mouse around!</p>
+    </div>
+
+    <div class="info">
+        💡 Replace the placeholder with your squirrel image by updating the src attribute
+    </div>
+
+    <!-- Dev Mode Toggle -->
+    <button class="dev-toggle" onclick="toggleDevMode()">🔧 Dev Mode</button>
+
+    <!-- Dev Controls Panel -->
+    <div class="dev-controls" id="devControls">
+        <h3>🎯 Eye Position Controls</h3>
+        
+        <div class="control-group">
+            <h4>Left Eye</h4>
+            <div class="control-row">
+                <span class="control-label">Top:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('leftTop', -1)">▲</button>
+                    <button class="control-btn" onclick="adjust('leftTop', 1)">▼</button>
+                </div>
+                <input type="number" class="value-input" id="leftTop" value="30" onchange="setDirectValue('leftTop', this.value, '%')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Left:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('leftLeft', -1)">◀</button>
+                    <button class="control-btn" onclick="adjust('leftLeft', 1)">▶</button>
+                </div>
+                <input type="number" class="value-input" id="leftLeft" value="30" onchange="setDirectValue('leftLeft', this.value, '%')">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h4>Right Eye</h4>
+            <div class="control-row">
+                <span class="control-label">Top:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('rightTop', -1)">▲</button>
+                    <button class="control-btn" onclick="adjust('rightTop', 1)">▼</button>
+                </div>
+                <input type="number" class="value-input" id="rightTop" value="30" onchange="setDirectValue('rightTop', this.value, '%')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Left:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('rightLeft', -1)">◀</button>
+                    <button class="control-btn" onclick="adjust('rightLeft', 1)">▶</button>
+                </div>
+                <input type="number" class="value-input" id="rightLeft" value="51" onchange="setDirectValue('rightLeft', this.value, '%')">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h4>Eye Container Size</h4>
+            <p style="font-size: 11px; color: #777; margin: 0 0 10px 0; white-space: normal; word-wrap: break-word; max-width: 100%; line-height: 1.4;">The total space available for the eyes</p>
+            <div class="control-row">
+                <span class="control-label">Show:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" id="toggleContainerBtn" onclick="toggleContainer()">👁️ Show</button>
+                </div>
+                <span class="value-display" id="containerVisible">Hidden</span>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Color:</span>
+                <div class="control-buttons">
+                    <input type="color" id="containerColor" value="#ff0000" onchange="adjustContainerColor()" style="width: 60px; height: 30px; border: none; cursor: pointer;">
+                </div>
+                <span class="value-display" id="containerColorDisplay">#ff0000</span>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Mode:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" id="toggleContainerModeBtn" onclick="toggleContainerMode()">🔗 Linked</button>
+                </div>
+                <span class="value-display" id="containerMode">Both Eyes</span>
+            </div>
+        </div>
+
+        <div class="control-group" id="linkedContainerGroup">
+            <h4>Both Eyes (Linked)</h4>
+            <div class="control-row">
+                <span class="control-label">Width:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('eyeWidth', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('eyeWidth', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="eyeWidth" value="50" onchange="setDirectValue('eyeWidth', this.value, 'px')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Height:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('eyeHeight', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('eyeHeight', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="eyeHeight" value="60" onchange="setDirectValue('eyeHeight', this.value, 'px')">
+            </div>
+        </div>
+
+        <div class="control-group" id="separateContainerGroup" style="display: none;">
+            <h4>Left Eye</h4>
+            <div class="control-row">
+                <span class="control-label">Width:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('leftEyeWidth', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('leftEyeWidth', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="leftEyeWidth" value="50" onchange="setDirectValue('leftEyeWidth', this.value, 'px')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Height:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('leftEyeHeight', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('leftEyeHeight', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="leftEyeHeight" value="60" onchange="setDirectValue('leftEyeHeight', this.value, 'px')">
+            </div>
+            <h4 style="margin-top: 15px;">Right Eye</h4>
+            <div class="control-row">
+                <span class="control-label">Width:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('rightEyeWidth', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('rightEyeWidth', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="rightEyeWidth" value="50" onchange="setDirectValue('rightEyeWidth', this.value, 'px')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Height:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('rightEyeHeight', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('rightEyeHeight', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="rightEyeHeight" value="60" onchange="setDirectValue('rightEyeHeight', this.value, 'px')">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h4>Pupil</h4>
+            <div class="control-row">
+                <span class="control-label">Width:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('pupilWidth', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('pupilWidth', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="pupilWidth" value="28" onchange="setDirectValue('pupilWidth', this.value, 'px')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Height:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('pupilHeight', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('pupilHeight', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="pupilHeight" value="28" onchange="setDirectValue('pupilHeight', this.value, 'px')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Color:</span>
+                <div class="control-buttons">
+                    <input type="color" id="pupilColor" value="#1a1a1a" onchange="adjustColor('pupilColor')" style="width: 60px; height: 30px; border: none; cursor: pointer;">
+                </div>
+                <span class="value-display" id="pupilColorDisplay">#1a1a1a</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h4>Movement Bounds</h4>
+            <p style="font-size: 11px; color: #777; margin: 0 0 10px 0; white-space: normal; word-wrap: break-word; max-width: 100%; line-height: 1.4;">How much of that space the pupil uses (make smaller than eye container size)</p>
+            <div class="control-row">
+                <span class="control-label">Show:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" id="toggleBoundsBtn" onclick="toggleBounds()">👁️ Hide</button>
+                </div>
+                <span class="value-display" id="boundsVisible">Visible</span>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Color:</span>
+                <div class="control-buttons">
+                    <input type="color" id="boundsColor" value="#3498db" onchange="adjustBoundsColor()" style="width: 60px; height: 30px; border: none; cursor: pointer;">
+                </div>
+                <span class="value-display" id="boundsColorDisplay">#3498db</span>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Mode:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" id="toggleBoundsModeBtn" onclick="toggleBoundsMode()">🔗 Linked</button>
+                </div>
+                <span class="value-display" id="boundsMode">Both Eyes</span>
+            </div>
+        </div>
+
+        <div class="control-group" id="linkedBoundsGroup">
+            <h4>Both Eyes (Linked)</h4>
+            <div class="control-row">
+                <span class="control-label">Horizontal:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('maxDistanceX', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('maxDistanceX', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="maxDistanceX" value="12" onchange="setDirectValue('maxDistanceX', this.value, 'px')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Vertical:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('maxDistanceY', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('maxDistanceY', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="maxDistanceY" value="12" onchange="setDirectValue('maxDistanceY', this.value, 'px')">
+            </div>
+        </div>
+
+        <div class="control-group" id="separateBoundsGroup" style="display: none;">
+            <h4>Left Eye</h4>
+            <div class="control-row">
+                <span class="control-label">Horizontal:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('leftMaxDistanceX', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('leftMaxDistanceX', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="leftMaxDistanceX" value="12" onchange="setDirectValue('leftMaxDistanceX', this.value, 'px')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Vertical:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('leftMaxDistanceY', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('leftMaxDistanceY', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="leftMaxDistanceY" value="12" onchange="setDirectValue('leftMaxDistanceY', this.value, 'px')">
+            </div>
+            <h4 style="margin-top: 15px;">Right Eye</h4>
+            <div class="control-row">
+                <span class="control-label">Horizontal:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('rightMaxDistanceX', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('rightMaxDistanceX', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="rightMaxDistanceX" value="12" onchange="setDirectValue('rightMaxDistanceX', this.value, 'px')">
+            </div>
+            <div class="control-row">
+                <span class="control-label">Vertical:</span>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="adjust('rightMaxDistanceY', -2)">-</button>
+                    <button class="control-btn" onclick="adjust('rightMaxDistanceY', 2)">+</button>
+                </div>
+                <input type="number" class="value-input" id="rightMaxDistanceY" value="12" onchange="setDirectValue('rightMaxDistanceY', this.value, 'px')">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h4>💾 Saved Presets</h4>
+            <div class="control-row">
+                <button class="control-btn" onclick="loadPreset()">Load My Settings</button>
+            </div>
+        </div>
+
+        <div class="code-output" id="codeOutput"></div>
+        <button class="control-btn copy-btn" onclick="copyCode()">📋 Copy CSS Code</button>
+    </div>
+
+    <!-- Keyboard Controls Info -->
+    <div class="keyboard-controls" id="keyboardControls">
+        <h4>⌨️ Keyboard Controls</h4>
+        <div style="margin-bottom: 10px;">
+            <strong>Mode:</strong>
+            <button class="control-btn" id="keyboardModeBtn" onclick="cycleKeyboardMode()" style="margin-left: 10px;">Both Eyes</button>
+        </div>
+        <div style="color: #555;">
+            <div>↑↓←→ - Move eyes</div>
+            <div>Shift + arrows - Fine adjust (0.1)</div>
+        </div>
+    </div>
+
+    <script>
+        const pupils = document.querySelectorAll('.pupil');
+        const eyes = document.querySelectorAll('.eye');
+
+        document.addEventListener('mousemove', (e) => {
+            pupils.forEach((pupil, index) => {
+                const eye = eyes[index];
+                const eyeRect = eye.getBoundingClientRect();
+                
+                // Get eye center position
+                const eyeCenterX = eyeRect.left + eyeRect.width / 2;
+                const eyeCenterY = eyeRect.top + eyeRect.height / 2;
+                
+                // Calculate angle between eye center and mouse
+                const deltaX = e.clientX - eyeCenterX;
+                const deltaY = e.clientY - eyeCenterY;
+                const angle = Math.atan2(deltaY, deltaX);
+                
+                // Calculate distance to mouse
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                
+                // Maximum distance pupil can move from center (use dev state if available)
+                let maxDistanceX, maxDistanceY;
+                if (window.devState) {
+                    if (window.devState.boundsLinked) {
+                        maxDistanceX = window.devState.maxDistanceX;
+                        maxDistanceY = window.devState.maxDistanceY;
+                    } else {
+                        // index 0 = left eye, index 1 = right eye
+                        maxDistanceX = index === 0 ? window.devState.leftMaxDistanceX : window.devState.rightMaxDistanceX;
+                        maxDistanceY = index === 0 ? window.devState.leftMaxDistanceY : window.devState.rightMaxDistanceY;
+                    }
+                } else {
+                    maxDistanceX = 12;
+                    maxDistanceY = 12;
+                }
+                
+                // Scale movement based on distance (closer = more movement)
+                const movementScale = Math.min(distance / 200, 1);
+                
+                // Calculate desired pupil position with separate X and Y bounds
+                let pupilX = Math.cos(angle) * maxDistanceX * movementScale;
+                let pupilY = Math.sin(angle) * maxDistanceY * movementScale;
+                
+                // Clamp to elliptical bounds to prevent cutoff
+                // Normalize to unit circle, then scale back
+                const normalizedX = pupilX / maxDistanceX;
+                const normalizedY = pupilY / maxDistanceY;
+                const distanceFromCenter = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+                
+                if (distanceFromCenter > 1) {
+                    pupilX = (normalizedX / distanceFromCenter) * maxDistanceX;
+                    pupilY = (normalizedY / distanceFromCenter) * maxDistanceY;
+                }
+                
+                // Apply transform
+                pupil.style.transform = `translate(${pupilX}px, ${pupilY}px)`;
+            });
+        });
+
+        // Optional: Load your actual squirrel image
+        // Uncomment and update the path below:
+        document.getElementById('squirrelImage').src = './squirrel.png';
+
+        // Dev Mode State (global)
+        window.devState = {
+            leftTop: 30,
+            leftLeft: 30,
+            rightTop: 30,
+            rightLeft: 51,
+            eyeWidth: 50,
+            eyeHeight: 60,
+            pupilWidth: 28,
+            pupilHeight: 28,
+            pupilColor: '#1a1a1a',
+            maxDistanceX: 12,
+            maxDistanceY: 12,
+            leftMaxDistanceX: 12,
+            leftMaxDistanceY: 12,
+            rightMaxDistanceX: 12,
+            rightMaxDistanceY: 12,
+            boundsVisible: true,
+            boundsColor: '#3498db',
+            boundsLinked: true,
+            keyboardMode: 'both', // 'both', 'left', 'right'
+            containerVisible: false,
+            containerColor: '#ff0000',
+            containerLinked: true,
+            leftEyeWidth: 50,
+            leftEyeHeight: 60,
+            rightEyeWidth: 50,
+            rightEyeHeight: 60
+        };
+
+        function toggleDevMode() {
+            const controls = document.getElementById('devControls');
+            const keyboardControls = document.getElementById('keyboardControls');
+            const isActive = controls.classList.toggle('active');
+            keyboardControls.classList.toggle('active');
+            
+            // Hide container visualization when exiting dev mode
+            if (!isActive && devState.containerVisible) {
+                devState.containerVisible = false;
+                const allEyes = document.querySelectorAll('.eye');
+                allEyes.forEach(eye => {
+                    eye.style.setProperty('--container-color', 'transparent');
+                });
+                document.getElementById('toggleContainerBtn').textContent = '👁️ Show';
+                document.getElementById('containerVisible').textContent = 'Hidden';
+            }
+            
+            updateCodeOutput();
+            updateBoundsVisualization();
+        }
+
+        function setDirectValue(property, value, unit) {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) return;
+            
+            devState[property] = numValue;
+            
+            // Apply the change using the existing adjust logic
+            const leftEye = document.querySelector('.eye-left');
+            const rightEye = document.querySelector('.eye-right');
+            const allEyes = document.querySelectorAll('.eye');
+            const allPupils = document.querySelectorAll('.pupil');
+
+            switch(property) {
+                case 'leftTop':
+                    leftEye.style.top = numValue + unit;
+                    break;
+                case 'leftLeft':
+                    leftEye.style.left = numValue + unit;
+                    break;
+                case 'rightTop':
+                    rightEye.style.top = numValue + unit;
+                    break;
+                case 'rightLeft':
+                    rightEye.style.left = numValue + unit;
+                    break;
+                case 'eyeWidth':
+                    if (devState.containerLinked) {
+                        allEyes.forEach(eye => eye.style.width = numValue + unit);
+                        devState.leftEyeWidth = numValue;
+                        devState.rightEyeWidth = numValue;
+                    }
+                    updateBoundsVisualization();
+                    break;
+                case 'eyeHeight':
+                    if (devState.containerLinked) {
+                        allEyes.forEach(eye => eye.style.height = numValue + unit);
+                        devState.leftEyeHeight = numValue;
+                        devState.rightEyeHeight = numValue;
+                    }
+                    updateBoundsVisualization();
+                    break;
+                case 'leftEyeWidth':
+                    leftEye.style.width = numValue + unit;
+                    updateBoundsVisualization();
+                    break;
+                case 'leftEyeHeight':
+                    leftEye.style.height = numValue + unit;
+                    updateBoundsVisualization();
+                    break;
+                case 'rightEyeWidth':
+                    rightEye.style.width = numValue + unit;
+                    updateBoundsVisualization();
+                    break;
+                case 'rightEyeHeight':
+                    rightEye.style.height = numValue + unit;
+                    updateBoundsVisualization();
+                    break;
+                case 'pupilWidth':
+                    allPupils.forEach(pupil => pupil.style.width = numValue + unit);
+                    break;
+                case 'pupilHeight':
+                    allPupils.forEach(pupil => pupil.style.height = numValue + unit);
+                    break;
+                case 'maxDistanceX':
+                case 'maxDistanceY':
+                case 'leftMaxDistanceX':
+                case 'leftMaxDistanceY':
+                case 'rightMaxDistanceX':
+                case 'rightMaxDistanceY':
+                    updateBoundsVisualization();
+                    break;
+            }
+            updateCodeOutput();
+        }
+
+        function cycleKeyboardMode() {
+            const modes = ['both', 'left', 'right'];
+            const currentIndex = modes.indexOf(devState.keyboardMode);
+            devState.keyboardMode = modes[(currentIndex + 1) % modes.length];
+            
+            const btn = document.getElementById('keyboardModeBtn');
+            const modeText = {
+                'both': 'Both Eyes',
+                'left': 'Left Eye',
+                'right': 'Right Eye'
+            };
+            btn.textContent = modeText[devState.keyboardMode];
+        }
+
+        function adjust(property, delta) {
+            devState[property] += delta;
+            
+            // Apply changes
+            const leftEye = document.querySelector('.eye-left');
+            const rightEye = document.querySelector('.eye-right');
+            const allEyes = document.querySelectorAll('.eye');
+            const allPupils = document.querySelectorAll('.pupil');
+
+            switch(property) {
+                case 'leftTop':
+                    leftEye.style.top = devState.leftTop + '%';
+                    document.getElementById('leftTop').value = devState.leftTop;
+                    break;
+                case 'leftLeft':
+                    leftEye.style.left = devState.leftLeft + '%';
+                    document.getElementById('leftLeft').value = devState.leftLeft;
+                    break;
+                case 'rightTop':
+                    rightEye.style.top = devState.rightTop + '%';
+                    document.getElementById('rightTop').value = devState.rightTop;
+                    break;
+                case 'rightLeft':
+                    rightEye.style.left = devState.rightLeft + '%';
+                    document.getElementById('rightLeft').value = devState.rightLeft;
+                    break;
+                case 'eyeWidth':
+                    if (devState.containerLinked) {
+                        allEyes.forEach(eye => eye.style.width = devState.eyeWidth + 'px');
+                        devState.leftEyeWidth = devState.eyeWidth;
+                        devState.rightEyeWidth = devState.eyeWidth;
+                    }
+                    document.getElementById('eyeWidth').value = devState.eyeWidth;
+                    updateBoundsVisualization();
+                    break;
+                case 'eyeHeight':
+                    if (devState.containerLinked) {
+                        allEyes.forEach(eye => eye.style.height = devState.eyeHeight + 'px');
+                        devState.leftEyeHeight = devState.eyeHeight;
+                        devState.rightEyeHeight = devState.eyeHeight;
+                    }
+                    document.getElementById('eyeHeight').value = devState.eyeHeight;
+                    updateBoundsVisualization();
+                    break;
+                case 'leftEyeWidth':
+                    leftEye.style.width = devState.leftEyeWidth + 'px';
+                    document.getElementById('leftEyeWidth').value = devState.leftEyeWidth;
+                    updateBoundsVisualization();
+                    break;
+                case 'leftEyeHeight':
+                    leftEye.style.height = devState.leftEyeHeight + 'px';
+                    document.getElementById('leftEyeHeight').value = devState.leftEyeHeight;
+                    updateBoundsVisualization();
+                    break;
+                case 'rightEyeWidth':
+                    rightEye.style.width = devState.rightEyeWidth + 'px';
+                    document.getElementById('rightEyeWidth').value = devState.rightEyeWidth;
+                    updateBoundsVisualization();
+                    break;
+                case 'rightEyeHeight':
+                    rightEye.style.height = devState.rightEyeHeight + 'px';
+                    document.getElementById('rightEyeHeight').value = devState.rightEyeHeight;
+                    updateBoundsVisualization();
+                    break;
+                case 'pupilWidth':
+                    allPupils.forEach(pupil => {
+                        pupil.style.width = devState.pupilWidth + 'px';
+                    });
+                    document.getElementById('pupilWidth').value = devState.pupilWidth;
+                    break;
+                case 'pupilHeight':
+                    allPupils.forEach(pupil => {
+                        pupil.style.height = devState.pupilHeight + 'px';
+                    });
+                    document.getElementById('pupilHeight').value = devState.pupilHeight;
+                    break;
+                case 'maxDistanceX':
+                    document.getElementById('maxDistanceX').value = devState.maxDistanceX;
+                    if (devState.boundsLinked) {
+                        devState.leftMaxDistanceX = devState.maxDistanceX;
+                        devState.rightMaxDistanceX = devState.maxDistanceX;
+                    }
+                    updateBoundsVisualization();
+                    break;
+                case 'maxDistanceY':
+                    document.getElementById('maxDistanceY').value = devState.maxDistanceY;
+                    if (devState.boundsLinked) {
+                        devState.leftMaxDistanceY = devState.maxDistanceY;
+                        devState.rightMaxDistanceY = devState.maxDistanceY;
+                    }
+                    updateBoundsVisualization();
+                    break;
+                case 'leftMaxDistanceX':
+                    document.getElementById('leftMaxDistanceX').value = devState.leftMaxDistanceX;
+                    updateBoundsVisualization();
+                    break;
+                case 'leftMaxDistanceY':
+                    document.getElementById('leftMaxDistanceY').value = devState.leftMaxDistanceY;
+                    updateBoundsVisualization();
+                    break;
+                case 'rightMaxDistanceX':
+                    document.getElementById('rightMaxDistanceX').value = devState.rightMaxDistanceX;
+                    updateBoundsVisualization();
+                    break;
+                case 'rightMaxDistanceY':
+                    document.getElementById('rightMaxDistanceY').value = devState.rightMaxDistanceY;
+                    updateBoundsVisualization();
+                    break;
+            }
+
+            updateCodeOutput();
+        }
+
+        function adjustColor(property) {
+            const colorInput = document.getElementById(property);
+            devState.pupilColor = colorInput.value;
+            
+            const allPupils = document.querySelectorAll('.pupil');
+            allPupils.forEach(pupil => {
+                pupil.style.background = devState.pupilColor;
+            });
+            
+            document.getElementById('pupilColorDisplay').textContent = devState.pupilColor;
+            updateCodeOutput();
+        }
+
+        function toggleBounds() {
+            devState.boundsVisible = !devState.boundsVisible;
+            const allEyes = document.querySelectorAll('.eye');
+            const btn = document.getElementById('toggleBoundsBtn');
+            const status = document.getElementById('boundsVisible');
+            
+            if (devState.boundsVisible) {
+                allEyes.forEach(eye => eye.classList.remove('bounds-hidden'));
+                btn.textContent = '👁️ Hide';
+                status.textContent = 'Visible';
+            } else {
+                allEyes.forEach(eye => eye.classList.add('bounds-hidden'));
+                btn.textContent = '👁️ Show';
+                status.textContent = 'Hidden';
+            }
+        }
+
+        function adjustBoundsColor() {
+            const colorInput = document.getElementById('boundsColor');
+            devState.boundsColor = colorInput.value;
+            
+            // Convert hex to rgba with 0.5 opacity
+            const r = parseInt(devState.boundsColor.substr(1,2), 16);
+            const g = parseInt(devState.boundsColor.substr(3,2), 16);
+            const b = parseInt(devState.boundsColor.substr(5,2), 16);
+            const rgba = `rgba(${r}, ${g}, ${b}, 0.5)`;
+            
+            const allEyes = document.querySelectorAll('.eye');
+            allEyes.forEach(eye => {
+                eye.style.setProperty('--bounds-color', rgba);
+            });
+            
+            document.getElementById('boundsColorDisplay').textContent = devState.boundsColor;
+        }
+
+        function toggleContainer() {
+            devState.containerVisible = !devState.containerVisible;
+            const allEyes = document.querySelectorAll('.eye');
+            const btn = document.getElementById('toggleContainerBtn');
+            const status = document.getElementById('containerVisible');
+            
+            if (devState.containerVisible) {
+                const r = parseInt(devState.containerColor.substr(1,2), 16);
+                const g = parseInt(devState.containerColor.substr(3,2), 16);
+                const b = parseInt(devState.containerColor.substr(5,2), 16);
+                const rgba = `rgba(${r}, ${g}, ${b}, 0.3)`;
+                
+                allEyes.forEach(eye => {
+                    eye.style.setProperty('--container-color', rgba);
+                });
+                btn.textContent = '👁️ Hide';
+                status.textContent = 'Visible';
+            } else {
+                allEyes.forEach(eye => {
+                    eye.style.setProperty('--container-color', 'transparent');
+                });
+                btn.textContent = '👁️ Show';
+                status.textContent = 'Hidden';
+            }
+        }
+
+        function adjustContainerColor() {
+            const colorInput = document.getElementById('containerColor');
+            devState.containerColor = colorInput.value;
+            
+            if (devState.containerVisible) {
+                // Convert hex to rgba with 0.3 opacity
+                const r = parseInt(devState.containerColor.substr(1,2), 16);
+                const g = parseInt(devState.containerColor.substr(3,2), 16);
+                const b = parseInt(devState.containerColor.substr(5,2), 16);
+                const rgba = `rgba(${r}, ${g}, ${b}, 0.3)`;
+                
+                const allEyes = document.querySelectorAll('.eye');
+                allEyes.forEach(eye => {
+                    eye.style.setProperty('--container-color', rgba);
+                });
+            }
+            
+            document.getElementById('containerColorDisplay').textContent = devState.containerColor;
+        }
+
+        function toggleContainerMode() {
+            devState.containerLinked = !devState.containerLinked;
+            const btn = document.getElementById('toggleContainerModeBtn');
+            const status = document.getElementById('containerMode');
+            const linkedGroup = document.getElementById('linkedContainerGroup');
+            const separateGroup = document.getElementById('separateContainerGroup');
+            
+            if (devState.containerLinked) {
+                btn.textContent = '🔗 Linked';
+                status.textContent = 'Both Eyes';
+                linkedGroup.style.display = 'block';
+                separateGroup.style.display = 'none';
+                // Sync separate values to linked
+                devState.leftEyeWidth = devState.eyeWidth;
+                devState.leftEyeHeight = devState.eyeHeight;
+                devState.rightEyeWidth = devState.eyeWidth;
+                devState.rightEyeHeight = devState.eyeHeight;
+            } else {
+                btn.textContent = '🔓 Separate';
+                status.textContent = 'Individual';
+                linkedGroup.style.display = 'none';
+                separateGroup.style.display = 'block';
+                // Initialize separate values from linked
+                devState.leftEyeWidth = devState.eyeWidth;
+                devState.leftEyeHeight = devState.eyeHeight;
+                devState.rightEyeWidth = devState.eyeWidth;
+                devState.rightEyeHeight = devState.eyeHeight;
+                document.getElementById('leftEyeWidth').value = devState.leftEyeWidth;
+                document.getElementById('leftEyeHeight').value = devState.leftEyeHeight;
+                document.getElementById('rightEyeWidth').value = devState.rightEyeWidth;
+                document.getElementById('rightEyeHeight').value = devState.rightEyeHeight;
+            }
+            updateBoundsVisualization();
+            updateCodeOutput();
+        }
+
+        function toggleBoundsMode() {
+            devState.boundsLinked = !devState.boundsLinked;
+            const btn = document.getElementById('toggleBoundsModeBtn');
+            const status = document.getElementById('boundsMode');
+            const linkedGroup = document.getElementById('linkedBoundsGroup');
+            const separateGroup = document.getElementById('separateBoundsGroup');
+            
+            if (devState.boundsLinked) {
+                btn.textContent = '🔗 Linked';
+                status.textContent = 'Both Eyes';
+                linkedGroup.style.display = 'block';
+                separateGroup.style.display = 'none';
+                // Sync separate values to linked
+                devState.leftMaxDistanceX = devState.maxDistanceX;
+                devState.leftMaxDistanceY = devState.maxDistanceY;
+                devState.rightMaxDistanceX = devState.maxDistanceX;
+                devState.rightMaxDistanceY = devState.maxDistanceY;
+            } else {
+                btn.textContent = '🔓 Separate';
+                status.textContent = 'Individual';
+                linkedGroup.style.display = 'none';
+                separateGroup.style.display = 'block';
+                // Initialize separate values from linked
+                devState.leftMaxDistanceX = devState.maxDistanceX;
+                devState.leftMaxDistanceY = devState.maxDistanceY;
+                devState.rightMaxDistanceX = devState.maxDistanceX;
+                devState.rightMaxDistanceY = devState.maxDistanceY;
+                document.getElementById('leftMaxDistanceX').value = devState.leftMaxDistanceX;
+                document.getElementById('leftMaxDistanceY').value = devState.leftMaxDistanceY;
+                document.getElementById('rightMaxDistanceX').value = devState.rightMaxDistanceX;
+                document.getElementById('rightMaxDistanceY').value = devState.rightMaxDistanceY;
+            }
+            updateBoundsVisualization();
+            updateCodeOutput();
+        }
+
+        function updateBoundsVisualization() {
+            const leftEye = document.querySelector('.eye-left');
+            const rightEye = document.querySelector('.eye-right');
+            
+            if (devState.boundsLinked) {
+                const boundsWidth = devState.maxDistanceX * 2 + devState.pupilWidth;
+                const boundsHeight = devState.maxDistanceY * 2 + devState.pupilHeight;
+                leftEye.style.setProperty('--bounds-width', boundsWidth + 'px');
+                leftEye.style.setProperty('--bounds-height', boundsHeight + 'px');
+                rightEye.style.setProperty('--bounds-width', boundsWidth + 'px');
+                rightEye.style.setProperty('--bounds-height', boundsHeight + 'px');
+            } else {
+                const leftBoundsWidth = devState.leftMaxDistanceX * 2 + devState.pupilWidth;
+                const leftBoundsHeight = devState.leftMaxDistanceY * 2 + devState.pupilHeight;
+                const rightBoundsWidth = devState.rightMaxDistanceX * 2 + devState.pupilWidth;
+                const rightBoundsHeight = devState.rightMaxDistanceY * 2 + devState.pupilHeight;
+                leftEye.style.setProperty('--bounds-width', leftBoundsWidth + 'px');
+                leftEye.style.setProperty('--bounds-height', leftBoundsHeight + 'px');
+                rightEye.style.setProperty('--bounds-width', rightBoundsWidth + 'px');
+                rightEye.style.setProperty('--bounds-height', rightBoundsHeight + 'px');
+            }
+            
+            // Update container sizes if in separate mode
+            if (!devState.containerLinked) {
+                leftEye.style.width = devState.leftEyeWidth + 'px';
+                leftEye.style.height = devState.leftEyeHeight + 'px';
+                rightEye.style.width = devState.rightEyeWidth + 'px';
+                rightEye.style.height = devState.rightEyeHeight + 'px';
+            }
+        }
+
+        function updateCodeOutput() {
+            const code = `/* ========================================
+   ALL SETTINGS (for debugging/reference)
+   ======================================== */
+
+/* Eye Position Controls */
+// Left Eye: top: ${devState.leftTop}%, left: ${devState.leftLeft}%
+// Right Eye: top: ${devState.rightTop}%, left: ${devState.rightLeft}%
+
+/* Eye Container Size */
+// Mode: ${devState.containerLinked ? 'Linked' : 'Separate'}
+${devState.containerLinked ? 
+`// Both Eyes: width: ${devState.eyeWidth}px, height: ${devState.eyeHeight}px` :
+`// Left Eye: width: ${devState.leftEyeWidth}px, height: ${devState.leftEyeHeight}px
+// Right Eye: width: ${devState.rightEyeWidth}px, height: ${devState.rightEyeHeight}px`}
+
+/* Pupil */
+// Width: ${devState.pupilWidth}px, Height: ${devState.pupilHeight}px
+// Color: ${devState.pupilColor}
+
+/* Movement Bounds */
+// Mode: ${devState.boundsLinked ? 'Linked' : 'Separate'}
+${devState.boundsLinked ? 
+`// Both Eyes: Horizontal: ${devState.maxDistanceX}px, Vertical: ${devState.maxDistanceY}px` :
+`// Left Eye: Horizontal: ${devState.leftMaxDistanceX}px, Vertical: ${devState.leftMaxDistanceY}px
+// Right Eye: Horizontal: ${devState.rightMaxDistanceX}px, Vertical: ${devState.rightMaxDistanceY}px`}
+
+/* ========================================
+   CSS CODE (copy this to your stylesheet)
+   ======================================== */
+
+.eye {
+    width: ${devState.eyeWidth}px;
+    height: ${devState.eyeHeight}px;
+}
+
+.eye-left {
+    top: ${devState.leftTop}%;
+    left: ${devState.leftLeft}%;
+}
+
+.eye-right {
+    top: ${devState.rightTop}%;
+    left: ${devState.rightLeft}%;
+}
+
+.pupil {
+    width: ${devState.pupilWidth}px;
+    height: ${devState.pupilHeight}px;
+    background: ${devState.pupilColor};
+}
+
+/* ========================================
+   JAVASCRIPT CODE (movement bounds)
+   ======================================== */
+
+${devState.boundsLinked ? 
+`const maxDistanceX = ${devState.maxDistanceX};
+const maxDistanceY = ${devState.maxDistanceY};` :
+`// Left Eye
+const leftMaxDistanceX = ${devState.leftMaxDistanceX};
+const leftMaxDistanceY = ${devState.leftMaxDistanceY};
+// Right Eye
+const rightMaxDistanceX = ${devState.rightMaxDistanceX};
+const rightMaxDistanceY = ${devState.rightMaxDistanceY};`}`;
+            
+            document.getElementById('codeOutput').textContent = code;
+        }
+
+        function copyCode() {
+            const code = document.getElementById('codeOutput').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        // Initialize code output
+        updateCodeOutput();
+
+        // Load preset settings
+        function loadPreset() {
+            // Your saved settings
+            const preset = {
+                leftTop: 35.2,
+                leftLeft: 24.7,
+                rightTop: 35.5,
+                rightLeft: 43.1,
+                eyeWidth: 50,
+                eyeHeight: 60,
+                leftEyeWidth: 32,
+                leftEyeHeight: 54,
+                rightEyeWidth: 44,
+                rightEyeHeight: 56,
+                pupilWidth: 14,
+                pupilHeight: 17,
+                pupilColor: '#ffffff',
+                maxDistanceX: 12,
+                maxDistanceY: 12,
+                leftMaxDistanceX: 4,
+                leftMaxDistanceY: 8,
+                rightMaxDistanceX: 9,
+                rightMaxDistanceY: 8,
+                boundsLinked: false,
+                containerLinked: false
+            };
+
+            // Apply all settings
+            Object.assign(devState, preset);
+
+            // Update UI
+            const leftEye = document.querySelector('.eye-left');
+            const rightEye = document.querySelector('.eye-right');
+            const allEyes = document.querySelectorAll('.eye');
+            const allPupils = document.querySelectorAll('.pupil');
+
+            // Positions
+            leftEye.style.top = preset.leftTop + '%';
+            leftEye.style.left = preset.leftLeft + '%';
+            rightEye.style.top = preset.rightTop + '%';
+            rightEye.style.left = preset.rightLeft + '%';
+
+            // Container sizes
+            if (preset.containerLinked) {
+                allEyes.forEach(eye => {
+                    eye.style.width = preset.eyeWidth + 'px';
+                    eye.style.height = preset.eyeHeight + 'px';
+                });
+            } else {
+                leftEye.style.width = preset.leftEyeWidth + 'px';
+                leftEye.style.height = preset.leftEyeHeight + 'px';
+                rightEye.style.width = preset.rightEyeWidth + 'px';
+                rightEye.style.height = preset.rightEyeHeight + 'px';
+            }
+
+            // Pupil
+            allPupils.forEach(pupil => {
+                pupil.style.width = preset.pupilWidth + 'px';
+                pupil.style.height = preset.pupilHeight + 'px';
+                pupil.style.background = preset.pupilColor;
+            });
+
+            // Update input fields
+            document.getElementById('leftTop').value = preset.leftTop;
+            document.getElementById('leftLeft').value = preset.leftLeft;
+            document.getElementById('rightTop').value = preset.rightTop;
+            document.getElementById('rightLeft').value = preset.rightLeft;
+            document.getElementById('eyeWidth').value = preset.eyeWidth;
+            document.getElementById('eyeHeight').value = preset.eyeHeight;
+            document.getElementById('pupilWidth').value = preset.pupilWidth;
+            document.getElementById('pupilHeight').value = preset.pupilHeight;
+            document.getElementById('pupilColor').value = preset.pupilColor;
+            document.getElementById('pupilColorDisplay').textContent = preset.pupilColor;
+
+            // Switch to separate container mode if needed
+            if (!devState.containerLinked) {
+                const containerBtn = document.getElementById('toggleContainerModeBtn');
+                const containerStatus = document.getElementById('containerMode');
+                const linkedContainerGroup = document.getElementById('linkedContainerGroup');
+                const separateContainerGroup = document.getElementById('separateContainerGroup');
+                
+                containerBtn.textContent = '🔓 Separate';
+                containerStatus.textContent = 'Individual';
+                linkedContainerGroup.style.display = 'none';
+                separateContainerGroup.style.display = 'block';
+
+                document.getElementById('leftEyeWidth').value = preset.leftEyeWidth;
+                document.getElementById('leftEyeHeight').value = preset.leftEyeHeight;
+                document.getElementById('rightEyeWidth').value = preset.rightEyeWidth;
+                document.getElementById('rightEyeHeight').value = preset.rightEyeHeight;
+            }
+
+            // Switch to separate bounds mode
+            if (!devState.boundsLinked) {
+                const btn = document.getElementById('toggleBoundsModeBtn');
+                const status = document.getElementById('boundsMode');
+                const linkedGroup = document.getElementById('linkedBoundsGroup');
+                const separateGroup = document.getElementById('separateBoundsGroup');
+                
+                btn.textContent = '🔓 Separate';
+                status.textContent = 'Individual';
+                linkedGroup.style.display = 'none';
+                separateGroup.style.display = 'block';
+
+                document.getElementById('leftMaxDistanceX').value = preset.leftMaxDistanceX;
+                document.getElementById('leftMaxDistanceY').value = preset.leftMaxDistanceY;
+                document.getElementById('rightMaxDistanceX').value = preset.rightMaxDistanceX;
+                document.getElementById('rightMaxDistanceY').value = preset.rightMaxDistanceY;
+            }
+
+            updateBoundsVisualization();
+            updateCodeOutput();
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            // Only work when dev mode is active
+            if (!document.getElementById('devControls').classList.contains('active')) return;
+            
+            // Don't interfere with typing in inputs
+            if (e.target.tagName === 'INPUT') return;
+            
+            const delta = e.shiftKey ? 0.1 : 1;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (devState.keyboardMode === 'both' || devState.keyboardMode === 'left') {
+                        adjust('leftTop', -delta);
+                    }
+                    if (devState.keyboardMode === 'both' || devState.keyboardMode === 'right') {
+                        adjust('rightTop', -delta);
+                    }
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    if (devState.keyboardMode === 'both' || devState.keyboardMode === 'left') {
+                        adjust('leftTop', delta);
+                    }
+                    if (devState.keyboardMode === 'both' || devState.keyboardMode === 'right') {
+                        adjust('rightTop', delta);
+                    }
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (devState.keyboardMode === 'both' || devState.keyboardMode === 'left') {
+                        adjust('leftLeft', -delta);
+                    }
+                    if (devState.keyboardMode === 'both' || devState.keyboardMode === 'right') {
+                        adjust('rightLeft', -delta);
+                    }
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (devState.keyboardMode === 'both' || devState.keyboardMode === 'left') {
+                        adjust('leftLeft', delta);
+                    }
+                    if (devState.keyboardMode === 'both' || devState.keyboardMode === 'right') {
+                        adjust('rightLeft', delta);
+                    }
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>
