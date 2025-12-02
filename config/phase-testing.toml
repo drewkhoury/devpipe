@@ -1,0 +1,35 @@
+# Test phases and fail-fast behavior
+# Phases run sequentially, tasks within a phase run in parallel
+
+[tasks.phase-pass]
+##################################
+
+[tasks.pass-1]
+name = "Pass 1"
+command = "./hello-world.sh lint"
+
+[tasks.pass-2]
+name = "Pass 2"
+command = "./hello-world.sh lint"
+
+[tasks.phase-fail]
+##################################
+
+[tasks.fail-1]
+name = "Fail 1"
+command = "./hello-world.sh format"
+
+[tasks.fail-2]
+name = "Fail 2"
+command = "./hello-world.sh format"
+
+[tasks.phase-should-not-run]
+##################################
+
+[tasks.skip-1]
+name = "Skip 1"
+command = "./hello-world.sh build"
+
+[tasks.skip-2]
+name = "Skip 2"
+command = "./hello-world.sh build"
