@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CMD="${1:-}"
-
-if [[ -z "$CMD" ]]; then
-  echo "Usage: $0 <lint|format|type-check|build|unit-tests|e2e-tests>"
-  exit 1
-fi
+CMD="${1:-banner}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ART_DIR="${ROOT_DIR}/artifacts"
@@ -74,10 +69,9 @@ case "$CMD" in
     echo "[hello-world] Checking formatting..."
     sleep 0.25
     echo "[hello-world] check..."
-    sleep 1
+    sleep 0.25
     echo "[hello-world] check..."
     exit 1
-    sleep 3
     echo "[hello-world] Format OK"
     ;;
 
@@ -125,7 +119,7 @@ case "$CMD" in
     echo "[hello-world] Building app..."
     mkdir -p "${ART_DIR}/build"
     echo "hello world app binary" > "${ART_DIR}/build/app.txt"
-    sleep 3
+    sleep 0.5
     echo "[hello-world] Build done, artifact at artifacts/build/app.txt"
     ;;
 
@@ -140,30 +134,113 @@ case "$CMD" in
   <testcase classname="hello.WorldTest" name="testTwo" time="0.005"/>
 </testsuite>
 EOF
-    sleep 3
+    sleep 1
     echo "[hello-world] Unit tests OK, junit at artifacts/test/junit.xml"
     ;;
 
   sast-tests)
     echo "[hello-world] SAST testing..."
-    sleep 3
+    sleep 1
     echo "[hello-world] SAST OK"
     ;;
 
   smoke-tests)
     echo "[hello-world] Running smoke tests (simulated long run)..."
-    sleep 3
+    sleep 1
     echo "[hello-world] Smoke tests OK"
     ;;
 
   e2e-tests)
     echo "[hello-world] Running e2e tests (simulated long run)..."
-    sleep 3
+    sleep 1
     echo "[hello-world] E2E tests OK"
+    ;;
+
+  demo-complete)
+    cat << 'EOF'
+
+┌───────────────────────────────────────────────────────────────────┐
+│                                                                   │
+│  ✨ Demo Complete!                                                │
+│                                                                   │
+│  You just ran:                                                    │
+│    ./devpipe --config config/hello-world.toml                     │
+│                                                                   │
+│  📁 Explore the Configs:                                          │
+│                                                                   │
+│  • config/hello-world.toml  - Simple demo (what you just ran)     │
+│    Basic task definitions, perfect for learning                   │
+│                                                                   │
+│  • config.toml              - Real-world setup (devpipe itself)   │
+│    Phases, metrics, git integration, auto-fix, and more           │
+│                                                                   │
+│  • config.example.toml      - Template with all features          │
+│    Copy this to start your own project                            │
+│                                                                   │
+│  🎮 Try These Cool Commands:                                      │
+│                                                                   │
+│    devpipe --ui full --dashboard     # Live dashboard view        │
+│    devpipe --skip lint --skip format # Skip specific tasks        │
+│    devpipe --only build              # Run just one task          │
+│    devpipe --fast                    # Skip slow tasks            │
+│    devpipe --fail-fast               # Stop on first failure      │
+│    devpipe --dry-run                 # Preview without running    │
+│                                                                   │
+│  📊 View Your Results:                                            │
+│    open .devpipe/report.html         # Dashboard with run history │
+│                                                                   │
+│  🚀 Start your devpipe journey today!                             │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+
+EOF
+    ;;
+
+  banner)
+    cat << 'EOF'
+╔═══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║   ██╗  ██╗███████╗██╗     ██╗      ██████╗                        ║
+║   ██║  ██║██╔════╝██║     ██║     ██╔═══██╗                       ║
+║   ███████║█████╗  ██║     ██║     ██║   ██║                       ║
+║   ██╔══██║██╔══╝  ██║     ██║     ██║   ██║                       ║
+║   ██║  ██║███████╗███████╗███████╗╚██████╔╝                       ║
+║   ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝ ╚═════╝                        ║
+║                                                                   ║
+║   ██╗    ██╗ ██████╗ ██████╗ ██╗     ██████╗                      ║
+║   ██║    ██║██╔═══██╗██╔══██╗██║     ██╔══██╗                     ║
+║   ██║ █╗ ██║██║   ██║██████╔╝██║     ██║  ██║                     ║
+║   ██║███╗██║██║   ██║██╔══██╗██║     ██║  ██║                     ║
+║   ╚███╔███╔╝╚██████╔╝██║  ██║███████╗██████╔╝                     ║
+║    ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝                      ║
+║                                                                   ║
+║              🎭 Mock Application for devpipe                      ║
+║                                                                   ║
+║   This is a fake application used to demonstrate devpipe.         ║
+║   It simulates common CI/CD tasks.                                ║
+║                                                                   ║
+║   Available commands:                                             ║
+║     • lint        - Simulated linting                             ║
+║     • format      - Simulated formatting                          ║
+║     • type-check  - Simulated type checking                       ║
+║     • build       - Simulated build                               ║
+║     • unit-tests  - Simulated tests                               ║
+║     • e2e-tests   - Simulated E2E tests                           ║
+║     • banner      - Show this banner                              ║
+║                                                                   ║
+║   Usage: ./hello-world.sh <command>                               ║
+║                                                                   ║
+║   Try it with devpipe:                                            ║
+║     devpipe --config config/hello-world.toml                      ║
+║     make hello-demo                                               ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+EOF
     ;;
 
   *)
     echo "Unknown command: $CMD"
+    echo "Run './hello-world.sh banner' for help"
     exit 1
     ;;
 esac

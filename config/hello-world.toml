@@ -1,0 +1,31 @@
+# Simple hello-world example config
+# This demonstrates devpipe with a minimal bash script
+# Tasks run sequentially in the order defined
+
+[tasks.lint]
+name = "Lint Code"
+command = "./hello-world.sh lint"
+
+[tasks.format]
+name = "Format Code"
+command = "./hello-world.sh format"
+
+[tasks.type-check]
+name = "Type Check"
+command = "./hello-world.sh type-check"
+
+[tasks.build]
+name = "Build"
+command = "./hello-world.sh build"
+metricsFormat = "artifact"
+metricsPath = "artifacts/build/app.txt"
+
+[tasks.unit-tests]
+name = "Unit Tests"
+command = "./hello-world.sh unit-tests"
+metricsFormat = "junit"
+metricsPath = "artifacts/test/junit.xml"
+
+[tasks.e2e-tests]
+name = "E2E Tests"
+command = "./hello-world.sh e2e-tests"
