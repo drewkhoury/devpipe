@@ -88,11 +88,20 @@ func GenerateDashboardWithVersion(outputRoot, version string) error {
 
 	// Generate individual run detail pages
 	for _, run := range runs {
-		detailPath := filepath.Join(outputRoot, "runs", run.RunID, "report.html")
+		runDir := filepath.Join(outputRoot, "runs", run.RunID)
+
+		// Generate run detail HTML
+		detailPath := filepath.Join(runDir, "report.html")
 		if err := writeRunDetailHTML(detailPath, run); err != nil {
 			// Don't fail if one detail page fails, but log it
 			fmt.Fprintf(os.Stderr, "WARNING: failed to generate report for run %s: %v\n", run.RunID, err)
 			continue
+		}
+
+		// Generate IDE viewer HTML with embedded file list
+		idePath := filepath.Join(runDir, "ide.html")
+		if err := writeIDEViewer(idePath, run.RunID, runDir); err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: failed to generate IDE for run %s: %v\n", run.RunID, err)
 		}
 	}
 
@@ -147,7 +156,7 @@ func aggregateRuns(runs []model.RunRecord, version string) Summary {
 	if username == "" {
 		username = "friend"
 	}
-	
+
 	// Random greeting
 	greetings := []string{
 		"Hello",
@@ -162,7 +171,7 @@ func aggregateRuns(runs []model.RunRecord, version string) Summary {
 		"Yo",
 	}
 	greeting := greetings[time.Now().Unix()%int64(len(greetings))]
-	
+
 	summary := Summary{
 		TotalRuns:       len(runs),
 		RecentRuns:      []RunSummary{},

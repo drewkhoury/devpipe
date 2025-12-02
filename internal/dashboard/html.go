@@ -132,42 +132,42 @@ func truncateString(s string, maxLen int) string {
 func phaseEmoji(phaseName string) string {
 	// Normalize to lowercase for matching
 	name := strings.ToLower(phaseName)
-	
+
 	// Map phase names/keywords to emojis
 	emojiMap := map[string]string{
-		"validation": "🧪",  // Test tube for validation/testing
-		"test":       "🧪",  // Test tube
-		"testing":    "🧪",  // Test tube
-		"build":      "📦",  // Package for build
-		"package":    "📦",  // Package
-		"compile":    "🔨",  // Hammer for compilation
-		"deploy":     "🚀",  // Rocket for deployment
-		"release":    "🚀",  // Rocket for release
-		"lint":       "🔍",  // Magnifying glass for linting
-		"security":   "🔒",  // Lock for security
-		"e2e":        "🎯",  // Target for end-to-end tests
-		"end-to-end": "🎯",  // Target
-		"integration":"🔗",  // Link for integration
-		"setup":      "⚙️",   // Gear for setup
-		"cleanup":    "🧹",  // Broom for cleanup
-		"docs":       "📚",  // Books for documentation
-		"publish":    "📤",  // Outbox for publishing
+		"validation":  "🧪",  // Test tube for validation/testing
+		"test":        "🧪",  // Test tube
+		"testing":     "🧪",  // Test tube
+		"build":       "📦",  // Package for build
+		"package":     "📦",  // Package
+		"compile":     "🔨",  // Hammer for compilation
+		"deploy":      "🚀",  // Rocket for deployment
+		"release":     "🚀",  // Rocket for release
+		"lint":        "🔍",  // Magnifying glass for linting
+		"security":    "🔒",  // Lock for security
+		"e2e":         "🎯",  // Target for end-to-end tests
+		"end-to-end":  "🎯",  // Target
+		"integration": "🔗",  // Link for integration
+		"setup":       "⚙️", // Gear for setup
+		"cleanup":     "🧹",  // Broom for cleanup
+		"docs":        "📚",  // Books for documentation
+		"publish":     "📤",  // Outbox for publishing
 	}
-	
+
 	// Check for exact match first
 	if emoji, ok := emojiMap[name]; ok {
 		return emoji
 	}
-	
+
 	// Check if any keyword is contained in the phase name
 	for keyword, emoji := range emojiMap {
 		if strings.Contains(name, keyword) {
 			return emoji
 		}
 	}
-	
+
 	// Default emoji
-	return "📋"  // Clipboard as default
+	return "📋" // Clipboard as default
 }
 
 // writeRunDetailHTML generates a detail page for a single run
@@ -2164,7 +2164,10 @@ const runDetailTemplate = `<!DOCTYPE html>
                     <div class="detail-label">Output (last 10 lines)</div>
                     <pre style="background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">{{range .LogPreview}}{{.}}
 {{end}}</pre>
-                    <a href="logs/{{.ID}}.log" class="log-link">📄 View Full Log</a>
+                    <div style="display: flex; gap: 15px; margin-top: 10px;">
+                        <a href="logs/{{.ID}}.log" class="log-link">📄 View raw log</a>
+                        <a href="ide.html?file=logs/{{.ID}}.log" class="log-link">🖥️ View in web IDE</a>
+                    </div>
                 </div>
                 {{end}}
             </div>
