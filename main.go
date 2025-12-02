@@ -1232,31 +1232,75 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		res.Metrics = parseTaskMetrics(st, verbose)
 		if res.Metrics != nil {
 			renderer.Verbose(verbose, "%s Metrics parsed successfully: %+v", st.ID, res.Metrics.Data)
+		} else {
+			// Metrics parsing failed - this means either:
+			// 1. File doesn't exist (will be caught below)
+			// 2. Invalid format (error already printed)
+			// 3. Parse error (error already printed)
+			// We'll fail the task below if file is missing/empty, or here if it's a parse/format error
 		}
 
 		// Validate artifact if metrics path specified
-		artifactPath := filepath.Join(st.Workdir, st.MetricsPath)
+		// Handle both absolute and relative paths
+		var artifactPath string
+		if filepath.IsAbs(st.MetricsPath) {
+			artifactPath = st.MetricsPath
+		} else {
+			artifactPath = filepath.Join(st.Workdir, st.MetricsPath)
+		}
 		if info, err := os.Stat(artifactPath); err != nil || info.Size() == 0 {
 			// Artifact missing or empty - fail the task
 			res.Status = model.StatusFail
 			if err != nil {
-				renderer.Verbose(verbose, "%s Artifact validation FAILED: file not found: %s", st.ID, artifactPath)
+				// Always show this error (not just in verbose)
+				fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Metrics file not found: %s\n", st.ID, st.MetricsPath)
+				renderer.Verbose(verbose, "%s Full path: %s", st.ID, artifactPath)
 			} else {
-				renderer.Verbose(verbose, "%s Artifact validation FAILED: file is empty: %s", st.ID, artifactPath)
+				// Always show this error (not just in verbose)
+				fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Metrics file is empty: %s\n", st.ID, st.MetricsPath)
+				renderer.Verbose(verbose, "%s Full path: %s", st.ID, artifactPath)
 			}
+		} else if res.Metrics == nil {
+			// File exists but metrics parsing failed (invalid format or parse error)
+			res.Status = model.StatusFail
+			// Error already printed by parseTaskMetrics
+			renderer.Verbose(verbose, "%s Metrics validation FAILED: file exists but parsing failed", st.ID)
 		} else {
-			// Artifact exists and has size - store info in metrics
-			if res.Metrics == nil {
-				res.Metrics = &model.TaskMetrics{
-					Kind:          "artifact",
-					SummaryFormat: "artifact",
-					Data:          make(map[string]interface{}),
-				}
-			}
+			// Artifact exists, has size, and metrics parsed successfully
 			res.Metrics.Data["path"] = artifactPath
 			res.Metrics.Data["size"] = info.Size()
 
 			renderer.Verbose(verbose, "%s Artifact validation PASSED: %s (%d bytes)", st.ID, artifactPath, info.Size())
+
+			// Copy artifact to run directory for historical preservation
+			artifactsDir := filepath.Join(runDir, "artifacts")
+			if err := os.MkdirAll(artifactsDir, 0755); err != nil {
+				renderer.Verbose(verbose, "%s Failed to create artifacts directory: %v", st.ID, err)
+			} else {
+				// Determine destination path based on whether source is absolute or relative
+				var destPath string
+				if filepath.IsAbs(st.MetricsPath) {
+					// For absolute paths, store under task ID with full path to avoid conflicts
+					// e.g., /foo/bar/file.xml -> artifacts/<task-id>/foo/bar/file.xml
+					destPath = filepath.Join(artifactsDir, st.ID, st.MetricsPath)
+				} else {
+					// For relative paths, preserve directory structure
+					destPath = filepath.Join(artifactsDir, st.MetricsPath)
+				}
+				destDir := filepath.Dir(destPath)
+				if err := os.MkdirAll(destDir, 0755); err != nil {
+					renderer.Verbose(verbose, "%s Failed to create artifact subdirectory: %v", st.ID, err)
+				} else {
+					// Copy the file
+					if content, err := os.ReadFile(artifactPath); err != nil {
+						renderer.Verbose(verbose, "%s Failed to read artifact for copying: %v", st.ID, err)
+					} else if err := os.WriteFile(destPath, content, 0644); err != nil {
+						renderer.Verbose(verbose, "%s Failed to copy artifact: %v", st.ID, err)
+					} else {
+						renderer.Verbose(verbose, "%s Artifact copied to: %s", st.ID, destPath)
+					}
+				}
+			}
 		}
 	} else {
 		renderer.Verbose(verbose, "%s No metrics configured (format=%s, path=%s)", st.ID, st.MetricsFormat, st.MetricsPath)
@@ -1332,8 +1376,13 @@ func writeRunJSON(runDir string, record model.RunRecord) error {
 
 // parseTaskMetrics parses metrics for a completed task
 func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics {
-	// Build full path to metrics file
-	metricsPath := filepath.Join(st.Workdir, st.MetricsPath)
+	// Build full path to metrics file (handle both absolute and relative paths)
+	var metricsPath string
+	if filepath.IsAbs(st.MetricsPath) {
+		metricsPath = st.MetricsPath
+	} else {
+		metricsPath = filepath.Join(st.Workdir, st.MetricsPath)
+	}
 
 	// Check if file exists
 	if _, err := os.Stat(metricsPath); os.IsNotExist(err) {
@@ -1348,15 +1397,25 @@ func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics 
 	case "junit":
 		m, err := metrics.ParseJUnitXML(metricsPath)
 		if err != nil {
-			// Always warn about parse failures (not just in verbose mode)
-			fmt.Fprintf(os.Stderr, "[%-15s] ⚠️  WARNING: Failed to parse JUnit XML: %v\n", st.ID, err)
+			// Always show parse failures (not just in verbose mode)
+			fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Failed to parse JUnit XML: %v\n", st.ID, err)
+			fmt.Fprintf(os.Stderr, "[%-15s]          File: %s\n", st.ID, st.MetricsPath)
 			return nil
 		}
 		return m
-	default:
-		if verbose {
-			fmt.Fprintf(os.Stderr, "[%-15s] Unknown metrics format: %s\n", st.ID, st.MetricsFormat)
+	case "artifact":
+		// For artifact format, just verify file exists and has content (already done above)
+		return &model.TaskMetrics{
+			Kind:          "artifact",
+			SummaryFormat: "artifact",
+			Data: map[string]interface{}{
+				"path": metricsPath,
+			},
 		}
+	default:
+		// Unknown format - this is an error
+		fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Unknown metrics format: %s\n", st.ID, st.MetricsFormat)
+		fmt.Fprintf(os.Stderr, "[%-15s]          Supported formats: junit, artifact\n", st.ID)
 		return nil
 	}
 }
@@ -1567,7 +1626,7 @@ func generateReportsCmd() {
 
 	// Determine repo root
 	repoRoot, _ := git.DetectRepoRoot()
-	
+
 	// Get output root from default config
 	cfg, _, _, _, err := config.LoadConfig("")
 	if err != nil {

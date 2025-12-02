@@ -4,12 +4,10 @@ go 1.25.4
 
 require (
 	github.com/BurntSushi/toml v1.5.0
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
+	github.com/joshdk/go-junit v1.0.0
 	golang.org/x/sync v0.18.0
 	golang.org/x/term v0.37.0
 )
 
-require (
-	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
-	github.com/joshdk/go-junit v1.0.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-)
+require golang.org/x/sys v0.38.0 // indirect

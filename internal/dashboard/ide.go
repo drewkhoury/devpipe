@@ -110,23 +110,23 @@ func collectFiles(runDir string) []FileInfo {
 		}
 	}
 
-	// Add all artifact files
+	// Add all artifact files (recursively walk subdirectories)
 	artifactsDir := filepath.Join(runDir, "artifacts")
-	if entries, err := os.ReadDir(artifactsDir); err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				info, _ := entry.Info()
-				artifactPath := filepath.Join(artifactsDir, entry.Name())
-				content, _ := os.ReadFile(artifactPath)
-				files = append(files, FileInfo{
-					Name:    entry.Name(),
-					Path:    "artifacts/" + entry.Name(),
-					Size:    info.Size(),
-					Content: stripansi.Strip(string(content)),
-				})
-			}
+	filepath.Walk(artifactsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
 		}
-	}
+		// Get relative path from artifacts directory
+		relPath, _ := filepath.Rel(artifactsDir, path)
+		content, _ := os.ReadFile(path)
+		files = append(files, FileInfo{
+			Name:    filepath.Base(path),
+			Path:    "artifacts/" + relPath,
+			Size:    info.Size(),
+			Content: stripansi.Strip(string(content)),
+		})
+		return nil
+	})
 
 	return files
 }

@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"fmt"
+
 	"github.com/drew/devpipe/internal/model"
 	"github.com/joshdk/go-junit"
 )
@@ -13,6 +15,13 @@ func ParseJUnitXML(path string) (*model.TaskMetrics, error) {
 	suites, err := junit.IngestFile(path)
 	if err != nil {
 		return nil, err
+	}
+
+	// Validate that we got at least one test suite
+	// If the file is plain text or invalid XML that the parser silently accepts,
+	// we'll get an empty suite list - this should be an error
+	if len(suites) == 0 {
+		return nil, fmt.Errorf("no test suites found - file may not be valid JUnit XML")
 	}
 
 	// Aggregate metrics across all suites
