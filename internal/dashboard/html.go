@@ -1885,7 +1885,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                                     {{else}}
                                     <span class="phase-task-icon skip">⊘</span>
                                     {{end}}
-                                    <span class="phase-task-name" title="{{.Name}}">{{.Name}}</span>
+                                    <span class="phase-task-name" title="{{.Name}}{{if .Metrics}}{{if eq .Metrics.SummaryFormat "junit"}} 🧪{{else if eq .Metrics.SummaryFormat "artifact"}} 📦{{end}}{{end}}">{{truncate .Name 25}}{{if .Metrics}}{{if eq .Metrics.SummaryFormat "junit"}} 🧪{{else if eq .Metrics.SummaryFormat "artifact"}} 📦{{end}}{{end}}</span>
                                     <span class="phase-task-duration">{{formatDuration .DurationMs}}</span>
                                 </div>
                                 {{if .Desc}}
