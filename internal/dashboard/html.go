@@ -716,6 +716,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                         <th>Status</th>
                         <th>Duration</th>
                         <th>Tasks</th>
+                        <th>Version</th>
                         <th>Command</th>
                     </tr>
                 </thead>
@@ -731,6 +732,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                         </td>
                         <td>{{formatDuration .Duration}}</td>
                         <td>{{.TotalTasks}}</td>
+                        <td class="mono" style="font-size: 11px;">{{.PipelineVersion}}</td>
                         <td class="mono" style="font-size: 11px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{.Command}}">{{.Command}}</td>
                     </tr>
                     {{end}}
@@ -1602,6 +1604,18 @@ const runDetailTemplate = `<!DOCTYPE html>
                     <div class="meta-label">Repo Root</div>
                     <div class="meta-value mono">{{.RepoRoot}}</div>
                 </div>
+                {{if .PipelineVersion}}
+                <div class="meta-item">
+                    <div class="meta-label">Pipeline Version</div>
+                    <div class="meta-value mono">{{.PipelineVersion}}</div>
+                </div>
+                {{end}}
+                {{if .ReportVersion}}
+                <div class="meta-item">
+                    <div class="meta-label">Report Version</div>
+                    <div class="meta-value mono">{{.ReportVersion}}</div>
+                </div>
+                {{end}}
             </div>
         </header>
         

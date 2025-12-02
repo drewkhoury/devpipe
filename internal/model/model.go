@@ -104,8 +104,10 @@ type RunRecord struct {
 	RepoRoot        string           `json:"repoRoot"`
 	OutputRoot      string           `json:"outputRoot"`
 	ConfigPath      string           `json:"configPath,omitempty"`
-	Command         string           `json:"command,omitempty"` // Full command line that was executed
-	Git             interface{}      `json:"git"`               // git.GitInfo
+	Command         string           `json:"command,omitempty"`     // Full command line that was executed
+	PipelineVersion string           `json:"pipelineVersion"`       // devpipe version used to run the pipeline
+	ReportVersion   string           `json:"reportVersion"`         // devpipe version used to generate the report
+	Git             interface{}      `json:"git"`                   // git.GitInfo
 	Flags           RunFlags         `json:"flags"`
 	Tasks           []TaskResult     `json:"tasks"`
 	EffectiveConfig *EffectiveConfig `json:"effectiveConfig,omitempty"`

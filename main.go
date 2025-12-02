@@ -62,11 +62,14 @@ func main() {
 	// Check for subcommands first
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
-		case "version", "--version", "-v":
-			printVersion()
-			return
 		case "validate":
-			runValidateCommand()
+			validateCmd()
+			return
+		case "generate-reports":
+			generateReportsCmd()
+			return
+		case "version", "--version", "-v":
+			fmt.Printf("devpipe version %s\n", version)
 			return
 		case "help", "--help", "-h":
 			printHelp()
@@ -776,13 +779,14 @@ func main() {
 
 	// Write run record and generate dashboard
 	runRecord := model.RunRecord{
-		RunID:      runID,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RepoRoot:   repoRoot,
-		OutputRoot: outputRoot,
-		ConfigPath: actualConfigPath,
-		Command:    buildCommandString(),
-		Git:        gitInfo,
+		RunID:           runID,
+		Timestamp:       time.Now().UTC().Format(time.RFC3339),
+		RepoRoot:        repoRoot,
+		OutputRoot:      outputRoot,
+		ConfigPath:      actualConfigPath,
+		Command:         buildCommandString(),
+		PipelineVersion: version, // Version used to run the pipeline
+		Git:             gitInfo,
 		Flags: model.RunFlags{
 			Fast:     flagFast,
 			FailFast: flagFailFast,
@@ -807,8 +811,8 @@ func main() {
 		}
 	}
 
-	// Generate dashboard
-	if err := dashboard.GenerateDashboardWithVersion(outputRoot, version); err != nil {
+	// Generate dashboard (only generate report for current run)
+	if err := dashboard.GenerateDashboardWithOptions(outputRoot, version, false, runID); err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to generate dashboard: %v\n", err)
 	}
 
@@ -1501,6 +1505,7 @@ func printHelp() {
 	fmt.Println("USAGE:")
 	fmt.Println("  devpipe [flags]              Run the pipeline")
 	fmt.Println("  devpipe validate [files...]  Validate config file(s)")
+	fmt.Println("  devpipe generate-reports     Regenerate all reports with latest template")
 	fmt.Println("  devpipe version              Show version information")
 	fmt.Println("  devpipe help                 Show this help")
 	fmt.Println()
@@ -1526,5 +1531,69 @@ func printHelp() {
 	fmt.Println("  devpipe --fast --fail-fast                 # Skip slow tasks, stop on failure")
 	fmt.Println("  devpipe validate                           # Validate default config.toml")
 	fmt.Println("  devpipe validate config/*.toml             # Validate all configs in folder")
+	fmt.Println("  devpipe generate-reports                   # Regenerate all reports with latest template")
 	fmt.Println()
+}
+
+// validateCmd handles the validate subcommand
+func validateCmd() {
+	// Parse remaining args
+	files := os.Args[2:]
+	if len(files) == 0 {
+		files = []string{"config.toml"}
+	}
+
+	hasErrors := false
+	for _, file := range files {
+		fmt.Printf("Validating %s...\n", file)
+		_, _, _, _, err := config.LoadConfig(file)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ ERROR: %v\n", err)
+			hasErrors = true
+		} else {
+			fmt.Printf("✓ Valid\n")
+		}
+	}
+
+	if hasErrors {
+		os.Exit(1)
+	}
+}
+
+// generateReportsCmd handles the generate-reports subcommand
+func generateReportsCmd() {
+	startTime := time.Now()
+	fmt.Println("Regenerating all reports with latest template...")
+
+	// Determine repo root
+	repoRoot, _ := git.DetectRepoRoot()
+	
+	// Get output root from default config
+	cfg, _, _, _, err := config.LoadConfig("")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+
+	mergedCfg := config.MergeWithDefaults(cfg)
+	outputRoot := filepath.Join(repoRoot, mergedCfg.Defaults.OutputRoot)
+
+	// Count runs before regenerating
+	runsDir := filepath.Join(outputRoot, "runs")
+	entries, err := os.ReadDir(runsDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: failed to read runs directory: %v\n", err)
+		os.Exit(1)
+	}
+	numRuns := len(entries)
+
+	// Regenerate all reports
+	if err := dashboard.GenerateDashboardWithOptions(outputRoot, version, true, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: failed to regenerate reports: %v\n", err)
+		os.Exit(1)
+	}
+
+	duration := time.Since(startTime)
+	fmt.Printf("✓ Regenerated %d reports in %s\n", numRuns, duration.Round(time.Millisecond))
+	fmt.Printf("📊 Dashboard: %s\n", filepath.Join(outputRoot, "report.html"))
 }

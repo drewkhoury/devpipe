@@ -27,15 +27,16 @@ type Summary struct {
 
 // RunSummary is a condensed view of a single run
 type RunSummary struct {
-	RunID      string `json:"runId"`
-	Timestamp  string `json:"timestamp"`
-	Status     string `json:"status"` // "PASS", "FAIL", "PARTIAL"
-	Duration   int64  `json:"duration"`
-	PassCount  int    `json:"passCount"`
-	FailCount  int    `json:"failCount"`
-	SkipCount  int    `json:"skipCount"`
-	TotalTasks int    `json:"totalTasks"`
-	Command    string `json:"command"` // Full command line that was executed
+	RunID           string `json:"runId"`
+	Timestamp       string `json:"timestamp"`
+	Status          string `json:"status"` // "PASS", "FAIL", "PARTIAL"
+	Duration        int64  `json:"duration"`
+	PassCount       int    `json:"passCount"`
+	FailCount       int    `json:"failCount"`
+	SkipCount       int    `json:"skipCount"`
+	TotalTasks      int    `json:"totalTasks"`
+	Command         string `json:"command"`         // Full command line that was executed
+	PipelineVersion string `json:"pipelineVersion"` // devpipe version used to run the pipeline
 }
 
 // TaskStats holds statistics for a specific task across runs
@@ -57,6 +58,11 @@ func GenerateDashboard(outputRoot string) error {
 
 // GenerateDashboardWithVersion generates dashboard with version info
 func GenerateDashboardWithVersion(outputRoot, version string) error {
+	return GenerateDashboardWithOptions(outputRoot, version, false, "")
+}
+
+// GenerateDashboardWithOptions generates dashboard with full control
+func GenerateDashboardWithOptions(outputRoot, version string, regenerateAll bool, currentRunID string) error {
 	runsDir := filepath.Join(outputRoot, "runs")
 
 	// Read all run.json files
@@ -88,7 +94,19 @@ func GenerateDashboardWithVersion(outputRoot, version string) error {
 
 	// Generate individual run detail pages
 	for _, run := range runs {
+		// Skip report generation for existing runs unless regenerateAll is true
+		// or this is the current run
+		if !regenerateAll && run.RunID != currentRunID && run.ReportVersion != "" {
+			continue
+		}
+
 		runDir := filepath.Join(outputRoot, "runs", run.RunID)
+
+		// Update ReportVersion in run.json
+		run.ReportVersion = version
+		if err := writeRunJSON(filepath.Join(runDir, "run.json"), run); err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: failed to update run.json for run %s: %v\n", run.RunID, err)
+		}
 
 		// Generate run detail HTML
 		detailPath := filepath.Join(runDir, "report.html")
@@ -106,6 +124,19 @@ func GenerateDashboardWithVersion(outputRoot, version string) error {
 	}
 
 	return nil
+}
+
+// writeRunJSON writes the run record to run.json
+func writeRunJSON(path string, run model.RunRecord) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	encoder := json.NewEncoder(f)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(run)
 }
 
 // loadAllRuns reads all run.json files from the runs directory
@@ -269,10 +300,11 @@ func min(a, b int) int {
 // summarizeRun creates a RunSummary from a RunRecord
 func summarizeRun(run model.RunRecord) RunSummary {
 	summary := RunSummary{
-		RunID:      run.RunID,
-		Timestamp:  run.Timestamp,
-		TotalTasks: len(run.Tasks),
-		Command:    cleanCommand(run.Command),
+		RunID:           run.RunID,
+		Timestamp:       run.Timestamp,
+		TotalTasks:      len(run.Tasks),
+		Command:         cleanCommand(run.Command),
+		PipelineVersion: run.PipelineVersion,
 	}
 
 	anyFailed := false
