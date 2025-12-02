@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/acarl005/stripansi"
+
 	"github.com/drew/devpipe/internal/model"
 )
 
@@ -297,29 +299,25 @@ func toFloat64(v interface{}) float64 {
 	}
 }
 
-// readLastLines reads the last N lines from a file
+// readLastLines reads the last N lines from a file and strips ANSI codes
 func readLastLines(path string, n int) []string {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return []string{"Error reading log file"}
 	}
 
-	lines := []string{}
-	for _, line := range []byte(string(data)) {
-		if line == '\n' {
-			lines = append(lines, "")
-		}
-	}
+	// Strip ANSI codes from entire content first
+	cleanData := stripansi.Strip(string(data))
 
-	// Split by newlines properly
+	// Split by newlines
 	allLines := []string{}
 	currentLine := ""
-	for _, b := range data {
-		if b == '\n' {
+	for _, ch := range cleanData {
+		if ch == '\n' {
 			allLines = append(allLines, currentLine)
 			currentLine = ""
 		} else {
-			currentLine += string(b)
+			currentLine += string(ch)
 		}
 	}
 	if currentLine != "" {
