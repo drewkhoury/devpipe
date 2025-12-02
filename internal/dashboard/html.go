@@ -1695,7 +1695,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                 <summary style="cursor: pointer; font-weight: 600; color: #2c3e50; font-size: 20px; margin-bottom: 20px;">
                     <h2 style="display: inline;">⚙️ Configuration</h2>
                 </summary>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
                     {{if .EffectiveConfig}}
                     <div>
                         <div style="border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; background: #f8f9fa;">
@@ -1821,15 +1821,70 @@ const runDetailTemplate = `<!DOCTYPE html>
                     {{end}}
                     
                     {{if .ConfigPath}}
-                    <div>
+                    <div style="margin-top: 20px;">
                         <div style="border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; background: #f8f9fa;">
-                            <h3 style="font-weight: 600; color: #2c3e50; font-size: 16px; margin: 0 0 10px 0;">📄 Raw Configuration File</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h3 style="font-weight: 600; color: #2c3e50; font-size: 16px; margin: 0;">📄 Raw Configuration File</h3>
+                                <button onclick="toggleConfigFullscreen()" style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                    ⛶ Fullscreen
+                                </button>
+                            </div>
                             <p style="color: #7f8c8d; margin: 15px 0 10px 0; font-size: 13px;">
                                 Configuration file as it was on disk at the time of the run.
                             </p>
-                            <pre style="background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 11px; line-height: 1.5; font-family: 'Monaco', 'Menlo', 'Courier New', monospace; max-width: 100%; white-space: pre; margin: 0;">{{.RawConfigContent}}</pre>
+                            <div id="rawConfigContainer" style="position: relative; overflow-x: auto;">
+                                <pre class="line-numbers" style="background: #2c3e50; border-radius: 4px; margin: 0;"><code id="rawConfigContent" class="language-toml" style="font-size: 12px;">{{.RawConfigContent}}</code></pre>
+                            </div>
                         </div>
                     </div>
+                    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+                    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-toml.min.js"></script>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+                    <script>
+                    (function() {
+                        // Trigger Prism highlighting
+                        Prism.highlightAll();
+                    })();
+                    
+                    function toggleConfigFullscreen() {
+                        const elem = document.getElementById('rawConfigContainer');
+                        if (!document.fullscreenElement) {
+                            elem.requestFullscreen().catch(err => {
+                                alert('Error attempting to enable fullscreen: ' + err.message);
+                            });
+                        } else {
+                            document.exitFullscreen();
+                        }
+                    }
+                    </script>
+                    <style>
+                    /* Override Prism theme colors */
+                    .line-numbers .line-numbers-rows {
+                        border-right-color: #34495e !important;
+                    }
+                    .line-numbers-rows > span:before {
+                        color: #7f8c8d !important;
+                    }
+                    /* Wrap indicator for continuation lines */
+                    .line-numbers .line-numbers-rows > span {
+                        position: relative;
+                    }
+                    #rawConfigContainer:fullscreen {
+                        background: #2c3e50;
+                        padding: 20px;
+                        overflow: auto;
+                    }
+                    #rawConfigContainer:fullscreen pre {
+                        font-size: 14px !important;
+                        max-width: 100%;
+                        height: 100%;
+                    }
+                    #rawConfigContainer:fullscreen code {
+                        font-size: 14px !important;
+                    }
+                    </style>
                     {{end}}
                 </div>
             </details>
