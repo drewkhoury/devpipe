@@ -1,33 +1,84 @@
 # devpipe
 
-Fast, local pipeline runner for development workflows.
+A lightweight, local pipeline runner for development workflows.
+
+---
+**The problem:** You know you should run tests before committing, but you don't, because it's slow, scattered across multiple commands, and honestly just annoying. So you push to CI, wait 3-7 minutes, and find out you had a typo, build issue,or worse, a security vulnerability.
+
+**What `devpipe` does:** It's GitHub Actions for your laptop—a single command that orchestrates your entire build/test pipeline locally, with support for parallel execution, a dashboard that shows you exactly what's happening, and how long it takes.
 
 <img src="mascot/squirrel.png" alt="devpipe mascot - Flowmunk" width="300">
 
-`devpipe` reads your config.toml and runs the tasks you specify.
+I get inpatent too sometimes, install while you read the docs so you can follow along:
+```
+brew install drewkhoury/tap/devpipe
+```
 
-- 🚀 **Single binary** - No dependencies, just download and run
-- 🎨 **Beautiful UI** - Animated progress, colored output, grouping
-- ⚙️ **Phase-based execution** - Organize tasks into sequential phases, running all tasks in a phase in parallel
-- 🔧 **Auto-fix** - Automatically fix formatting, linting, and other fixable issues
+---
+
+`devpipe` looks for a config.toml you specify, and runs the commands you tell it to run.
+
+It doesn't make any assumptions about how you run your tests. It's power is in the standardization that the flexible configuration file (`config.toml`) provides. With one file you get metrics, history, dashboards, a CLI to your local pipeline, and JUnit/SARIF/artifact parsing that give you feedback without having to leave your local machine.
+
+`config.toml` really does start off as simple as:
+
+```toml
+[tasks.your-task]
+command = "<your command>"
+```
+
+Dashboard View in the Terminal: `devpipe --ui full --dashboard`
+
+<img src="images/terminal-dashboard.png" alt="Dashboard in the Terminal" >
+
+# Features and Screenshots
+
+
+Feature Overview:
+- 🚀 **Single binary** - Golang - no dependencies, just download and run
+- 🎨 **Beautiful UI** - Animated progress in the terminal, colored output, grouping
+- ⚙️ **Phase-based execution** - Run tasks in sequence or **parallel**  🏎️💨⚡🚀
+
 - 📝 **TOML configuration** - Simple, readable config files
+- 🔧 **Auto-fix** - Support for automatically fixing formatting, linting, and other fixable issues
 - 🔀 **Git integration** - Run checks on staged, unstaged, or ref-based changes
 - 📊 **Metrics & Dashboard** - JUnit/SARIF/artifact parsing, HTML reports with security findings
 - 🎯 **Flexible** - Run all, skip some, or target specific tasks
 
+<details>
+<summary>Screenshots</summary>
+
+Running tasks:
+<img src="images/terminal.png" alt="Regular terminal output">
+
+List of tasks:
+<img src="images/list.png" alt="List of tasks">
+
+Pipeline Flow:
+<img src="images/pipeline-flow.png" alt="Pipeline Flow">
+
+JUnit Findings:
+<img src="images/junit.png" alt="junit/sarif/artifact parsing">
+
+Security Findings:
+<img src="images/security.png" alt="Security Findings">
+
+IDE Integration:
+<img src="images/ide.png" alt="IDE Integration">
+
+</details>
+
+
 ## Quick Start
 
-### Install
-
-**Homebrew (macOS/Linux):**
+### Install - Homebrew (macOS/Linux)
 
 ```bash
 brew install drewkhoury/tap/devpipe
 ```
 
-In a rush? Skip to [examples](#examples) once you have `devpipe` installed, or just run it from your project root with no arguments to auto-generate a config.toml with example tasks.
-
-See [cli-reference](#cli-reference) for more details about runtime options.
+> ![info](https://img.shields.io/badge/INFO-blue)  
+> In a rush? Skip to [cli-reference](#cli-reference) for more details about runtime options once you have `devpipe` installed, or just run it from your project root with no arguments to auto-generate a config.toml with example tasks.
 
 <details>
 <summary>More Install Options</summary>
@@ -69,6 +120,8 @@ command = "npm run lint"
 
 [tasks.test]
 command = "npm test"
+metricsFormat = "junit"
+metricsPath = "test-results/junit.xml"
 
 [tasks.build]
 command = "npm run build"
@@ -393,18 +446,21 @@ devpipe will collect this information but doesn't handle the logic within each t
 
 ## Metrics & Dashboard
 
-devpipe can parse test results and generate HTML dashboards:
+devpipe can parse test results, SARIF security findings, and artifacts, and generate HTML dashboards with deatiled contextual information:
 
 ```toml
 [tasks.unit-tests]
+command = "npm test"
 metricsFormat = "junit"
 metricsPath = "test-results/junit.xml"
 
 [tasks.security-scan]
+command = "make security-scan"
 metricsFormat = "sarif"
 metricsPath = "tmp/codeql/results.sarif"
 
 [tasks.build]
+command = "make build"
 metricsFormat = "artifact"
 metricsPath = "dist/app.js"
 ```
