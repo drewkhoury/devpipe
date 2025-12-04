@@ -15,6 +15,9 @@ artifacts/
 # Test config file (anywhere in repo)
 **/config.tmp.toml
 
+# Security test samples (when enabled)
+internal/sectest/
+
 # ideas
 ideas.md
 

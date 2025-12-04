@@ -35,6 +35,7 @@ import (
 	"github.com/drew/devpipe/internal/git"
 	"github.com/drew/devpipe/internal/metrics"
 	"github.com/drew/devpipe/internal/model"
+	"github.com/drew/devpipe/internal/sarif"
 	"github.com/drew/devpipe/internal/ui"
 	"golang.org/x/sync/errgroup"
 )
@@ -62,11 +63,17 @@ func main() {
 	// Check for subcommands first
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "list":
+			listCmd()
+			return
 		case "validate":
 			validateCmd()
 			return
 		case "generate-reports":
 			generateReportsCmd()
+			return
+		case "sarif":
+			sarifCmd()
 			return
 		case "version", "--version", "-v":
 			fmt.Printf("devpipe version %s\n", version)
@@ -1206,6 +1213,16 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		res.Status = model.StatusFail
 		res.ExitCode = &exitCode
 
+		// Parse metrics even on failure (especially useful for SARIF/JUnit)
+		// This allows us to show what failed in the dashboard
+		if st.MetricsFormat != "" && st.MetricsPath != "" {
+			renderer.Verbose(verbose, "%s Task failed, but attempting to parse metrics: format=%s, path=%s", st.ID, st.MetricsFormat, st.MetricsPath)
+			res.Metrics = parseTaskMetrics(st, verbose)
+			if res.Metrics != nil {
+				renderer.Verbose(verbose, "%s Metrics parsed successfully despite failure: %+v", st.ID, res.Metrics.Data)
+			}
+		}
+
 		// Update tracker with final status
 		if tracker != nil {
 			tracker.UpdateTask(st.ID, "FAIL", elapsed)
@@ -1403,6 +1420,15 @@ func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics 
 			return nil
 		}
 		return m
+	case "sarif":
+		m, err := metrics.ParseSARIF(metricsPath)
+		if err != nil {
+			// Always show parse failures (not just in verbose mode)
+			fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Failed to parse SARIF: %v\n", st.ID, err)
+			fmt.Fprintf(os.Stderr, "[%-15s]          File: %s\n", st.ID, st.MetricsPath)
+			return nil
+		}
+		return m
 	case "artifact":
 		// For artifact format, just verify file exists and has content (already done above)
 		return &model.TaskMetrics{
@@ -1415,7 +1441,7 @@ func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics 
 	default:
 		// Unknown format - this is an error
 		fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Unknown metrics format: %s\n", st.ID, st.MetricsFormat)
-		fmt.Fprintf(os.Stderr, "[%-15s]          Supported formats: junit, artifact\n", st.ID)
+		fmt.Fprintf(os.Stderr, "[%-15s]          Supported formats: junit, sarif, artifact\n", st.ID)
 		return nil
 	}
 }
@@ -1563,8 +1589,10 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("USAGE:")
 	fmt.Println("  devpipe [flags]              Run the pipeline")
+	fmt.Println("  devpipe list [--verbose]     List all tasks")
 	fmt.Println("  devpipe validate [files...]  Validate config file(s)")
 	fmt.Println("  devpipe generate-reports     Regenerate all reports with latest template")
+	fmt.Println("  devpipe sarif [options] ...  View SARIF security scan results")
 	fmt.Println("  devpipe version              Show version information")
 	fmt.Println("  devpipe help                 Show this help")
 	fmt.Println()
@@ -1588,9 +1616,13 @@ func printHelp() {
 	fmt.Println("  devpipe                                    # Run pipeline with default config")
 	fmt.Println("  devpipe --config config/custom.toml        # Run with custom config")
 	fmt.Println("  devpipe --fast --fail-fast                 # Skip slow tasks, stop on failure")
+	fmt.Println("  devpipe list                               # List all task IDs")
+	fmt.Println("  devpipe list --verbose                     # List tasks in table format with details")
 	fmt.Println("  devpipe validate                           # Validate default config.toml")
 	fmt.Println("  devpipe validate config/*.toml             # Validate all configs in folder")
 	fmt.Println("  devpipe generate-reports                   # Regenerate all reports with latest template")
+	fmt.Println("  devpipe sarif tmp/codeql/results.sarif     # View CodeQL security scan results")
+	fmt.Println("  devpipe sarif -s tmp/codeql/results.sarif  # Show summary of security issues")
 	fmt.Println()
 }
 
@@ -1655,4 +1687,557 @@ func generateReportsCmd() {
 	duration := time.Since(startTime)
 	fmt.Printf("✓ Regenerated %d reports in %s\n", numRuns, duration.Round(time.Millisecond))
 	fmt.Printf("📊 Dashboard: %s\n", filepath.Join(outputRoot, "report.html"))
+}
+
+// getTerminalWidth returns the current terminal width, defaulting to 160 if unable to detect
+func getTerminalWidth() int {
+	// Try to get terminal width using stty
+	cmd := exec.Command("stty", "size")
+	cmd.Stdin = os.Stdin
+	out, err := cmd.Output()
+	if err == nil {
+		var rows, cols int
+		if _, err := fmt.Sscanf(string(out), "%d %d", &rows, &cols); err == nil && cols > 0 {
+			return cols
+		}
+	}
+	
+	// Default to 160 columns if we can't detect
+	return 160
+}
+
+// wrapText wraps text to specified width, breaking on word boundaries
+func wrapText(text string, width int) []string {
+	if text == "" {
+		return []string{}
+	}
+	
+	var lines []string
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return []string{}
+	}
+	
+	currentLine := words[0]
+	for _, word := range words[1:] {
+		if len(currentLine)+1+len(word) <= width {
+			currentLine += " " + word
+		} else {
+			lines = append(lines, currentLine)
+			currentLine = word
+		}
+	}
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+	
+	return lines
+}
+
+// truncate truncates a string to the specified length with "..." if needed
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
+}
+
+// phaseEmoji returns an emoji for a phase based on its name
+func phaseEmoji(phaseName string) string {
+	// Normalize to lowercase for matching
+	name := strings.ToLower(phaseName)
+
+	// Map phase names/keywords to emojis
+	emojiMap := map[string]string{
+		"validation":  "🧪", // Test tube for validation/testing
+		"test":        "🧪", // Test tube
+		"testing":     "🧪", // Test tube
+		"build":       "📦", // Package for build
+		"package":     "📦", // Package
+		"compile":     "🔨", // Hammer for compilation
+		"deploy":      "🚀", // Rocket for deployment
+		"release":     "🚀", // Rocket for release
+		"lint":        "🔍", // Magnifying glass for linting
+		"security":    "🔒", // Lock for security
+		"e2e":         "🎯", // Target for end-to-end tests
+		"end-to-end":  "🎯", // Target
+		"integration": "🔗", // Link for integration
+		"setup":       "⚙️",  // Gear for setup
+		"cleanup":     "🧹", // Broom for cleanup
+		"docs":        "📚", // Books for documentation
+		"publish":     "📤", // Outbox for publishing
+	}
+
+	// Check for exact match first
+	if emoji, ok := emojiMap[name]; ok {
+		return emoji
+	}
+
+	// Check if any keyword is contained in the phase name
+	for keyword, emoji := range emojiMap {
+		if strings.Contains(name, keyword) {
+			return emoji
+		}
+	}
+
+	// Default emoji
+	return "📋" // Clipboard as default
+}
+
+// loadTaskAveragesLast25 loads task average durations from last 25 runs
+func loadTaskAveragesLast25(outputRoot string) map[string]float64 {
+	averages := make(map[string]float64)
+
+	summaryPath := filepath.Join(outputRoot, "summary.json")
+	data, err := os.ReadFile(summaryPath)
+	if err != nil {
+		return averages // No history yet
+	}
+
+	var summary struct {
+		TaskStatsLast25 map[string]struct {
+			AvgDuration float64 `json:"avgDuration"`
+		} `json:"taskStatsLast25"`
+	}
+
+	if err := json.Unmarshal(data, &summary); err != nil {
+		return averages
+	}
+
+	for taskID, stats := range summary.TaskStatsLast25 {
+		if stats.AvgDuration > 0 {
+			averages[taskID] = stats.AvgDuration
+		}
+	}
+
+	return averages
+}
+
+// listCmd handles the list subcommand
+func listCmd() {
+	// Parse flags
+	fs := flag.NewFlagSet("list", flag.ExitOnError)
+	verbose := fs.Bool("verbose", false, "Show detailed table view with phases")
+	configPath := fs.String("config", "", "Path to config file (default: config.toml)")
+	fs.Parse(os.Args[2:])
+
+	// Load configuration
+	cfg, configTaskOrder, phaseNames, taskToPhase, err := config.LoadConfig(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		os.Exit(1)
+	}
+
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "ERROR: No config.toml found. Create one or specify with --config flag\n")
+		os.Exit(1)
+	}
+
+	// Merge with defaults
+	mergedCfg := config.MergeWithDefaults(cfg)
+
+	// Determine repo root
+	repoRoot, _ := git.DetectRepoRoot()
+	
+	// Load historical averages
+	outputRoot := filepath.Join(repoRoot, mergedCfg.Defaults.OutputRoot)
+	taskAverages := loadTaskAveragesLast25(outputRoot)
+
+	// Build task list (filter out phase markers)
+	var tasks []struct {
+		id    string
+		task  config.TaskConfig
+		phase string
+	}
+
+	for _, id := range configTaskOrder {
+		// Skip wait markers and phase headers
+		if id == "wait" || strings.HasPrefix(id, "wait-") || strings.HasPrefix(id, "phase-") {
+			continue
+		}
+
+		taskCfg, ok := mergedCfg.Tasks[id]
+		if !ok {
+			continue
+		}
+
+		// Get phase name
+		phaseName := ""
+		if phaseID, ok := taskToPhase[id]; ok {
+			for _, phaseInfo := range phaseNames {
+				if phaseInfo.ID == phaseID {
+					phaseName = phaseInfo.Name
+					break
+				}
+			}
+		}
+
+		tasks = append(tasks, struct {
+			id    string
+			task  config.TaskConfig
+			phase string
+		}{id, taskCfg, phaseName})
+	}
+
+	if len(tasks) == 0 {
+		fmt.Println("No tasks found in config")
+		return
+	}
+
+	// Simple mode: just list task IDs
+	if !*verbose {
+		for _, t := range tasks {
+			fmt.Println(t.id)
+		}
+		return
+	}
+
+	// Verbose mode: table view grouped by phase
+	fmt.Println("Tasks:")
+	fmt.Println()
+
+	// Group tasks by phase
+	type phaseGroup struct {
+		name  string
+		tasks []struct {
+			id   string
+			task config.TaskConfig
+		}
+	}
+
+	var phases []phaseGroup
+	currentPhase := phaseGroup{name: "(no phase)"}
+
+	for _, t := range tasks {
+		if t.phase != "" && (len(currentPhase.tasks) == 0 || currentPhase.name != t.phase) {
+			// Start new phase
+			if len(currentPhase.tasks) > 0 {
+				phases = append(phases, currentPhase)
+			}
+			currentPhase = phaseGroup{name: t.phase}
+		}
+		currentPhase.tasks = append(currentPhase.tasks, struct {
+			id   string
+			task config.TaskConfig
+		}{t.id, t.task})
+	}
+	if len(currentPhase.tasks) > 0 {
+		phases = append(phases, currentPhase)
+	}
+
+	// Get terminal width
+	termWidth := getTerminalWidth()
+	
+	// Column widths (fixed for name, desc, type, duration, command)
+	nameWidth := 40
+	durationWidth := 13  // "⚠️  ~2ms" format (emoji takes more space)
+	typeWidth := 18
+	cmdWidth := 45
+	spacing := 10 // 2 spaces between each column (5 gaps)
+	descWidth := termWidth - nameWidth - durationWidth - typeWidth - cmdWidth - spacing
+	if descWidth < 20 {
+		descWidth = 20 // Minimum description width
+	}
+
+	// Print each phase
+	for _, phase := range phases {
+		// Calculate phase average duration
+		var phaseAvgMs float64
+		var phaseTaskCount int
+		for _, t := range phase.tasks {
+			if avg, ok := taskAverages[t.id]; ok {
+				phaseAvgMs += avg
+				phaseTaskCount++
+			}
+		}
+		
+		// Phase header with emoji and duration in a box
+		emoji := phaseEmoji(phase.name)
+		var phaseText string
+		var durationTextPlain string
+		if phaseTaskCount > 0 {
+			phaseAvgSec := phaseAvgMs / 1000
+			durationTextPlain = fmt.Sprintf(" (~%.1fs)", phaseAvgSec)
+			
+			// Gray color for phase duration (grouping, not individual timing)
+			grayDuration := fmt.Sprintf("\033[90m(~%.1fs)\033[0m", phaseAvgSec)
+			phaseText = fmt.Sprintf("%s %s %s", emoji, phase.name, grayDuration)
+		} else {
+			phaseText = fmt.Sprintf("%s %s", emoji, phase.name)
+		}
+		// Calculate visual width: emoji (2) + space (1) + name + duration text + padding (2)
+		visualWidth := 2 + 1 + len(phase.name) + len(durationTextPlain) + 2
+		
+		// Top border
+		fmt.Println("┌" + strings.Repeat("─", visualWidth) + "┐")
+		// Header with bold
+		fmt.Printf("│\033[1m %s \033[0m│\n", phaseText)
+		// Bottom border
+		fmt.Println("└" + strings.Repeat("─", visualWidth) + "┘")
+		fmt.Println()
+
+		// Table header (AVG is right-aligned)
+		fmt.Printf("%-*s  %-*s  %-*s  %-*s  %*s\n", nameWidth, "NAME", descWidth, "DESCRIPTION", typeWidth, "TYPE", cmdWidth, "COMMAND", durationWidth, "AVG")
+		fmt.Printf("%s  %s  %s  %s  %s\n", strings.Repeat("─", nameWidth), strings.Repeat("─", descWidth), strings.Repeat("─", typeWidth), strings.Repeat("─", cmdWidth), strings.Repeat("─", durationWidth))
+
+		// Tasks
+		for _, t := range phase.tasks {
+			resolvedTask := mergedCfg.ResolveTaskConfig(t.id, t.task, repoRoot)
+			
+			// Add metrics emoji if present
+			metricsEmoji := ""
+			emojiDisplayWidth := 0
+			if resolvedTask.MetricsFormat != "" {
+				switch resolvedTask.MetricsFormat {
+				case "junit":
+					metricsEmoji = " 🧪"
+					emojiDisplayWidth = 3 // space + emoji (2 display chars)
+				case "sarif":
+					metricsEmoji = " 🔒"
+					emojiDisplayWidth = 3
+				case "artifact":
+					metricsEmoji = " 📦"
+					emojiDisplayWidth = 3
+				}
+			}
+			
+			// Calculate display widths
+			baseName := resolvedTask.Name
+			idText := t.id
+			// Total display width: name + emoji(if any) + space + id
+			totalDisplayWidth := len(baseName) + emojiDisplayWidth + 1 + len(idText)
+			
+			// Truncate if needed
+			if totalDisplayWidth > nameWidth {
+				// Truncate the base name to fit
+				availableForName := nameWidth - emojiDisplayWidth - 1 - len(idText) - 3 // -3 for "..."
+				if availableForName > 0 {
+					baseName = baseName[:availableForName] + "..."
+					totalDisplayWidth = nameWidth
+				} else {
+					// Even the ID is too long, truncate everything
+					baseName = truncate(baseName+metricsEmoji+" "+idText, nameWidth)
+					metricsEmoji = ""
+					idText = ""
+					totalDisplayWidth = nameWidth
+				}
+			}
+			
+			// Format with colors: name + emoji, then gray ID
+			var nameFormatted string
+			if idText != "" {
+				nameFormatted = fmt.Sprintf("%s%s \033[90m%s\033[0m", baseName, metricsEmoji, idText)
+			} else {
+				nameFormatted = baseName
+			}
+			
+			// Calculate padding needed
+			padding := nameWidth - totalDisplayWidth
+			if padding < 0 {
+				padding = 0
+			}
+			
+			// Format type
+			taskType := resolvedTask.Type
+			if taskType == "" {
+				taskType = "-"
+			}
+			
+			// Truncate command if too long
+			cmd := resolvedTask.Command
+			if len(cmd) > cmdWidth {
+				cmd = cmd[:cmdWidth-3] + "..."
+			}
+			
+			// Truncate description to fit in one line
+			desc := resolvedTask.Desc
+			if len(desc) > descWidth {
+				desc = desc[:descWidth-3] + "..."
+			}
+			
+			// Format duration with color coding
+			var durationStr string
+			var visualLen int
+			if avgMs, ok := taskAverages[t.id]; ok && avgMs > 0 {
+				avgSec := avgMs / 1000
+				var timeStr string
+				if avgSec < 1 {
+					// Force 1 decimal place for milliseconds too
+					timeStr = fmt.Sprintf("~%.1fms", avgMs)
+				} else if avgSec < 60 {
+					timeStr = fmt.Sprintf("~%.1fs", avgSec)
+				} else {
+					minutes := avgSec / 60
+					timeStr = fmt.Sprintf("~%.1fm", minutes)
+				}
+				
+				// Special case: ≤3ms likely means echo/mock, not real timing
+				if avgMs <= 3 {
+					durationStr = fmt.Sprintf("\033[31m[!] %s\033[0m", timeStr) // Red with warning (using [!] instead of emoji)
+					visualLen = 4 + len(timeStr) // [!] (3) + space (1) + time
+				// Green shades (fast - instant feedback)
+				} else if avgMs < 100 {
+					durationStr = fmt.Sprintf("\033[38;5;46m%s\033[0m", timeStr) // Bright green
+					visualLen = len(timeStr)
+				} else if avgMs < 500 {
+					durationStr = fmt.Sprintf("\033[38;5;40m%s\033[0m", timeStr) // Medium green
+					visualLen = len(timeStr)
+				} else if avgSec < 1 {
+					durationStr = fmt.Sprintf("\033[38;5;34m%s\033[0m", timeStr) // Darker green
+					visualLen = len(timeStr)
+				// Yellow shades (moderate - acceptable)
+				} else if avgSec < 5 {
+					durationStr = fmt.Sprintf("\033[38;5;226m%s\033[0m", timeStr) // Bright yellow
+					visualLen = len(timeStr)
+				} else if avgSec < 10 {
+					durationStr = fmt.Sprintf("\033[38;5;220m%s\033[0m", timeStr) // Medium yellow
+					visualLen = len(timeStr)
+				} else if avgSec < 20 {
+					durationStr = fmt.Sprintf("\033[38;5;214m%s\033[0m", timeStr) // Darker yellow/amber
+					visualLen = len(timeStr)
+				// Orange shades (slow - noticeable)
+				} else if avgSec < 30 {
+					durationStr = fmt.Sprintf("\033[38;5;208m%s\033[0m", timeStr) // Light orange
+					visualLen = len(timeStr)
+				} else if avgSec < 45 {
+					durationStr = fmt.Sprintf("\033[38;5;202m%s\033[0m", timeStr) // Medium orange
+					visualLen = len(timeStr)
+				} else if avgSec < 60 {
+					durationStr = fmt.Sprintf("\033[38;5;196m%s\033[0m", timeStr) // Dark orange
+					visualLen = len(timeStr)
+				// Red shades (very slow - needs attention)
+				} else if avgSec < 180 { // < 3 min
+					durationStr = fmt.Sprintf("\033[38;5;160m%s\033[0m", timeStr) // Light red
+					visualLen = len(timeStr)
+				} else if avgSec < 600 { // < 10 min
+					durationStr = fmt.Sprintf("\033[38;5;124m%s\033[0m", timeStr) // Medium red
+					visualLen = len(timeStr)
+				} else {
+					durationStr = fmt.Sprintf("\033[38;5;88m%s\033[0m", timeStr) // Dark red
+					visualLen = len(timeStr)
+				}
+			} else {
+				durationStr = "-"
+				visualLen = 1
+			}
+			
+			// Right-align the duration by padding on the left
+			leftPadding := durationWidth - visualLen
+			if leftPadding < 0 {
+				leftPadding = 0
+			}
+			
+			// Print row with proper padding (name, desc, type, command, right-aligned avg)
+			fmt.Printf("%s%s  %-*s  %-*s  %-*s  %s%s\n", nameFormatted, strings.Repeat(" ", padding), descWidth, desc, typeWidth, taskType, cmdWidth, cmd, strings.Repeat(" ", leftPadding), durationStr)
+		}
+		fmt.Println()
+	}
+
+	// Calculate total average
+	var totalAvgMs float64
+	var totalTasksWithAvg int
+	for _, t := range tasks {
+		if avg, ok := taskAverages[t.id]; ok {
+			totalAvgMs += avg
+			totalTasksWithAvg++
+		}
+	}
+	
+	if totalTasksWithAvg > 0 {
+		totalAvgSec := totalAvgMs / 1000
+		// Gray color for total (summary, not individual timing)
+		fmt.Printf("Total: %d tasks \033[90m(~%.1fs avg)\033[0m\n", len(tasks), totalAvgSec)
+	} else {
+		fmt.Printf("Total: %d tasks\n", len(tasks))
+	}
+}
+
+// sarifCmd handles the sarif subcommand
+func sarifCmd() {
+	// Define flags for sarif subcommand
+	fs := flag.NewFlagSet("sarif", flag.ExitOnError)
+	verbose := fs.Bool("v", false, "Verbose output (show severity, tags, precision, descriptions)")
+	summary := fs.Bool("s", false, "Show summary grouped by rule")
+	dir := fs.String("d", "", "Directory to search for SARIF files")
+	
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s sarif [options] <sarif-file> [<sarif-file>...]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "   or: %s sarif -d <directory>\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "View SARIF (Static Analysis Results Interchange Format) files in human-readable format.\n\n")
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nIf no file is specified, looks for tmp/codeql/results.sarif\n")
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  %s sarif tmp/codeql/results.sarif           # Default format\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s sarif -v tmp/codeql/results.sarif        # Verbose with metadata\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s sarif -s tmp/codeql/results.sarif        # Summary by rule\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s sarif -d tmp/                            # Scan directory\n", os.Args[0])
+	}
+	
+	// Parse flags (skip "sarif" subcommand)
+	fs.Parse(os.Args[2:])
+	
+	// Get SARIF file(s)
+	var files []string
+	if *dir != "" {
+		// Search directory for SARIF files
+		found, err := sarif.FindSARIFFiles(*dir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error searching directory: %v\n", err)
+			os.Exit(1)
+		}
+		files = found
+	} else if fs.NArg() > 0 {
+		// Use files from arguments
+		files = fs.Args()
+	} else {
+		// Default: look for SARIF files in tmp/codeql
+		defaultPath := "tmp/codeql/results.sarif"
+		if _, err := os.Stat(defaultPath); err == nil {
+			files = []string{defaultPath}
+		} else {
+			fs.Usage()
+			os.Exit(1)
+		}
+	}
+	
+	if len(files) == 0 {
+		fmt.Fprintf(os.Stderr, "No SARIF files found\n")
+		os.Exit(1)
+	}
+	
+	// Process all files
+	var allFindings []sarif.Finding
+	for _, file := range files {
+		// Parse SARIF file
+		doc, err := sarif.Parse(file)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", file, err)
+			continue
+		}
+		
+		findings := doc.GetFindings()
+		
+		// If multiple files, show which file we're processing
+		if len(files) > 1 && len(findings) > 0 {
+			fmt.Printf("\n📄 %s:\n", filepath.Base(file))
+		}
+		
+		allFindings = append(allFindings, findings...)
+	}
+	
+	// Display results
+	if *summary {
+		sarif.PrintSummary(allFindings)
+	} else {
+		sarif.PrintFindings(allFindings, *verbose)
+	}
+	
+	// Exit with error code if issues found
+	if len(allFindings) > 0 {
+		os.Exit(1)
+	}
 }

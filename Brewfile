@@ -7,5 +7,8 @@ brew "go"
 brew "golangci-lint"
 brew "gosec"
 
+# Security scanning
+cask "codeql"
+
 # Release tooling
 brew "goreleaser"

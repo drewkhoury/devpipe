@@ -1,0 +1,36 @@
+package sectest
+
+import (
+	"crypto/md5"
+	"fmt"
+	"net/http"
+	"os"
+	"os/exec"
+)
+
+// Package sectest contains intentional security vulnerabilities for testing
+// DO NOT use these patterns in production code!
+
+// VulnerableCommandExec demonstrates command injection
+// CodeQL should detect: go/command-injection
+func VulnerableCommandExec(w http.ResponseWriter, r *http.Request) {
+	userInput := r.URL.Query().Get("cmd")
+	cmd := exec.Command("sh", "-c", userInput) // Command injection!
+	output, _ := cmd.CombinedOutput()
+	w.Write(output)
+}
+
+// VulnerableFileRead demonstrates path traversal
+// CodeQL should detect: go/path-injection
+func VulnerableFileRead(w http.ResponseWriter, r *http.Request) {
+	filename := r.URL.Query().Get("file")
+	data, _ := os.ReadFile(filename) // Path traversal!
+	w.Write(data)
+}
+
+// WeakHash demonstrates weak cryptography
+// CodeQL should detect: go/weak-crypto or similar
+func WeakHash(password string) string {
+	hash := md5.Sum([]byte(password)) // Weak crypto!
+	return fmt.Sprintf("%x", hash)
+}

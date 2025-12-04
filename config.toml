@@ -25,10 +25,10 @@ name = "Validation"
 desc = "Static analysis, linting, security scans, and all tests"
 
 
-[tasks.echoooooooooooo_oooooooooooooo_after30____x_weeeeeeeeee_foo_bar_baz]
-name = "ECHO oooooooooo oooooooooooooo after30____x"
-desc = "Echoes a message"
-command = "echo '→ hello world'"
+# [tasks.echoooooooooooo_oooooooooooooo_after30____x_weeeeeeeeee_foo_bar_baz]
+# name = "ECHO oooooooooo oooooooooooooo after30____x"
+# desc = "Echoes a message"
+# command = "echo '→ hello world'"
 
 # Static checks (no execution)
 [tasks.go-fmt]
@@ -52,10 +52,18 @@ command = "make lint"
 type = "check-lint"
 
 [tasks.gosec]
-name = "Security Scan"
+name = "Security Scan (gosec)"
 desc = "Scans Go code for security vulnerabilities: SQL injection, hardcoded credentials, weak crypto, command injection, file permissions"
-command = "gosec ./..."
+command = "make gosec"
 type = "check-security"
+
+[tasks.codeql]
+name = "Security Scan (CodeQL)"
+desc = "Deep security analysis with CodeQL: detects complex vulnerabilities, data flow issues, and security patterns"
+command = "make codeql-analyze"
+type = "check-security"
+metricsFormat = "sarif"
+metricsPath = "tmp/codeql/results.sarif"
 
 [tasks.go-mod-tidy]
 name = "Go Mod Tidy Check"

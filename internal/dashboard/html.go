@@ -231,6 +231,12 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 		"statusSymbol":   statusSymbol,
 		"phaseEmoji":     phaseEmoji,
 		"string":         func(s model.TaskStatus) string { return string(s) },
+		"add": func(a, b interface{}) int {
+			return int(toFloat64(a)) + int(toFloat64(b))
+		},
+		"gt": func(a, b interface{}) bool {
+			return toFloat64(a) > toFloat64(b)
+		},
 		"sub": func(a, b interface{}) float64 {
 			return toFloat64(a) - toFloat64(b)
 		},
@@ -1952,7 +1958,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                                     {{else}}
                                     <span class="phase-task-icon skip">⊘</span>
                                     {{end}}
-                                    <span class="phase-task-name" title="{{.Name}}{{if .Metrics}}{{if eq .Metrics.SummaryFormat "junit"}} 🧪{{else if eq .Metrics.SummaryFormat "artifact"}} 📦{{end}}{{end}}">{{truncate .Name 25}}{{if .Metrics}}{{if eq .Metrics.SummaryFormat "junit"}} 🧪{{else if eq .Metrics.SummaryFormat "artifact"}} 📦{{end}}{{end}}</span>
+                                    <span class="phase-task-name" title="{{.Name}}{{if .Metrics}}{{if eq .Metrics.SummaryFormat "junit"}} 🧪{{else if eq .Metrics.SummaryFormat "sarif"}} 🔒{{else if eq .Metrics.SummaryFormat "artifact"}} 📦{{end}}{{end}}">{{truncate .Name 25}}{{if .Metrics}}{{if eq .Metrics.SummaryFormat "junit"}} 🧪{{else if eq .Metrics.SummaryFormat "sarif"}} 🔒{{else if eq .Metrics.SummaryFormat "artifact"}} 📦{{end}}{{end}}</span>
                                     <span class="phase-task-duration">{{formatDuration .DurationMs}}</span>
                                 </div>
                                 {{if .Desc}}
@@ -2069,6 +2075,103 @@ const runDetailTemplate = `<!DOCTYPE html>
                             <div class="detail-value" style="font-weight: bold;">{{index .Metrics.Data "size"}} bytes</div>
                         </div>
                     </div>
+                    {{else if eq .Metrics.SummaryFormat "sarif"}}
+                    <div class="metrics-title">🔒 Security Scan Results (SARIF)</div>
+                    <div class="metrics-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">Total Issues</div>
+                            <div class="detail-value" style="font-size: 18px; font-weight: bold; color: {{if gt (index .Metrics.Data "total") 0}}#e74c3c{{else}}#27ae60{{end}};">{{index .Metrics.Data "total"}}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Errors</div>
+                            <div class="detail-value" style="color: {{if gt (index .Metrics.Data "errors") 0}}#e74c3c{{else}}#95a5a6{{end}}; font-weight: bold;">{{index .Metrics.Data "errors"}}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Warnings</div>
+                            <div class="detail-value" style="color: {{if gt (index .Metrics.Data "warnings") 0}}#f39c12{{else}}#95a5a6{{end}}; font-weight: bold;">{{index .Metrics.Data "warnings"}}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Notes</div>
+                            <div class="detail-value" style="color: #3498db;">{{index .Metrics.Data "notes"}}</div>
+                        </div>
+                    </div>
+                    {{$findings := index .Metrics.Data "findings"}}
+                    {{if $findings}}
+                    <details style="margin-top: 15px;" {{if gt (index .Metrics.Data "total") 0}}open{{end}}>
+                        <summary style="cursor: pointer; color: #3498db; font-weight: 600; user-select: none;">
+                            🔍 View Security Findings
+                        </summary>
+                        <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; font-size: 13px;">
+                            {{$rules := index .Metrics.Data "rules"}}
+                            {{if $rules}}
+                            <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #dee2e6;">
+                                <strong style="display: block; margin-bottom: 10px;">Issues by Rule:</strong>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                    {{range $rules}}
+                                    <span style="padding: 4px 8px; background: #f8f9fa; border-radius: 3px; font-size: 11px; border-left: 3px solid #e74c3c;">
+                                        <strong>{{.id}}</strong>: {{.count}} issue{{if gt .count 1}}s{{end}}
+                                        {{if .severity}}<span style="color: #95a5a6; margin-left: 4px;">(severity: {{.severity}})</span>{{end}}
+                                    </span>
+                                    {{end}}
+                                </div>
+                            </div>
+                            {{end}}
+                            <div style="max-height: 500px; overflow-y: auto;">
+                                {{range $findings}}
+                                <div style="padding: 10px; margin-bottom: 8px; background: #f8f9fa; border-left: 4px solid {{if eq .level "error"}}#e74c3c{{else if eq .level "warning"}}#f39c12{{else}}#3498db{{end}}; border-radius: 3px; font-size: 12px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 6px;">
+                                        <div style="flex: 1;">
+                                            <span style="font-weight: 600; color: #2c3e50;">{{.ruleId}}</span>
+                                            {{if .ruleName}}
+                                            <span style="color: #7f8c8d; font-size: 11px; margin-left: 5px;">({{.ruleName}})</span>
+                                            {{end}}
+                                        </div>
+                                        <span style="color: {{if eq .level "error"}}#e74c3c{{else if eq .level "warning"}}#f39c12{{else}}#3498db{{end}}; font-weight: bold; font-size: 11px; white-space: nowrap; margin-left: 10px;">
+                                            {{if eq .level "error"}}❌{{else if eq .level "warning"}}⚠️{{else}}ℹ️{{end}} {{.level}}
+                                        </span>
+                                    </div>
+                                    <div style="color: #2c3e50; margin-bottom: 4px;">{{.message}}</div>
+                                    <div style="color: #7f8c8d; font-size: 11px; font-family: 'Monaco', 'Menlo', monospace;">
+                                        📄 {{.file}}:{{.line}}{{if .column}}:{{.column}}{{end}}
+                                    </div>
+                                    {{if .shortDesc}}
+                                    <div style="color: #7f8c8d; font-size: 11px; margin-top: 4px; font-style: italic;">{{.shortDesc}}</div>
+                                    {{end}}
+                                    {{if .severity}}
+                                    <div style="margin-top: 4px;">
+                                        <span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">
+                                            CVSS: {{.severity}}
+                                        </span>
+                                    </div>
+                                    {{end}}
+                                    {{if .tags}}
+                                    <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">
+                                        {{range .tags}}
+                                        <span style="background: #ecf0f1; color: #7f8c8d; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{{.}}</span>
+                                        {{end}}
+                                    </div>
+                                    {{end}}
+                                    {{if .dataFlow}}
+                                    <details style="margin-top: 8px;">
+                                        <summary style="cursor: pointer; color: #3498db; font-size: 11px; user-select: none;">
+                                            🔄 Data Flow ({{len .dataFlow}} steps)
+                                        </summary>
+                                        <div style="margin-top: 6px; padding-left: 10px; border-left: 2px solid #dee2e6;">
+                                            {{range $index, $step := .dataFlow}}
+                                            <div style="margin: 4px 0; font-size: 11px; color: #7f8c8d;">
+                                                {{add $index 1}}. {{$step.file}}:{{$step.line}}{{if $step.column}}:{{$step.column}}{{end}}
+                                                {{if $step.message}}<span style="color: #95a5a6;"> - {{$step.message}}</span>{{end}}
+                                            </div>
+                                            {{end}}
+                                        </div>
+                                    </details>
+                                    {{end}}
+                                </div>
+                                {{end}}
+                            </div>
+                        </div>
+                    </details>
+                    {{end}}
                     {{else if eq .Metrics.SummaryFormat "junit"}}
                     <div class="metrics-title">🧪 Test Results (JUnit)</div>
                     <div class="metrics-grid">

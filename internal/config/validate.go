@@ -231,7 +231,7 @@ func validateTask(taskID string, task TaskConfig, result *ValidationResult) {
 
 	// Validate metricsFormat if specified
 	if task.MetricsFormat != "" {
-		validFormats := []string{"junit", "artifact"}
+		validFormats := []string{"junit", "sarif", "artifact"}
 		if !contains(validFormats, task.MetricsFormat) {
 			result.Valid = false
 			result.Errors = append(result.Errors, ValidationError{

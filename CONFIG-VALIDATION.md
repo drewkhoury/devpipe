@@ -49,7 +49,7 @@ devpipe validate config/*.toml
 - **type**: Warning if not one of the common types: `quality`, `correctness`, `security`, `release`
 - **fixType**: Must be one of: `auto`, `helper`, `none`
 - **fixCommand**: Required if fixType is set at task level (except when fixType is `none`)
-- **metricsFormat**: Must be one of: `junit`, `artifact`
+- **metricsFormat**: Must be one of: `junit`, `sarif`, `artifact`
 - **metricsPath**: Warning if metricsFormat is set but metricsPath is missing (and vice versa)
 
 ### Phase Headers
@@ -126,7 +126,7 @@ name = "My Task"
 [tasks.test]
 name = "Test"
 command = "npm test"
-metricsFormat = "invalid"  # ERROR: must be junit or artifact
+metricsFormat = "invalid"  # ERROR: must be junit, sarif, or artifact
 ```
 
 **Invalid Fix Type:**

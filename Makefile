@@ -1,4 +1,4 @@
-.PHONY: help build run test clean destroy demo show-runs show-latest validate validate-all test-failures test-fail-fast test-continue-on-fail test-artifacts install-deps check-fmt fmt lint
+.PHONY: help build run test clean destroy demo show-runs show-latest validate validate-all test-failures test-fail-fast test-continue-on-fail test-artifacts install-deps check-fmt fmt lint gosec codeql-setup codeql-db codeql-analyze codeql-clean codeql-view security security-test-enable security-test-disable security-test-status
 
 help:
 	@echo "devpipe - Makefile commands"
@@ -19,6 +19,20 @@ help:
 	@echo "  make test-fail-fast        - Test --fail-fast stops on first failure"
 	@echo "  make test-continue-on-fail - Test pipeline continues without --fail-fast"
 	@echo "  make test-artifacts        - Test artifact/metrics validation"
+	@echo ""
+	@echo "Security Scanning:"
+	@echo "  make security              - Run all security scans (gosec + CodeQL)"
+	@echo "  make gosec                 - Run gosec security scanner"
+	@echo "  make codeql-setup          - Install CodeQL packs (run once)"
+	@echo "  make codeql-db             - Create CodeQL database"
+	@echo "  make codeql-analyze        - Analyze code with CodeQL (creates SARIF + CSV)"
+	@echo "  make codeql-view           - View CodeQL results in readable format"
+	@echo "  make codeql-clean          - Remove CodeQL database and results"
+	@echo ""
+	@echo "Security Testing (for testing scanner detection):"
+	@echo "  make security-test-enable  - Enable vulnerable code samples for testing"
+	@echo "  make security-test-disable - Disable vulnerable code samples"
+	@echo "  make security-test-status  - Check if security test samples are enabled"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make show-runs             - List all pipeline runs"
@@ -41,6 +55,7 @@ install-deps:
 	@command -v go >/dev/null 2>&1 && echo "  ✓ go $$(go version | awk '{print $$3}')" || echo "  ✗ go"
 	@command -v golangci-lint >/dev/null 2>&1 && echo "  ✓ golangci-lint $$(golangci-lint --version | head -1 | awk '{print $$4}')" || echo "  ✗ golangci-lint"
 	@command -v gosec >/dev/null 2>&1 && echo "  ✓ gosec $$(gosec -version 2>&1 | head -1)" || echo "  ✗ gosec"
+	@command -v codeql >/dev/null 2>&1 && echo "  ✓ codeql $$(codeql version --format=terse)" || echo "  ✗ codeql"
 	@command -v goreleaser >/dev/null 2>&1 && echo "  ✓ goreleaser $$(goreleaser --version | grep GitVersion | awk '{print $$2}')" || echo "  ✗ goreleaser"
 
 build:
@@ -212,3 +227,159 @@ test-artifacts: build
 	fi
 	@echo "✅ PASS: Artifact validation tests completed successfully"
 	@echo ""
+
+# ============================================================================
+# Security Scanning
+# ============================================================================
+
+gosec:
+	@echo "Running gosec security scanner..."
+	@if ! command -v gosec >/dev/null 2>&1; then \
+		echo "❌ Error: gosec is not installed"; \
+		echo "Install: brew install gosec"; \
+		exit 1; \
+	fi
+	@gosec ./...
+
+# ============================================================================
+# CodeQL Security Scanning
+# ============================================================================
+
+# CodeQL directories
+CODEQL_DIR = tmp/codeql
+CODEQL_DB = $(CODEQL_DIR)/db-go
+CODEQL_RESULTS_SARIF = $(CODEQL_DIR)/results.sarif
+CODEQL_RESULTS_CSV = $(CODEQL_DIR)/results.csv
+
+codeql-setup:
+	@echo "Setting up CodeQL..."
+	@if ! command -v codeql >/dev/null 2>&1; then \
+		echo "❌ Error: CodeQL is not installed"; \
+		echo "Install: brew install --cask codeql"; \
+		exit 1; \
+	fi
+	@echo "Downloading CodeQL packs..."
+	@codeql pack download codeql/go-queries
+	@codeql pack download codeql/go-all
+	@echo "✓ CodeQL setup complete"
+
+codeql-db:
+	@echo "Creating CodeQL database..."
+	@if ! command -v codeql >/dev/null 2>&1; then \
+		echo "❌ Error: CodeQL is not installed. Run: make codeql-setup"; \
+		exit 1; \
+	fi
+	@mkdir -p $(CODEQL_DIR)
+	@rm -rf $(CODEQL_DB)
+	@echo "Building Go code and extracting database..."
+	@codeql database create $(CODEQL_DB) \
+		--language=go \
+		--source-root=. \
+		--command='go build ./...' \
+		--overwrite
+	@echo "✓ CodeQL database created: $(CODEQL_DB)"
+
+codeql-analyze: codeql-db
+	@echo "Analyzing code with CodeQL..."
+	@echo "Generating SARIF report..."
+	@codeql database analyze $(CODEQL_DB) \
+		codeql/go-queries \
+		--format=sarifv2.1.0 \
+		--output=$(CODEQL_RESULTS_SARIF)
+	@echo "✓ SARIF report: $(CODEQL_RESULTS_SARIF)"
+	@echo ""
+	@echo "Generating CSV report..."
+	@codeql database analyze $(CODEQL_DB) \
+		codeql/go-queries \
+		--format=csv \
+		--output=$(CODEQL_RESULTS_CSV)
+	@echo "✓ CSV report: $(CODEQL_RESULTS_CSV)"
+	@echo ""
+	@echo "✅ CodeQL analysis complete!"
+	@echo "View results:"
+	@echo "  - SARIF: $(CODEQL_RESULTS_SARIF)"
+	@echo "  - CSV:   $(CODEQL_RESULTS_CSV)"
+	@echo ""
+	@echo "Checking for security issues..."
+	@./devpipe sarif $(CODEQL_RESULTS_SARIF) > /dev/null 2>&1 || \
+		(echo "❌ Security issues found! Run 'make codeql-view' or './devpipe sarif $(CODEQL_RESULTS_SARIF)' to see details" && exit 1)
+	@echo "✅ No security issues found"
+
+codeql-view: build
+	@if [ ! -f $(CODEQL_RESULTS_SARIF) ]; then \
+		echo "❌ No SARIF results found. Run: make codeql-analyze"; \
+		exit 1; \
+	fi
+	@./devpipe sarif $(CODEQL_RESULTS_SARIF)
+
+codeql-clean:
+	@echo "Cleaning CodeQL artifacts..."
+	@rm -rf $(CODEQL_DIR)
+	@echo "✓ CodeQL artifacts removed"
+
+# Run all security scans
+security:
+	@echo "=========================================="
+	@echo "Running Security Scans"
+	@echo "=========================================="
+	@echo ""
+	@echo "1. Running gosec..."
+	@$(MAKE) gosec || true
+	@echo ""
+	@echo "2. Running CodeQL..."
+	@$(MAKE) codeql-analyze
+	@echo ""
+	@echo "✅ All security scans complete!"
+
+# ============================================================================
+# Security Test Samples (for testing scanner detection)
+# ============================================================================
+
+SECURITY_SAMPLES_DIR = testdata/security-samples
+SECURITY_TEST_DIR = internal/sectest
+
+security-test-enable:
+	@if [ -d "$(SECURITY_TEST_DIR)" ]; then \
+		echo "⚠️  Security test samples are already enabled"; \
+		echo "   Location: $(SECURITY_TEST_DIR)/"; \
+	else \
+		echo "Enabling security test samples..."; \
+		if [ ! -f "$(SECURITY_SAMPLES_DIR)/vulnerable.go.sample" ]; then \
+			echo "❌ Error: Sample file not found at $(SECURITY_SAMPLES_DIR)/vulnerable.go.sample"; \
+			exit 1; \
+		fi; \
+		mkdir -p $(SECURITY_TEST_DIR); \
+		cp $(SECURITY_SAMPLES_DIR)/vulnerable.go.sample $(SECURITY_TEST_DIR)/vulnerable.go; \
+		echo "✅ Security test samples enabled at $(SECURITY_TEST_DIR)/"; \
+		echo ""; \
+		echo "⚠️  WARNING: This code contains intentional security vulnerabilities!"; \
+		echo "   Scanners will now detect issues. Use for testing only."; \
+		echo ""; \
+		echo "To disable: make security-test-disable"; \
+	fi
+
+security-test-disable:
+	@if [ ! -d "$(SECURITY_TEST_DIR)" ]; then \
+		echo "✅ Security test samples are already disabled"; \
+	else \
+		echo "Disabling security test samples..."; \
+		rm -rf $(SECURITY_TEST_DIR); \
+		echo "✅ Security test samples disabled"; \
+		echo "   Scanners will no longer detect test vulnerabilities"; \
+	fi
+
+security-test-status:
+	@if [ -d "$(SECURITY_TEST_DIR)" ]; then \
+		echo "🔴 Security test samples are ENABLED"; \
+		echo "   Location: $(SECURITY_TEST_DIR)/"; \
+		echo "   Files:"; \
+		ls -la $(SECURITY_TEST_DIR)/ 2>/dev/null | tail -n +2 | sed 's/^/     /' || true; \
+		echo ""; \
+		echo "⚠️  Scanners will detect intentional vulnerabilities"; \
+		echo "   To disable: make security-test-disable"; \
+	else \
+		echo "🟢 Security test samples are DISABLED"; \
+		echo "   Scanners will run clean"; \
+		echo ""; \
+		echo "To enable for testing: make security-test-enable"; \
+	fi

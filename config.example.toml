@@ -82,7 +82,7 @@ type = "build"
 # type                - Task type for grouping (e.g., "check", "build", "test")
 # workdir             - Working directory (relative to repo root)
 # enabled             - Whether this task is enabled
-# metricsFormat       - Metrics format: "junit" or "artifact"
+# metricsFormat       - Metrics format: "junit", "sarif", or "artifact"
 # metricsPath         - Path to metrics file (relative to workdir)
 #
 # Example with all options:

@@ -12,7 +12,7 @@ Fast, local pipeline runner for development workflows.
 - 🔧 **Auto-fix** - Automatically fix formatting, linting, and other fixable issues
 - 📝 **TOML configuration** - Simple, readable config files
 - 🔀 **Git integration** - Run checks on staged, unstaged, or ref-based changes
-- 📊 **Metrics & Dashboard** - JUnit/artifact parsing, HTML reports
+- 📊 **Metrics & Dashboard** - JUnit/SARIF/artifact parsing, HTML reports with security findings
 - 🎯 **Flexible** - Run all, skip some, or target specific tasks
 
 ## Quick Start
@@ -135,7 +135,7 @@ Individual task configuration. Task ID must be unique.
 | `enabled` | bool | No | `true` | Whether this task is enabled |
 | `fixType` | string | No | (inherited) | Fix behavior: `auto`, `helper`, `none` (overrides task_defaults) |
 | `fixCommand` | string | No | - | Command to run to fix issues (required if fixType is set) |
-| `metricsFormat` | string | No | - | Metrics format: `junit`, `artifact` |
+| `metricsFormat` | string | No | - | Metrics format: `junit`, `sarif`, `artifact` |
 | `metricsPath` | string | No | - | Path to metrics file (relative to workdir) |
 
 #### Phase Headers
@@ -400,6 +400,10 @@ devpipe can parse test results and generate HTML dashboards:
 metricsFormat = "junit"
 metricsPath = "test-results/junit.xml"
 
+[tasks.security-scan]
+metricsFormat = "sarif"
+metricsPath = "tmp/codeql/results.sarif"
+
 [tasks.build]
 metricsFormat = "artifact"
 metricsPath = "dist/app.js"
@@ -409,6 +413,36 @@ View the dashboard:
 ```bash
 open .devpipe/report.html
 ```
+
+### SARIF Security Scanning
+
+devpipe has built-in support for SARIF (Static Analysis Results Interchange Format) used by security scanners like CodeQL and gosec.
+
+**View SARIF results:**
+```bash
+./devpipe sarif tmp/codeql/results.sarif           # Default view
+./devpipe sarif -v tmp/codeql/results.sarif        # Verbose with data flow
+./devpipe sarif -s tmp/codeql/results.sarif        # Summary by rule
+```
+
+**In your pipeline:**
+```toml
+[tasks.security-scan]
+name = "Security Scan (CodeQL)"
+command = "make codeql-analyze"
+type = "check-security"
+metricsFormat = "sarif"
+metricsPath = "tmp/codeql/results.sarif"
+```
+
+The dashboard will display:
+- 🔒 Security findings with severity levels
+- 📊 Issue counts (errors, warnings, notes)
+- 🔍 Data flow visualization (source → sink)
+- 🏷️ CWE tags and CVSS scores
+- ✅ Task fails if security issues are found
+
+See [SECURITY-SCANNING.md](SECURITY-SCANNING.md) for complete security scanning documentation.
 
 ## Output Structure
 
