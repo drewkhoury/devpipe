@@ -26,7 +26,34 @@ make test
 
 # Validate configs
 make validate
+
+# Generate documentation (after changing config structs)
+make generate-docs
+
+# Check if docs are up to date
+make check-docs
 ```
+
+### Documentation Generation
+
+Documentation is auto-generated from Go struct tags and markdown snippets.
+
+**Quick commands:**
+```bash
+make generate-docs    # Regenerate all docs
+make check-docs       # Verify docs are in sync
+make setup-hooks      # Install git hook (auto-regenerates)
+```
+
+**📖 For complete details, see [DOCUMENTATION-GENERATION.md](DOCUMENTATION-GENERATION.md)**
+
+This covers:
+- How the generator works (struct tags + snippets)
+- What files are generated
+- How to add config fields
+- How to edit examples/prose
+- Git hook setup
+- CI integration
 
 ## Code Style
 

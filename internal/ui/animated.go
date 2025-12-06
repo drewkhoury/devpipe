@@ -383,7 +383,9 @@ func (a *AnimatedTaskTracker) renderFullMode() {
 		taskList := groups[groupName]
 
 		// Group header
-		headerText := fmt.Sprintf("─ %s ", strings.Title(groupName))
+		// Capitalize first letter of group name
+		capitalizedName := strings.ToUpper(groupName[:1]) + groupName[1:]
+		headerText := fmt.Sprintf("─ %s ", capitalizedName)
 		padding := strings.Repeat("─", a.renderer.width-len(headerText)-2)
 		fmt.Printf("┌%s%s┐\n", headerText, padding)
 

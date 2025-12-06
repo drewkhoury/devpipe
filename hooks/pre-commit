@@ -1,0 +1,15 @@
+#!/bin/bash
+# Auto-generate documentation before commit
+
+# Check if config files or snippets changed
+if git diff --cached --name-only | grep -qE "(internal/config/|cmd/generate-docs/snippets/)"; then
+    echo "🔄 Config files or snippets changed, regenerating documentation..."
+    make generate-docs
+    
+    # Add generated files to commit
+    git add config.example.toml config.schema.json docs/configuration.md docs/cli-reference.md docs/config-validation.md
+    
+    echo "✅ Documentation regenerated and added to commit"
+fi
+
+exit 0

@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Configuration schema for devpipe pipeline runner",
+  "properties": {
+    "defaults": {
+      "description": "Global configuration options",
+      "properties": {
+        "animatedGroupBy": {
+          "default": "phase",
+          "description": "Group tasks by phase or type in dashboard",
+          "enum": [
+            "phase",
+            "type"
+          ],
+          "type": "string"
+        },
+        "animationRefreshMs": {
+          "default": 500,
+          "description": "Dashboard refresh rate in milliseconds",
+          "type": "integer"
+        },
+        "fastThreshold": {
+          "default": 300,
+          "description": "Tasks longer than this (seconds) are skipped with --fast",
+          "type": "integer"
+        },
+        "git": {
+          "description": "Git integration settings",
+          "properties": {
+            "mode": {
+              "default": "staged_unstaged",
+              "description": "Git mode: staged, staged_unstaged, or ref",
+              "enum": [
+                "staged",
+                "staged_unstaged",
+                "ref"
+              ],
+              "type": "string"
+            },
+            "ref": {
+              "default": "HEAD",
+              "description": "Git ref to compare against when mode is ref",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "outputRoot": {
+          "default": ".devpipe",
+          "description": "Directory for run outputs and logs",
+          "type": "string"
+        },
+        "uiMode": {
+          "default": "basic",
+          "description": "UI mode: basic or full",
+          "enum": [
+            "basic",
+            "full"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "task_defaults": {
+      "description": "Default values that apply to all tasks unless overridden at the task level",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Whether tasks are enabled by default",
+          "type": "boolean"
+        },
+        "fixType": {
+          "description": "Default fix behavior: auto, helper, or none",
+          "enum": [
+            "auto",
+            "helper",
+            "none"
+          ],
+          "type": "string"
+        },
+        "workdir": {
+          "default": ".",
+          "description": "Default working directory for tasks",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "tasks": {
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "description": "Individual task configuration. Task ID must be unique.",
+          "properties": {
+            "command": {
+              "description": "Shell command to execute",
+              "type": "string"
+            },
+            "desc": {
+              "description": "Description",
+              "type": "string"
+            },
+            "enabled": {
+              "description": "Whether this task is enabled",
+              "type": "boolean"
+            },
+            "fixCommand": {
+              "description": "Command to run to fix issues (required if fixType is set)",
+              "type": "string"
+            },
+            "fixType": {
+              "description": "Fix behavior: auto, helper, none (overrides task_defaults)",
+              "enum": [
+                "auto",
+                "helper",
+                "none"
+              ],
+              "type": "string"
+            },
+            "metricsFormat": {
+              "description": "Metrics format: junit, sarif, artifact",
+              "enum": [
+                "junit",
+                "sarif",
+                "artifact"
+              ],
+              "type": "string"
+            },
+            "metricsPath": {
+              "description": "Path to metrics file (relative to workdir)",
+              "type": "string"
+            },
+            "name": {
+              "description": "Display name for the task",
+              "type": "string"
+            },
+            "type": {
+              "description": "Task type for grouping (e.g., check, build, test)",
+              "type": "string"
+            },
+            "workdir": {
+              "description": "Working directory for this task",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "title": "devpipe Configuration",
+  "type": "object"
+}

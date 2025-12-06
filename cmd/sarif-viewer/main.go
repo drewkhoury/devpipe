@@ -60,7 +60,7 @@ func main() {
 		}
 
 		findings := doc.GetFindings()
-		
+
 		// If multiple files, show which file we're processing
 		if len(files) > 1 && len(findings) > 0 {
 			fmt.Printf("\n📄 %s:\n", filepath.Base(file))

@@ -3,6 +3,9 @@
 # Go toolchain
 brew "go"
 
+# Testing
+brew "gotestsum"
+
 # Linting and static analysis
 brew "golangci-lint"
 brew "gosec"

@@ -14,7 +14,7 @@ mode = "staged_unstaged"
 [task_defaults]
 enabled = true
 workdir = "."
-fixType = "helper"
+fixType = "auto"
 
 # ============================================================================
 # Phase 1: Validation - Static Analysis & Tests
@@ -36,7 +36,6 @@ name = "Go Format"
 desc = "Verifies that Go code is properly formatted according to gofmt standards without modifying files."
 command = "make check-fmt"
 type = "check-format"
-fixType = "helper"
 fixCommand = "make fmt"
 
 [tasks.go-vet]
@@ -50,6 +49,8 @@ name = "Golang CI Lint"
 desc = "Runs errcheck, govet, ineffassign, staticcheck, unused, misspell, revive, unconvert, unparam, gocritic, gocyclo, dupl"
 command = "make lint"
 type = "check-lint"
+fixType = "helper"
+fixCommand = "golangci-lint run --fix"
 
 [tasks.gosec]
 name = "Security Scan (gosec)"
@@ -80,8 +81,11 @@ type = "check-static"
 # Tests (all can run in parallel with checks)
 [tasks.unit-tests]
 name = "Unit Tests"
-command = "echo '→ go test -v ./...'"
+desc = "Run all unit tests and generate JUnit XML report"
+command = " make test-junit"
 type = "test-unit"
+metricsFormat = "junit"
+metricsPath = "artifacts/junit.xml"
 
 [tasks.unit-tests-race]
 name = "Unit Tests (Race Detector)"

@@ -36,19 +36,19 @@ type Driver struct {
 
 // Rule represents a rule definition
 type Rule struct {
-	ID               string           `json:"id"`
-	Name             string           `json:"name"`
-	ShortDescription MessageString    `json:"shortDescription"`
-	FullDescription  MessageString    `json:"fullDescription"`
-	Help             MessageString    `json:"help"`
-	Properties       *RuleProperties  `json:"properties,omitempty"`
+	ID               string          `json:"id"`
+	Name             string          `json:"name"`
+	ShortDescription MessageString   `json:"shortDescription"`
+	FullDescription  MessageString   `json:"fullDescription"`
+	Help             MessageString   `json:"help"`
+	Properties       *RuleProperties `json:"properties,omitempty"`
 }
 
 // RuleProperties contains additional rule metadata
 type RuleProperties struct {
-	Tags            []string `json:"tags,omitempty"`
-	Precision       string   `json:"precision,omitempty"`
-	SecuritySeverity string  `json:"security-severity,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
+	Precision        string   `json:"precision,omitempty"`
+	SecuritySeverity string   `json:"security-severity,omitempty"`
 }
 
 // Result represents a single finding
@@ -182,14 +182,14 @@ func (s *SARIF) GetFindings() []Finding {
 			}
 
 			loc := result.Locations[0].PhysicalLocation
-			
+
 			// Get rule metadata
 			rule := ruleMap[result.RuleID]
 			ruleName := result.RuleID
 			var shortDesc, fullDesc, helpText string
 			var tags []string
 			var precision, securitySeverity string
-			
+
 			if rule != nil {
 				if rule.Name != "" {
 					ruleName = rule.Name
@@ -197,7 +197,7 @@ func (s *SARIF) GetFindings() []Finding {
 				shortDesc = rule.ShortDescription.Text
 				fullDesc = rule.FullDescription.Text
 				helpText = rule.Help.Text
-				
+
 				if rule.Properties != nil {
 					tags = rule.Properties.Tags
 					precision = rule.Properties.Precision
@@ -298,7 +298,7 @@ func PrintFindings(findings []Finding, verbose bool) {
 
 		// Basic info (always shown)
 		fmt.Printf("%s Rule:    %s\n", levelIcon, f.RuleID)
-		
+
 		// Location with column info if available
 		if f.Column > 0 {
 			if f.EndLine > 0 && f.EndColumn > 0 {
@@ -309,39 +309,39 @@ func PrintFindings(findings []Finding, verbose bool) {
 		} else {
 			fmt.Printf("   File:    %s:%d\n", f.File, f.Line)
 		}
-		
+
 		fmt.Printf("   Message: %s\n", f.Message)
-		
+
 		// Verbose mode - show additional details
 		if verbose {
 			if f.RuleName != "" && f.RuleName != f.RuleID {
 				fmt.Printf("   Name:    %s\n", f.RuleName)
 			}
-			
+
 			if f.Level != "" {
 				fmt.Printf("   Level:   %s\n", f.Level)
 			}
-			
+
 			if f.ShortDesc != "" {
 				fmt.Printf("   Info:    %s\n", f.ShortDesc)
 			}
-			
+
 			if f.Precision != "" {
 				fmt.Printf("   Precision: %s\n", f.Precision)
 			}
-			
+
 			if f.SecuritySeverity != "" {
 				fmt.Printf("   Severity:  %s\n", f.SecuritySeverity)
 			}
-			
+
 			if len(f.Tags) > 0 {
 				fmt.Printf("   Tags:    %s\n", strings.Join(f.Tags, ", "))
 			}
-			
+
 			if f.FullDesc != "" && f.FullDesc != f.ShortDesc {
 				fmt.Printf("   Details: %s\n", f.FullDesc)
 			}
-			
+
 			if f.HelpText != "" {
 				// Truncate help text if too long
 				help := f.HelpText
@@ -350,12 +350,12 @@ func PrintFindings(findings []Finding, verbose bool) {
 				}
 				fmt.Printf("   Help:    %s\n", help)
 			}
-			
+
 			// Show source location (where tainted data originates)
 			if f.SourceLocation != "" {
 				fmt.Printf("   Source:  %s\n", f.SourceLocation)
 			}
-			
+
 			// Show data flow path
 			if len(f.DataFlowSteps) > 0 {
 				fmt.Printf("   Data Flow Path (%d steps):\n", len(f.DataFlowSteps))

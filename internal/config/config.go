@@ -18,40 +18,62 @@ type Config struct {
 
 // DefaultsConfig holds global defaults
 type DefaultsConfig struct {
-	OutputRoot         string    `toml:"outputRoot"`
-	FastThreshold      int       `toml:"fastThreshold"`
-	UIMode             string    `toml:"uiMode"`
-	AnimationRefreshMs int       `toml:"animationRefreshMs"`
-	AnimatedGroupBy    string    `toml:"animatedGroupBy"` // "type" or "phase"
-	Git                GitConfig `toml:"git"`
+	// Directory for run outputs and logs
+	OutputRoot string `toml:"outputRoot" doc:"Directory for run outputs and logs"`
+	// Tasks longer than this (seconds) are skipped with --fast
+	FastThreshold int `toml:"fastThreshold" doc:"Tasks longer than this (seconds) are skipped with --fast"`
+	// UI mode: basic or full
+	UIMode string `toml:"uiMode" doc:"UI mode: basic or full" enum:"basic,full"`
+	// Dashboard refresh rate in milliseconds
+	AnimationRefreshMs int `toml:"animationRefreshMs" doc:"Dashboard refresh rate in milliseconds"`
+	// Group tasks by phase or type in dashboard
+	AnimatedGroupBy string `toml:"animatedGroupBy" doc:"Group tasks by phase or type in dashboard" enum:"phase,type"`
+	// Git integration settings
+	Git GitConfig `toml:"git"`
 }
 
 // GitConfig holds git-related configuration
 type GitConfig struct {
-	Mode string `toml:"mode"` // "staged", "staged_unstaged", "ref"
-	Ref  string `toml:"ref"`  // used when mode = "ref"
+	// Git mode: staged, staged_unstaged, or ref
+	Mode string `toml:"mode" doc:"Git mode: staged, staged_unstaged, or ref" enum:"staged,staged_unstaged,ref"`
+	// Git ref to compare against when mode is ref
+	Ref string `toml:"ref" doc:"Git ref to compare against when mode is ref"`
 }
 
 // TaskDefaultsConfig holds default values for all tasks
 type TaskDefaultsConfig struct {
-	Enabled *bool  `toml:"enabled"`
-	Workdir string `toml:"workdir"`
-	FixType string `toml:"fixType"` // "auto", "helper", "none", or "" (default: "helper")
+	// Whether tasks are enabled by default
+	Enabled *bool `toml:"enabled" doc:"Whether tasks are enabled by default"`
+	// Default working directory for tasks
+	Workdir string `toml:"workdir" doc:"Default working directory for tasks"`
+	// Default fix behavior: auto, helper, or none
+	FixType string `toml:"fixType" doc:"Default fix behavior: auto, helper, or none" enum:"auto,helper,none"`
 }
 
 // TaskConfig represents a single task configuration
 type TaskConfig struct {
-	Name          string `toml:"name"`
-	Desc          string `toml:"desc"` // Description (used for phase headers)
-	Type          string `toml:"type"`
-	Command       string `toml:"command"`
-	Workdir       string `toml:"workdir"`
-	Enabled       *bool  `toml:"enabled"`
-	Wait          bool   `toml:"wait"`          // Internal use only: set automatically by phase headers
-	MetricsFormat string `toml:"metricsFormat"` // "junit", "eslint", "sarif"
-	MetricsPath   string `toml:"metricsPath"`   // Path to metrics file (relative to workdir)
-	FixType       string `toml:"fixType"`       // "auto", "helper", "none", or "" (inherits from task_defaults)
-	FixCommand    string `toml:"fixCommand"`    // Command to run to fix issues
+	// Shell command to execute
+	Command string `toml:"command" doc:"Shell command to execute" required:"true"`
+	// Display name for the task
+	Name string `toml:"name" doc:"Display name for the task"`
+	// Description
+	Desc string `toml:"desc" doc:"Description"`
+	// Task type for grouping (e.g., check, build, test)
+	Type string `toml:"type" doc:"Task type for grouping (e.g., check, build, test)"`
+	// Working directory for this task
+	Workdir string `toml:"workdir" doc:"Working directory for this task"`
+	// Whether this task is enabled
+	Enabled *bool `toml:"enabled" doc:"Whether this task is enabled"`
+	// Internal use only: set automatically by phase headers
+	Wait bool `toml:"wait"`
+	// Metrics format: junit, sarif, artifact
+	MetricsFormat string `toml:"metricsFormat" doc:"Metrics format: junit, sarif, artifact" enum:"junit,sarif,artifact"`
+	// Path to metrics file (relative to workdir)
+	MetricsPath string `toml:"metricsPath" doc:"Path to metrics file (relative to workdir)"`
+	// Fix behavior: auto, helper, none (overrides task_defaults)
+	FixType string `toml:"fixType" doc:"Fix behavior: auto, helper, none (overrides task_defaults)" enum:"auto,helper,none"`
+	// Command to run to fix issues (required if fixType is set)
+	FixCommand string `toml:"fixCommand" doc:"Command to run to fix issues (required if fixType is set)"`
 }
 
 // LoadConfig loads configuration from a TOML file
@@ -180,6 +202,11 @@ func (c *Config) ResolveTaskConfig(id string, taskCfg TaskConfig, repoRoot strin
 
 	if taskCfg.Enabled == nil {
 		taskCfg.Enabled = c.TaskDefaults.Enabled
+	}
+
+	// Inherit fixType from task_defaults if not set at task level
+	if taskCfg.FixType == "" && c.TaskDefaults.FixType != "" {
+		taskCfg.FixType = c.TaskDefaults.FixType
 	}
 
 	return taskCfg

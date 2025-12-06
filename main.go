@@ -1151,6 +1151,7 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 
 	cmd := exec.Command("sh", "-c", st.Command)
 	cmd.Dir = st.Workdir
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 
 	// Setup output handling
 	var bufferMu sync.Mutex
@@ -1701,7 +1702,7 @@ func getTerminalWidth() int {
 			return cols
 		}
 	}
-	
+
 	// Default to 160 columns if we can't detect
 	return 160
 }
@@ -1711,13 +1712,13 @@ func wrapText(text string, width int) []string {
 	if text == "" {
 		return []string{}
 	}
-	
+
 	var lines []string
 	words := strings.Fields(text)
 	if len(words) == 0 {
 		return []string{}
 	}
-	
+
 	currentLine := words[0]
 	for _, word := range words[1:] {
 		if len(currentLine)+1+len(word) <= width {
@@ -1730,7 +1731,7 @@ func wrapText(text string, width int) []string {
 	if currentLine != "" {
 		lines = append(lines, currentLine)
 	}
-	
+
 	return lines
 }
 
@@ -1752,23 +1753,23 @@ func phaseEmoji(phaseName string) string {
 
 	// Map phase names/keywords to emojis
 	emojiMap := map[string]string{
-		"validation":  "🧪", // Test tube for validation/testing
-		"test":        "🧪", // Test tube
-		"testing":     "🧪", // Test tube
-		"build":       "📦", // Package for build
-		"package":     "📦", // Package
-		"compile":     "🔨", // Hammer for compilation
-		"deploy":      "🚀", // Rocket for deployment
-		"release":     "🚀", // Rocket for release
-		"lint":        "🔍", // Magnifying glass for linting
-		"security":    "🔒", // Lock for security
-		"e2e":         "🎯", // Target for end-to-end tests
-		"end-to-end":  "🎯", // Target
-		"integration": "🔗", // Link for integration
-		"setup":       "⚙️",  // Gear for setup
-		"cleanup":     "🧹", // Broom for cleanup
-		"docs":        "📚", // Books for documentation
-		"publish":     "📤", // Outbox for publishing
+		"validation":  "🧪",  // Test tube for validation/testing
+		"test":        "🧪",  // Test tube
+		"testing":     "🧪",  // Test tube
+		"build":       "📦",  // Package for build
+		"package":     "📦",  // Package
+		"compile":     "🔨",  // Hammer for compilation
+		"deploy":      "🚀",  // Rocket for deployment
+		"release":     "🚀",  // Rocket for release
+		"lint":        "🔍",  // Magnifying glass for linting
+		"security":    "🔒",  // Lock for security
+		"e2e":         "🎯",  // Target for end-to-end tests
+		"end-to-end":  "🎯",  // Target
+		"integration": "🔗",  // Link for integration
+		"setup":       "⚙️", // Gear for setup
+		"cleanup":     "🧹",  // Broom for cleanup
+		"docs":        "📚",  // Books for documentation
+		"publish":     "📤",  // Outbox for publishing
 	}
 
 	// Check for exact match first
@@ -1841,7 +1842,7 @@ func listCmd() {
 
 	// Determine repo root
 	repoRoot, _ := git.DetectRepoRoot()
-	
+
 	// Load historical averages
 	outputRoot := filepath.Join(repoRoot, mergedCfg.Defaults.OutputRoot)
 	taskAverages := loadTaskAveragesLast25(outputRoot)
@@ -1930,10 +1931,10 @@ func listCmd() {
 
 	// Get terminal width
 	termWidth := getTerminalWidth()
-	
+
 	// Column widths (fixed for name, desc, type, duration, command)
 	nameWidth := 40
-	durationWidth := 13  // "⚠️  ~2ms" format (emoji takes more space)
+	durationWidth := 13 // "⚠️  ~2ms" format (emoji takes more space)
 	typeWidth := 18
 	cmdWidth := 45
 	spacing := 10 // 2 spaces between each column (5 gaps)
@@ -1953,7 +1954,7 @@ func listCmd() {
 				phaseTaskCount++
 			}
 		}
-		
+
 		// Phase header with emoji and duration in a box
 		emoji := phaseEmoji(phase.name)
 		var phaseText string
@@ -1961,7 +1962,7 @@ func listCmd() {
 		if phaseTaskCount > 0 {
 			phaseAvgSec := phaseAvgMs / 1000
 			durationTextPlain = fmt.Sprintf(" (~%.1fs)", phaseAvgSec)
-			
+
 			// Gray color for phase duration (grouping, not individual timing)
 			grayDuration := fmt.Sprintf("\033[90m(~%.1fs)\033[0m", phaseAvgSec)
 			phaseText = fmt.Sprintf("%s %s %s", emoji, phase.name, grayDuration)
@@ -1970,7 +1971,7 @@ func listCmd() {
 		}
 		// Calculate visual width: emoji (2) + space (1) + name + duration text + padding (2)
 		visualWidth := 2 + 1 + len(phase.name) + len(durationTextPlain) + 2
-		
+
 		// Top border
 		fmt.Println("┌" + strings.Repeat("─", visualWidth) + "┐")
 		// Header with bold
@@ -1986,7 +1987,7 @@ func listCmd() {
 		// Tasks
 		for _, t := range phase.tasks {
 			resolvedTask := mergedCfg.ResolveTaskConfig(t.id, t.task, repoRoot)
-			
+
 			// Add metrics emoji if present
 			metricsEmoji := ""
 			emojiDisplayWidth := 0
@@ -2003,13 +2004,13 @@ func listCmd() {
 					emojiDisplayWidth = 3
 				}
 			}
-			
+
 			// Calculate display widths
 			baseName := resolvedTask.Name
 			idText := t.id
 			// Total display width: name + emoji(if any) + space + id
 			totalDisplayWidth := len(baseName) + emojiDisplayWidth + 1 + len(idText)
-			
+
 			// Truncate if needed
 			if totalDisplayWidth > nameWidth {
 				// Truncate the base name to fit
@@ -2025,7 +2026,7 @@ func listCmd() {
 					totalDisplayWidth = nameWidth
 				}
 			}
-			
+
 			// Format with colors: name + emoji, then gray ID
 			var nameFormatted string
 			if idText != "" {
@@ -2033,31 +2034,31 @@ func listCmd() {
 			} else {
 				nameFormatted = baseName
 			}
-			
+
 			// Calculate padding needed
 			padding := nameWidth - totalDisplayWidth
 			if padding < 0 {
 				padding = 0
 			}
-			
+
 			// Format type
 			taskType := resolvedTask.Type
 			if taskType == "" {
 				taskType = "-"
 			}
-			
+
 			// Truncate command if too long
 			cmd := resolvedTask.Command
 			if len(cmd) > cmdWidth {
 				cmd = cmd[:cmdWidth-3] + "..."
 			}
-			
+
 			// Truncate description to fit in one line
 			desc := resolvedTask.Desc
 			if len(desc) > descWidth {
 				desc = desc[:descWidth-3] + "..."
 			}
-			
+
 			// Format duration with color coding
 			var durationStr string
 			var visualLen int
@@ -2073,12 +2074,12 @@ func listCmd() {
 					minutes := avgSec / 60
 					timeStr = fmt.Sprintf("~%.1fm", minutes)
 				}
-				
+
 				// Special case: ≤3ms likely means echo/mock, not real timing
 				if avgMs <= 3 {
 					durationStr = fmt.Sprintf("\033[31m[!] %s\033[0m", timeStr) // Red with warning (using [!] instead of emoji)
-					visualLen = 4 + len(timeStr) // [!] (3) + space (1) + time
-				// Green shades (fast - instant feedback)
+					visualLen = 4 + len(timeStr)                                // [!] (3) + space (1) + time
+					// Green shades (fast - instant feedback)
 				} else if avgMs < 100 {
 					durationStr = fmt.Sprintf("\033[38;5;46m%s\033[0m", timeStr) // Bright green
 					visualLen = len(timeStr)
@@ -2088,7 +2089,7 @@ func listCmd() {
 				} else if avgSec < 1 {
 					durationStr = fmt.Sprintf("\033[38;5;34m%s\033[0m", timeStr) // Darker green
 					visualLen = len(timeStr)
-				// Yellow shades (moderate - acceptable)
+					// Yellow shades (moderate - acceptable)
 				} else if avgSec < 5 {
 					durationStr = fmt.Sprintf("\033[38;5;226m%s\033[0m", timeStr) // Bright yellow
 					visualLen = len(timeStr)
@@ -2098,7 +2099,7 @@ func listCmd() {
 				} else if avgSec < 20 {
 					durationStr = fmt.Sprintf("\033[38;5;214m%s\033[0m", timeStr) // Darker yellow/amber
 					visualLen = len(timeStr)
-				// Orange shades (slow - noticeable)
+					// Orange shades (slow - noticeable)
 				} else if avgSec < 30 {
 					durationStr = fmt.Sprintf("\033[38;5;208m%s\033[0m", timeStr) // Light orange
 					visualLen = len(timeStr)
@@ -2108,7 +2109,7 @@ func listCmd() {
 				} else if avgSec < 60 {
 					durationStr = fmt.Sprintf("\033[38;5;196m%s\033[0m", timeStr) // Dark orange
 					visualLen = len(timeStr)
-				// Red shades (very slow - needs attention)
+					// Red shades (very slow - needs attention)
 				} else if avgSec < 180 { // < 3 min
 					durationStr = fmt.Sprintf("\033[38;5;160m%s\033[0m", timeStr) // Light red
 					visualLen = len(timeStr)
@@ -2123,13 +2124,13 @@ func listCmd() {
 				durationStr = "-"
 				visualLen = 1
 			}
-			
+
 			// Right-align the duration by padding on the left
 			leftPadding := durationWidth - visualLen
 			if leftPadding < 0 {
 				leftPadding = 0
 			}
-			
+
 			// Print row with proper padding (name, desc, type, command, right-aligned avg)
 			fmt.Printf("%s%s  %-*s  %-*s  %-*s  %s%s\n", nameFormatted, strings.Repeat(" ", padding), descWidth, desc, typeWidth, taskType, cmdWidth, cmd, strings.Repeat(" ", leftPadding), durationStr)
 		}
@@ -2145,7 +2146,7 @@ func listCmd() {
 			totalTasksWithAvg++
 		}
 	}
-	
+
 	if totalTasksWithAvg > 0 {
 		totalAvgSec := totalAvgMs / 1000
 		// Gray color for total (summary, not individual timing)
@@ -2162,7 +2163,7 @@ func sarifCmd() {
 	verbose := fs.Bool("v", false, "Verbose output (show severity, tags, precision, descriptions)")
 	summary := fs.Bool("s", false, "Show summary grouped by rule")
 	dir := fs.String("d", "", "Directory to search for SARIF files")
-	
+
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s sarif [options] <sarif-file> [<sarif-file>...]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "   or: %s sarif -d <directory>\n\n", os.Args[0])
@@ -2176,10 +2177,10 @@ func sarifCmd() {
 		fmt.Fprintf(os.Stderr, "  %s sarif -s tmp/codeql/results.sarif        # Summary by rule\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s sarif -d tmp/                            # Scan directory\n", os.Args[0])
 	}
-	
+
 	// Parse flags (skip "sarif" subcommand)
 	fs.Parse(os.Args[2:])
-	
+
 	// Get SARIF file(s)
 	var files []string
 	if *dir != "" {
@@ -2203,12 +2204,12 @@ func sarifCmd() {
 			os.Exit(1)
 		}
 	}
-	
+
 	if len(files) == 0 {
 		fmt.Fprintf(os.Stderr, "No SARIF files found\n")
 		os.Exit(1)
 	}
-	
+
 	// Process all files
 	var allFindings []sarif.Finding
 	for _, file := range files {
@@ -2218,24 +2219,24 @@ func sarifCmd() {
 			fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", file, err)
 			continue
 		}
-		
+
 		findings := doc.GetFindings()
-		
+
 		// If multiple files, show which file we're processing
 		if len(files) > 1 && len(findings) > 0 {
 			fmt.Printf("\n📄 %s:\n", filepath.Base(file))
 		}
-		
+
 		allFindings = append(allFindings, findings...)
 	}
-	
+
 	// Display results
 	if *summary {
 		sarif.PrintSummary(allFindings)
 	} else {
 		sarif.PrintFindings(allFindings, *verbose)
 	}
-	
+
 	// Exit with error code if issues found
 	if len(allFindings) > 0 {
 		os.Exit(1)

@@ -1,24 +1,18 @@
 # devpipe
 
-A lightweight, local pipeline runner for development workflows.
+A lightweight, local pipeline runner for development tasks.
 
 ---
-**The problem:** You know you should run tests before committing, but you don't, because it's slow, scattered across multiple commands, and honestly just annoying. So you push to CI, wait 3-7 minutes, and find out you had a typo, build issue,or worse, a security vulnerability.
 
-**What `devpipe` does:** It's GitHub Actions for your laptop—a single command that orchestrates your entire build/test pipeline locally, with support for parallel execution, a dashboard that shows you exactly what's happening, and how long it takes.
+You know you should run tests before committing, but you don't, because it's slow, scattered across multiple commands, and honestly just annoying. So you push to CI, wait 3-7 minutes, and find out you had a typo, build issue, or worse, a security vulnerability.
+
+`devpipe` is like GitHub Actions for your laptop — a single command that orchestrates your entire build/test pipeline locally, with support for parallel execution, a dashboard that shows you exactly what's happening, and how long it takes.
+
+`devpipe` looks for a config.toml you specify, and runs the commands you tell it to run. It doesn't make any assumptions about how you run your tests. Its power is in the standardization that the flexible configuration file (`config.toml`) provides. With one file you get metrics, history, dashboards, a CLI to your local pipeline, and JUnit/SARIF/artifact parsing that give you feedback without having to leave your local machine.
+
+See [features.md](docs/features.md) for a complete overview of features and screenshots.
 
 <img src="mascot/squirrel.png" alt="devpipe mascot - Flowmunk" width="300">
-
-I get inpatent too sometimes, install while you read the docs so you can follow along:
-```
-brew install drewkhoury/tap/devpipe
-```
-
----
-
-`devpipe` looks for a config.toml you specify, and runs the commands you tell it to run.
-
-It doesn't make any assumptions about how you run your tests. It's power is in the standardization that the flexible configuration file (`config.toml`) provides. With one file you get metrics, history, dashboards, a CLI to your local pipeline, and JUnit/SARIF/artifact parsing that give you feedback without having to leave your local machine.
 
 `config.toml` really does start off as simple as:
 
@@ -26,48 +20,6 @@ It doesn't make any assumptions about how you run your tests. It's power is in t
 [tasks.your-task]
 command = "<your command>"
 ```
-
-Dashboard View in the Terminal: `devpipe --ui full --dashboard`
-
-<img src="images/terminal-dashboard.png" alt="Dashboard in the Terminal" >
-
-# Features and Screenshots
-
-
-Feature Overview:
-- 🚀 **Single binary** - Golang - no dependencies, just download and run
-- 🎨 **Beautiful UI** - Animated progress in the terminal, colored output, grouping
-- ⚙️ **Phase-based execution** - Run tasks in sequence or **parallel**  🏎️💨⚡🚀
-
-- 📝 **TOML configuration** - Simple, readable config files
-- 🔧 **Auto-fix** - Support for automatically fixing formatting, linting, and other fixable issues
-- 🔀 **Git integration** - Run checks on staged, unstaged, or ref-based changes
-- 📊 **Metrics & Dashboard** - JUnit/SARIF/artifact parsing, HTML reports with security findings
-- 🎯 **Flexible** - Run all, skip some, or target specific tasks
-
-<details>
-<summary>Screenshots</summary>
-
-Running tasks:
-<img src="images/terminal.png" alt="Regular terminal output">
-
-List of tasks:
-<img src="images/list.png" alt="List of tasks">
-
-Pipeline Flow:
-<img src="images/pipeline-flow.png" alt="Pipeline Flow">
-
-JUnit Findings:
-<img src="images/junit.png" alt="junit/sarif/artifact parsing">
-
-Security Findings:
-<img src="images/security.png" alt="Security Findings">
-
-IDE Integration:
-<img src="images/ide.png" alt="IDE Integration">
-
-</details>
-
 
 ## Quick Start
 
@@ -110,6 +62,11 @@ make build
 
 ## Configuration
 
+**📖 Configuration Reference**
+- [config.example.toml](config.example.toml) - Complete annotated example
+- [config.schema.json](config.schema.json) - JSON Schema for IDE support
+- [Configuration Reference](docs/configuration.md) - Full documentation (Markdown)
+
 `devpipe` expects `config.toml` from the current directory by default. If no config file is specified and `config.toml` doesn't exist, devpipe will auto-generate one with example tasks.
 
 Example `config.toml`:
@@ -127,119 +84,14 @@ metricsPath = "test-results/junit.xml"
 command = "npm run build"
 ```
 
-### Configuration Reference
+### Order of Precedence
 
-See [config.example.toml](config.example.toml) for a full example.
+All configuration values in devpipe are resolved in this order:
 
-<details open>
-<summary><h4 style="display: inline;">Detailed Configuration Reference</h4></summary>
-
-#### Order of Precedence
-
-All configuration values in devpipe are resolved in this order (highest to lowest priority):
-
-1. **CLI flags** (e.g., `--fix-type`, `--since`, `--ui`)
-2. **Task level** (e.g., `[tasks.go-fmt] fixType = "auto"`)
-3. **Task defaults** (e.g., `[task_defaults] fixType = "helper"`)
-4. **Built-in defaults** (e.g., `helper`)
-
-#### [defaults] Section
-
-Global configuration options.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `outputRoot` | string | No | `.devpipe` | Directory for run outputs and logs |
-| `fastThreshold` | int | No | `300` | Tasks longer than this (seconds) are skipped with `--fast` |
-| `uiMode` | string | No | `basic` | UI mode: `basic` or `full` |
-| `animationRefreshMs` | int | No | `500` | Dashboard refresh rate in milliseconds |
-| `animatedGroupBy` | string | No | `phase` | Group tasks by `phase` or `type` in dashboard |
-
-#### [defaults.git] Section
-
-Git integration settings.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `mode` | string | No | `staged_unstaged` | Git mode: `staged`, `staged_unstaged`, or `ref` |
-| `ref` | string | No | `HEAD` | Git ref to compare against when mode is `ref` |
-
-#### [task_defaults] Section
-
-Set default values that apply to all tasks unless overridden at the task level.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `enabled` | bool | No | `true` | Whether tasks are enabled by default |
-| `workdir` | string | No | `.` | Default working directory for tasks |
-| `fixType` | string | No | `helper` | Default fix behavior: `auto`, `helper`, or `none` |
-
-#### [tasks.\<task-id\>] Section
-
-Individual task configuration. Task ID must be unique.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `command` | string | **Yes** | - | Shell command to execute |
-| `name` | string | No | - | Display name for the task |
-| `desc` | string | No | - | Description |
-| `type` | string | No | - | Task type for grouping (e.g., `check`, `build`, `test`) |
-| `workdir` | string | No | `.` | Working directory for this task |
-| `enabled` | bool | No | `true` | Whether this task is enabled |
-| `fixType` | string | No | (inherited) | Fix behavior: `auto`, `helper`, `none` (overrides task_defaults) |
-| `fixCommand` | string | No | - | Command to run to fix issues (required if fixType is set) |
-| `metricsFormat` | string | No | - | Metrics format: `junit`, `sarif`, `artifact` |
-| `metricsPath` | string | No | - | Path to metrics file (relative to workdir) |
-
-#### Phase Headers
-
-Use `[tasks.phase-<name>]` to create phase headers. Tasks under a phase header run in parallel. Phases execute sequentially.
-
-You can add comments to make it easier to identify phases in the config at a glance (though these are not required).
-
-```toml
-
-[tasks.phase-quality]
-##################################
-
-[tasks.lint]
-command = "npm run lint"
-
-[tasks.format]
-command = "npm run format:check"
-
-[tasks.phase-build]
-##################################
-
-[tasks.build]
-command = "npm run build"
-
-[tasks.phase-test]
-##################################
-
-[tasks.unit-tests]
-command = "npm run test:unit"
-
-[tasks.e2e-tests]
-command = "npm run test:e2e"
-```
-
-Parallel execution:
-
-```
-Phase 1: Quality Checks
-├─ lint (parallel)
-└─ format (parallel)
-    ↓ (wait for phase to complete)
-Phase 2: Build
-└─ build
-    ↓ (wait for phase to complete)
-Phase 3: Tests
-├─ unit-tests (parallel)
-└─ e2e-tests (parallel)
-```
-
-</details>
+- **CLI flags** (e.g., `--fix-type`, `--since`, `--ui`) *\<highest priority\>*
+- **Task level** (e.g., `[tasks.go-fmt] fixType = "auto"`)
+- **Task defaults** (e.g., `[task_defaults] fixType = "helper"`)
+- **Built-in defaults** (e.g., `helper`) *\<lowest priority\>*
 
 ### Auto-Fix
 
@@ -274,7 +126,7 @@ command = "make security"
 fixType = "none"  # Don't suggest fixes for security issues
 ```
 
-#### CLI Override
+### CLI Override
 
 Override fix behavior for all tasks:
 
@@ -362,70 +214,6 @@ Overall: ███████████████████████�
 └───────────────────────────────────────────────────────┘
 ```
 
-## CLI Reference
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `devpipe` | Run the pipeline with default or specified config |
-| `devpipe validate [files...]` | Validate one or more config files |
-| `devpipe help` | Show help information |
-
-### Run Flags
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--config <path>` | Path to config file | `config.toml` |
-| `--since <ref>` | Git ref to compare against (overrides config) | - |
-| `--only <task-id>` | Run only a single task by id | - |
-| `--skip <task-id>` | Skip a task by id (repeatable) | - |
-| `--fix-type <type>` | Fix behavior: `auto`, `helper`, `none` (overrides config) | - |
-| `--ui <mode>` | UI mode: `basic`, `full` | `basic` |
-| `--dashboard` | Show dashboard with live progress | `false` |
-| `--fail-fast` | Stop on first task failure | `false` |
-| `--fast` | Skip long-running tasks (> fastThreshold) | `false` |
-| `--dry-run` | Do not execute commands, simulate only | `false` |
-| `--verbose` | Show verbose output (always logged to pipeline.log) | `false` |
-| `--no-color` | Disable colored output | `false` |
-
-### Validate Flags
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--config <path>` | Path to config file to validate (supports multiple files) | `config.toml` |
-
-See [CONFIG-VALIDATION.md](CONFIG-VALIDATION.md) for more details.
-
-### Examples
-
-```bash
-# Run with default config
-devpipe
-
-# Run with custom config
-devpipe --config config/custom.toml
-
-# Skip slow tasks and stop on first failure
-devpipe --fast --fail-fast
-
-# Run only specific task
-devpipe --only lint
-
-# Skip multiple tasks
-devpipe --skip e2e-tests --skip integration-tests
-
-# Dry run to see what would execute
-devpipe --dry-run
-
-# Full dashboard with verbose output
-devpipe --dashboard -ui full --verbose
-
-# Validate config files
-devpipe validate
-devpipe validate config/*.toml
-```
-
 ## Git Modes
 
 Control which files are in scope for changes:
@@ -446,7 +234,7 @@ devpipe will collect this information but doesn't handle the logic within each t
 
 ## Metrics & Dashboard
 
-devpipe can parse test results, SARIF security findings, and artifacts, and generate HTML dashboards with deatiled contextual information:
+devpipe can parse test results, SARIF security findings, and artifacts, and generate HTML dashboards with detailed contextual information:
 
 ```toml
 [tasks.unit-tests]
@@ -497,8 +285,6 @@ The dashboard will display:
 - 🔍 Data flow visualization (source → sink)
 - 🏷️ CWE tags and CVSS scores
 - ✅ Task fails if security issues are found
-
-See [SECURITY-SCANNING.md](SECURITY-SCANNING.md) for complete security scanning documentation.
 
 ## Output Structure
 
@@ -552,7 +338,7 @@ Apache 2.0 - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-Contributions welcome! Please open an issue or PR.
+Contributions welcome! Please open an issue or PR. See [CONTRIBUTING.md](docs-developer/CONTRIBUTING.md) for details.
 
 ---
 

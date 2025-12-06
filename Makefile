@@ -1,4 +1,4 @@
-.PHONY: help build run test clean destroy demo show-runs show-latest validate validate-all test-failures test-fail-fast test-continue-on-fail test-artifacts install-deps check-fmt fmt lint gosec codeql-setup codeql-db codeql-analyze codeql-clean codeql-view security security-test-enable security-test-disable security-test-status
+.PHONY: help build run test test-junit clean destroy demo show-runs show-latest validate validate-all test-failures test-fail-fast test-continue-on-fail test-artifacts install-deps check-fmt fmt lint gosec codeql-setup codeql-db codeql-analyze codeql-clean codeql-view security security-test-enable security-test-disable security-test-status generate-docs check-docs setup-hooks
 
 help:
 	@echo "devpipe - Makefile commands"
@@ -11,6 +11,7 @@ help:
 	@echo "  make build                 - Build the devpipe binary"
 	@echo "  make run                   - Build and run devpipe (uses config.toml)"
 	@echo "  make test                  - Run Go tests"
+	@echo "  make test-junit            - Run tests with JUnit XML output (requires gotestsum)"
 	@echo "  make clean                 - Remove build artifacts"
 	@echo "  make destroy               - Remove build artifacts AND .devpipe directory"
 	@echo ""
@@ -39,6 +40,11 @@ help:
 	@echo "  make show-latest           - Show latest run.json"
 	@echo "  make validate              - Validate default config.toml"
 	@echo "  make validate-all          - Validate all config files in config/"
+	@echo ""
+	@echo "Documentation:"
+	@echo "  make generate-docs         - Generate docs from config structs"
+	@echo "  make check-docs            - Check if docs are up to date"
+	@echo "  make setup-hooks           - Install git hooks (auto-generates docs)"
 
 install-deps:
 	@echo "Installing development dependencies..."
@@ -53,6 +59,7 @@ install-deps:
 	@echo ""
 	@echo "Installed tools:"
 	@command -v go >/dev/null 2>&1 && echo "  ✓ go $$(go version | awk '{print $$3}')" || echo "  ✗ go"
+	@command -v gotestsum >/dev/null 2>&1 && echo "  ✓ gotestsum $$(gotestsum --version)" || echo "  ✗ gotestsum"
 	@command -v golangci-lint >/dev/null 2>&1 && echo "  ✓ golangci-lint $$(golangci-lint --version | head -1 | awk '{print $$4}')" || echo "  ✗ golangci-lint"
 	@command -v gosec >/dev/null 2>&1 && echo "  ✓ gosec $$(gosec -version 2>&1 | head -1)" || echo "  ✗ gosec"
 	@command -v codeql >/dev/null 2>&1 && echo "  ✓ codeql $$(codeql version --format=terse)" || echo "  ✗ codeql"
@@ -76,6 +83,17 @@ run: build
 test:
 	@echo "Running tests..."
 	go test ./... -v
+
+test-junit:
+	@echo "Running tests with JUnit XML output..."
+	@mkdir -p artifacts
+	@if ! command -v gotestsum >/dev/null 2>&1; then \
+		echo "❌ Error: gotestsum is not installed"; \
+		echo "Install: brew install gotestsum"; \
+		exit 1; \
+	fi
+	gotestsum --junitfile artifacts/junit.xml --format testname -- -v ./...
+	@echo "✓ JUnit XML report: artifacts/junit.xml"
 
 # Check commands (for devpipe config.toml)
 check-fmt:
@@ -383,3 +401,57 @@ security-test-status:
 		echo ""; \
 		echo "To enable for testing: make security-test-enable"; \
 	fi
+
+# ============================================================================
+# Documentation Generation
+# ============================================================================
+
+generate-docs:
+	@echo "Generating documentation from config structs and snippets..."
+	@go run cmd/generate-docs/main.go
+	@echo ""
+	@echo "✅ Documentation generated:"
+	@echo "   - config.example.toml"
+	@echo "   - config.schema.json"
+	@echo "   - docs/configuration.md"
+	@echo "   - docs/cli-reference.md"
+	@echo "   - docs/config-validation.md"
+
+check-docs:
+	@echo "Checking if documentation is up to date..."
+	@# Check if files exist
+	@if [ ! -f config.example.toml ] || [ ! -f config.schema.json ] || [ ! -f docs/configuration.md ] || [ ! -f docs/cli-reference.md ] || [ ! -f docs/config-validation.md ]; then \
+		echo "❌ Generated documentation files are missing!"; \
+		echo "Run 'make generate-docs' to create them."; \
+		exit 1; \
+	fi
+	@# Save checksums of current files
+	@BEFORE=$$(cat config.example.toml config.schema.json docs/configuration.md docs/cli-reference.md docs/config-validation.md 2>/dev/null | shasum -a 256 | cut -d' ' -f1); \
+	go run cmd/generate-docs/main.go > /dev/null 2>&1; \
+	AFTER=$$(cat config.example.toml config.schema.json docs/configuration.md docs/cli-reference.md docs/config-validation.md 2>/dev/null | shasum -a 256 | cut -d' ' -f1); \
+	if [ "$$BEFORE" != "$$AFTER" ]; then \
+		git checkout config.example.toml config.schema.json docs/configuration.md docs/cli-reference.md docs/config-validation.md 2>/dev/null || true; \
+		echo "❌ Documentation is out of sync!"; \
+		echo ""; \
+		echo "The generated docs don't match committed files."; \
+		echo "Run 'make generate-docs' and commit the changes."; \
+		exit 1; \
+	else \
+		echo "✅ Documentation is up to date"; \
+	fi
+
+setup-hooks:
+	@echo "Installing git hooks..."
+	@if [ -f .git/hooks/pre-commit ]; then \
+		echo "⚠️  .git/hooks/pre-commit already exists"; \
+		echo "Backing up to .git/hooks/pre-commit.backup"; \
+		mv .git/hooks/pre-commit .git/hooks/pre-commit.backup; \
+	fi
+	@cp hooks/pre-commit .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "✅ Git hooks installed"
+	@echo ""
+	@echo "The pre-commit hook will automatically:"
+	@echo "  - Detect changes to internal/config/"
+	@echo "  - Run make generate-docs"
+	@echo "  - Add generated files to your commit"
