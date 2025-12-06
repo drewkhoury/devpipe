@@ -92,8 +92,15 @@ test-junit:
 		echo "Install: brew install gotestsum"; \
 		exit 1; \
 	fi
-	gotestsum --junitfile artifacts/junit.xml --format testname -- -v ./...
+	gotestsum \
+		--junitfile artifacts/junit.xml \
+		--format testname \
+		-- \
+		-coverprofile=artifacts/coverage.out \
+		-covermode=atomic \
+		./...
 	@echo "✓ JUnit XML report: artifacts/junit.xml"
+	@go tool cover -func=artifacts/coverage.out | grep total: | awk '{print "✓ Total coverage: " $$3}'
 
 # Check commands (for devpipe config.toml)
 check-fmt:

@@ -82,7 +82,7 @@ type = "check-static"
 [tasks.unit-tests]
 name = "Unit Tests"
 desc = "Run all unit tests and generate JUnit XML report"
-command = " make test-junit"
+command = "make test-junit"
 type = "test-unit"
 metricsFormat = "junit"
 metricsPath = "artifacts/junit.xml"
