@@ -146,11 +146,11 @@ func (c *Colors) ProgressBar(current, total, width int) string {
 	if c.enabled {
 		if percent >= 1.0 {
 			return c.Green(bar) + c.Green(percentText)
-		} else if percent >= 0.5 {
-			return c.Blue(bar) + percentText
-		} else {
-			return c.Gray(bar) + percentText
 		}
+		if percent >= 0.5 {
+			return c.Blue(bar) + percentText
+		}
+		return c.Gray(bar) + percentText
 	}
 
 	return bar + percentText

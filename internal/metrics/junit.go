@@ -1,3 +1,4 @@
+// Package metrics provides parsing and aggregation of test and build metrics.
 package metrics
 
 import (

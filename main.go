@@ -14,6 +14,7 @@
 
 // devpipe - Fast, local pipeline runner
 
+// Package main implements the devpipe CLI tool for running local development pipelines.
 package main
 
 import (
@@ -102,7 +103,7 @@ func main() {
 
 	flag.StringVar(&flagConfig, "config", "", "Path to config file (default: config.toml)")
 	flag.StringVar(&flagSince, "since", "", "Git ref to compare against (overrides config)")
-	flag.StringVar(&flagOnly, "only", "", "Run only a single task by id")
+	flag.StringVar(&flagOnly, "only", "", "Run only specific task(s) by id (comma-separated)")
 	flag.StringVar(&flagUI, "ui", "basic", "UI mode: basic, full")
 	flag.StringVar(&flagFixType, "fix-type", "", "Fix type: auto, helper, none (overrides config)")
 	flag.BoolVar(&flagDashboard, "dashboard", false, "Show dashboard with live progress")
@@ -179,7 +180,7 @@ func main() {
 		// Prompt user to create config
 		fmt.Printf("No config.toml found. Create one with example tasks? (y/n): ")
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response) // Best effort user input
 
 		if response == "y" || response == "Y" || response == "yes" || response == "Yes" {
 			if err := config.GenerateDefaultConfig(defaultConfigPath, repoRoot); err != nil {
@@ -375,7 +376,11 @@ func main() {
 		pipelineLog = nil
 	}
 	if pipelineLog != nil {
-		defer pipelineLog.Close()
+		defer func() {
+			if err := pipelineLog.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to close pipeline log: %v\n", err)
+			}
+		}()
 		// Set pipeline log on renderer so verbose output is captured
 		renderer.SetPipelineLog(pipelineLog)
 	}
@@ -450,7 +455,15 @@ func main() {
 	var outputMu sync.Mutex // For sequential output display
 
 	for phaseIdx, phase := range phases {
+		// Log phase start
 		if len(phases) > 1 {
+			phaseName := phase.Name
+			if phaseName == "" {
+				phaseName = fmt.Sprintf("Phase %d", phaseIdx+1)
+			}
+			if tracker == nil {
+				fmt.Printf("\n▶ Starting %s (%d tasks)\n", phaseName, len(phase.Tasks))
+			}
 			renderer.Verbose(flagVerbose, "Phase %d/%d (%d tasks)", phaseIdx+1, len(phases), len(phase.Tasks))
 		}
 
@@ -589,13 +602,17 @@ func main() {
 					originalResult := item.result
 
 					fixGroup.Go(func() error {
-						// Open log file to append fix output
+						// Open log file for appending
 						logFile, err := os.OpenFile(originalResult.LogPath, os.O_APPEND|os.O_WRONLY, 0644)
 						if err != nil {
 							fmt.Fprintf(os.Stderr, "ERROR: cannot open log file %s: %v\n", originalResult.LogPath, err)
 							return nil
 						}
-						defer logFile.Close()
+						defer func() {
+							if err := logFile.Close(); err != nil {
+								fmt.Fprintf(os.Stderr, "Warning: failed to close log file: %v\n", err)
+							}
+						}()
 
 						// Run fix command and time it
 						fixCmd := exec.Command("sh", "-c", task.FixCommand)
@@ -607,7 +624,7 @@ func main() {
 						fixCmd.Stderr = logFile
 
 						// Write separator to log
-						fmt.Fprintf(logFile, "\n--- Auto-fix: %s ---\n", task.FixCommand)
+						_, _ = fmt.Fprintf(logFile, "\n--- Auto-fix: %s ---\n", task.FixCommand) // Log write
 
 						fixErr := fixCmd.Run()
 						fixDuration := time.Since(fixStart)
@@ -637,7 +654,7 @@ func main() {
 						}
 
 						// Write separator to log
-						fmt.Fprintf(logFile, "\n--- Re-check: %s ---\n", task.Command)
+						_, _ = fmt.Fprintf(logFile, "\n--- Re-check: %s ---\n", task.Command) // Log write
 
 						// Re-run original command
 						recheckCmd := exec.Command("sh", "-c", task.Command)
@@ -706,7 +723,7 @@ func main() {
 					})
 				}
 
-				fixGroup.Wait()
+				_ = fixGroup.Wait() // Wait for all fixes to complete
 			}
 
 			// Show helper messages for failed tasks with fixType="helper"
@@ -727,12 +744,32 @@ func main() {
 			resultsMu.Unlock()
 		}
 
+		// Log phase completion
+		if len(phases) > 1 {
+			phaseName := phase.Name
+			if phaseName == "" {
+				phaseName = fmt.Sprintf("Phase %d", phaseIdx+1)
+			}
+			phaseFailMu.Lock()
+			status := "✓ Complete"
+			if phaseFailed {
+				status = "✗ Failed"
+			}
+			phaseFailMu.Unlock()
+			if tracker == nil {
+				fmt.Printf("◀ %s %s\n", phaseName, status)
+			}
+		}
+
 		// If phase failed and fail-fast is enabled, stop
 		phaseFailMu.Lock()
 		shouldStop := phaseFailed && flagFailFast
 		phaseFailMu.Unlock()
 
 		if shouldStop {
+			if tracker == nil && len(phases) > 1 {
+				fmt.Printf("\n⚠ Stopping execution due to phase failure (fail-fast enabled)\n")
+			}
 			break
 		}
 	}
@@ -752,7 +789,7 @@ func main() {
 		fmt.Print(renderer.Green("✓ Done") + " - Press Enter to continue...")
 
 		// Wait for Enter key
-		fmt.Scanln()
+		_, _ = fmt.Scanln() // Best effort wait for user
 	}
 
 	// Render summary
@@ -891,7 +928,7 @@ func containsSpace(s string) bool {
 }
 
 // buildEffectiveConfig creates a detailed breakdown of configuration values and their sources
-func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSince, flagUI, uiModeStr, gitMode, gitRef string, historicalAvg map[string]int) *model.EffectiveConfig {
+func buildEffectiveConfig(cfg *config.Config, mergedCfg *config.Config, flagSince, flagUI, uiModeStr, gitMode, gitRef string, _ map[string]int) *model.EffectiveConfig {
 	defaults := config.GetDefaults()
 	var values []model.ConfigValue
 
@@ -1042,7 +1079,7 @@ func groupTasksIntoPhases(tasks []model.TaskDefinition, phaseNames map[string]co
 	return phases
 }
 
-func filterTasks(tasks []model.TaskDefinition, only string, skip sliceFlag, fast bool, fastThreshold int, verbose bool) []model.TaskDefinition {
+func filterTasks(tasks []model.TaskDefinition, only string, skip sliceFlag, _ bool, _ int, verbose bool) []model.TaskDefinition {
 	skipSet := map[string]struct{}{}
 	for _, id := range skip {
 		skipSet[id] = struct{}{}
@@ -1050,14 +1087,58 @@ func filterTasks(tasks []model.TaskDefinition, only string, skip sliceFlag, fast
 
 	var out []model.TaskDefinition
 	if only != "" {
+		// Parse comma-separated list from --only
+		rawIDs := strings.Split(only, ",")
+		var requested []string
+		seen := make(map[string]struct{})
+		for _, raw := range rawIDs {
+			id := strings.TrimSpace(raw)
+			if id == "" {
+				continue
+			}
+			if _, dup := seen[id]; dup {
+				continue
+			}
+			seen[id] = struct{}{}
+			requested = append(requested, id)
+		}
+
+		// Index tasks by ID for validation
+		taskIndex := make(map[string]model.TaskDefinition, len(tasks))
 		for _, s := range tasks {
-			if s.ID == only {
-				out = append(out, s)
-				return out
+			taskIndex[s.ID] = s
+		}
+
+		// Validate all requested IDs exist
+		for _, id := range requested {
+			if _, ok := taskIndex[id]; !ok {
+				fmt.Fprintf(os.Stderr, "ERROR: --only task id %q not found\n", id)
+				os.Exit(1)
 			}
 		}
-		fmt.Fprintf(os.Stderr, "ERROR: --only task id %q not found\n", only)
-		os.Exit(1)
+
+		// Build a set of requested IDs to filter by, then
+		// walk the full task list in pipeline order and
+		// keep only requested tasks that are not skipped.
+		requestedSet := make(map[string]struct{}, len(requested))
+		for _, id := range requested {
+			requestedSet[id] = struct{}{}
+		}
+
+		for _, s := range tasks {
+			if _, want := requestedSet[s.ID]; !want {
+				continue
+			}
+			if _, skip := skipSet[s.ID]; skip {
+				if verbose {
+					fmt.Printf("[%-15s] SKIP requested by --skip\n", s.ID)
+				}
+				continue
+			}
+			out = append(out, s)
+		}
+
+		return out
 	}
 
 	for _, s := range tasks {
@@ -1147,7 +1228,11 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		res.Status = model.StatusFail
 		return res, &taskOutputBuffer, err
 	}
-	defer logFile.Close()
+	defer func() {
+		if err := logFile.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to close log file: %v\n", err)
+		}
+	}()
 
 	cmd := exec.Command("sh", "-c", st.Command)
 	cmd.Dir = st.Workdir
@@ -1250,13 +1335,12 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		res.Metrics = parseTaskMetrics(st, verbose)
 		if res.Metrics != nil {
 			renderer.Verbose(verbose, "%s Metrics parsed successfully: %+v", st.ID, res.Metrics.Data)
-		} else {
-			// Metrics parsing failed - this means either:
-			// 1. File doesn't exist (will be caught below)
-			// 2. Invalid format (error already printed)
-			// 3. Parse error (error already printed)
-			// We'll fail the task below if file is missing/empty, or here if it's a parse/format error
 		}
+		// Metrics parsing failed - this means either:
+		// 1. File doesn't exist (will be caught below)
+		// 2. Invalid format (error already printed)
+		// 3. Parse error (error already printed)
+		// We'll fail the task below if file is missing/empty, or here if it's a parse/format error
 
 		// Validate artifact if metrics path specified
 		// Handle both absolute and relative paths
@@ -1333,16 +1417,17 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		symbol := "•"
 		var statusText string
 
-		if res.Status == model.StatusPass {
+		switch res.Status {
+		case model.StatusPass:
 			symbol = "✓"
 			statusText = renderer.Green(string(res.Status))
-		} else if res.Status == model.StatusFail {
+		case model.StatusFail:
 			symbol = "✗"
 			statusText = renderer.Red(string(res.Status))
-		} else if res.Status == model.StatusSkipped {
+		case model.StatusSkipped:
 			symbol = "⊘"
 			statusText = renderer.Yellow(string(res.Status))
-		} else {
+		default:
 			statusText = string(res.Status)
 		}
 
@@ -1356,16 +1441,17 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		symbol := "•"
 		var statusText string
 
-		if res.Status == model.StatusPass {
+		switch res.Status {
+		case model.StatusPass:
 			symbol = "✓"
 			statusText = renderer.Green(string(res.Status))
-		} else if res.Status == model.StatusFail {
+		case model.StatusFail:
 			symbol = "✗"
 			statusText = renderer.Red(string(res.Status))
-		} else if res.Status == model.StatusSkipped {
+		case model.StatusSkipped:
 			symbol = "⊘"
 			statusText = renderer.Yellow(string(res.Status))
-		} else {
+		default:
 			statusText = string(res.Status)
 		}
 
@@ -1487,7 +1573,7 @@ type lineWriter struct {
 
 func (w *lineWriter) Write(p []byte) (n int, err error) {
 	// Write to log file (unprefixed)
-	w.file.Write(p)
+	_, _ = w.file.Write(p) // Best effort log write
 
 	// Add to buffer and extract complete lines
 	w.buffer = append(w.buffer, p...)
@@ -1514,65 +1600,13 @@ func (w *lineWriter) Write(p []byte) (n int, err error) {
 			w.mu.Unlock()
 		} else if w.console != nil {
 			// Stream output directly
-			fmt.Fprintln(w.console, prefixedLine)
+			_, _ = fmt.Fprintln(w.console, prefixedLine) // Best effort console write
 		}
 
 		w.buffer = w.buffer[idx+1:]
 	}
 
 	return len(p), nil
-}
-
-// runValidateCommand validates a config file
-func runValidateCommand() {
-	// Parse validate subcommand flags
-	validateFlags := flag.NewFlagSet("validate", flag.ExitOnError)
-	configPath := validateFlags.String("config", "", "Path to config file to validate (default: config.toml)")
-	validateFlags.Parse(os.Args[2:])
-
-	// Determine config path
-	path := *configPath
-	if path == "" {
-		path = "config.toml"
-	}
-
-	// Check if any additional files were specified as positional args
-	args := validateFlags.Args()
-	if len(args) > 0 {
-		// Validate all specified files
-		hasErrors := false
-		for _, arg := range args {
-			result, err := config.ValidateConfigFile(arg)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error validating %s: %v\n\n", arg, err)
-				hasErrors = true
-				continue
-			}
-
-			config.PrintValidationResult(arg, result)
-			if !result.Valid {
-				hasErrors = true
-			}
-		}
-
-		if hasErrors {
-			os.Exit(1)
-		}
-		return
-	}
-
-	// Validate single config file
-	result, err := config.ValidateConfigFile(path)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	config.PrintValidationResult(path, result)
-
-	if !result.Valid {
-		os.Exit(1)
-	}
 }
 
 // printVersion prints version information
@@ -1600,7 +1634,7 @@ func printHelp() {
 	fmt.Println("RUN FLAGS:")
 	fmt.Println("  --config <path>       Path to config file (default: config.toml)")
 	fmt.Println("  --since <ref>         Git ref to compare against (overrides config)")
-	fmt.Println("  --only <task-id>      Run only a single task by id")
+	fmt.Println("  --only <task-ids>     Run only specific task(s) by id (comma-separated)")
 	fmt.Println("  --skip <task-id>      Skip a task by id (can be specified multiple times)")
 	fmt.Println("  --ui <mode>           UI mode: basic, full (default: basic)")
 	fmt.Println("  --dashboard           Show dashboard with live progress")
@@ -1823,7 +1857,7 @@ func listCmd() {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
 	verbose := fs.Bool("verbose", false, "Show detailed table view with phases")
 	configPath := fs.String("config", "", "Path to config file (default: config.toml)")
-	fs.Parse(os.Args[2:])
+	_ = fs.Parse(os.Args[2:]) // Flag parsing
 
 	// Load configuration
 	cfg, configTaskOrder, phaseNames, taskToPhase, err := config.LoadConfig(*configPath)
@@ -2179,7 +2213,7 @@ func sarifCmd() {
 	}
 
 	// Parse flags (skip "sarif" subcommand)
-	fs.Parse(os.Args[2:])
+	_ = fs.Parse(os.Args[2:]) // Flag parsing
 
 	// Get SARIF file(s)
 	var files []string

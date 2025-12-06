@@ -9,6 +9,7 @@ import (
 // UIMode represents the UI rendering mode
 type UIMode string
 
+// UI mode constants
 const (
 	UIModeBasic UIMode = "basic"
 	UIModeFull  UIMode = "full"
@@ -236,31 +237,37 @@ func (r *Renderer) CreateAnimatedTracker(tasks []TaskProgress, headerLines int, 
 	return NewAnimatedTaskTracker(r, tasks, headerLines, refreshMs, groupBy)
 }
 
-// Color helper methods
+// Blue returns the string formatted in blue color
 func (r *Renderer) Blue(s string) string {
 	return r.colors.Blue(s)
 }
 
+// Green returns the string formatted in green color
 func (r *Renderer) Green(s string) string {
 	return r.colors.Green(s)
 }
 
+// Red returns the string formatted in red color
 func (r *Renderer) Red(s string) string {
 	return r.colors.Red(s)
 }
 
+// Yellow returns the string formatted in yellow color
 func (r *Renderer) Yellow(s string) string {
 	return r.colors.Yellow(s)
 }
 
+// Cyan returns the string formatted in cyan color
 func (r *Renderer) Cyan(s string) string {
 	return r.colors.Cyan(s)
 }
 
+// Gray returns the string formatted in gray color
 func (r *Renderer) Gray(s string) string {
 	return r.colors.Gray(s)
 }
 
+// StatusColor returns the appropriate color for a given status string
 func (r *Renderer) StatusColor(status string) string {
 	return r.colors.StatusColor(status, status)
 }
@@ -284,7 +291,7 @@ func (r *Renderer) Verbose(verbose bool, format string, args ...interface{}) {
 	// Always write to pipeline.log (without color codes)
 	if r.pipelineLog != nil {
 		plainLine := fmt.Sprintf("[%-15s] %s\n", "verbose", msg)
-		r.pipelineLog.WriteString(plainLine)
+		_, _ = r.pipelineLog.WriteString(plainLine) // Best effort logging
 	}
 
 	// Only output to console/tracker if verbose flag is enabled

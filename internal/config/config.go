@@ -1,3 +1,4 @@
+// Package config handles loading, validation, and merging of devpipe configuration files.
 package config
 
 import (
@@ -111,6 +112,17 @@ func LoadConfig(path string) (*Config, []string, map[string]PhaseInfo, map[strin
 		return nil, nil, nil, nil, fmt.Errorf("unknown fields in config: %s", strings.Join(unknownFields, ", "))
 	}
 
+	// Validate tasks - only command is required (except for phase headers and wait markers)
+	for taskID, task := range cfg.Tasks {
+		// Skip validation for phase headers (phase-*) and wait markers (wait, wait-*)
+		if strings.HasPrefix(taskID, "phase-") || taskID == "wait" || strings.HasPrefix(taskID, "wait-") {
+			continue
+		}
+		if task.Command == "" {
+			return nil, nil, nil, nil, fmt.Errorf("task %q is missing required field: command", taskID)
+		}
+	}
+
 	// Extract task order, phase names, and task-to-phase mapping from the TOML file
 	taskOrder, phaseNames, taskToPhase, err := extractTaskOrder(path)
 	if err != nil {
@@ -185,7 +197,7 @@ func MergeWithDefaults(cfg *Config) Config {
 }
 
 // ResolveTaskConfig resolves a task config by applying defaults
-func (c *Config) ResolveTaskConfig(id string, taskCfg TaskConfig, repoRoot string) TaskConfig {
+func (c *Config) ResolveTaskConfig(_ string, taskCfg TaskConfig, repoRoot string) TaskConfig {
 	// Apply task defaults
 	if taskCfg.Workdir == "" {
 		if c.TaskDefaults.Workdir != "" {
@@ -333,7 +345,7 @@ func extractQuotedValue(s string) string {
 }
 
 // GenerateDefaultConfig creates a minimal config.toml file
-func GenerateDefaultConfig(path string, repoRoot string) error {
+func GenerateDefaultConfig(path string, _ string) error {
 	// Check if file already exists
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("config file already exists: %s", path)
@@ -344,7 +356,11 @@ func GenerateDefaultConfig(path string, repoRoot string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close config file: %w", cerr)
+		}
+	}()
 
 	// Write minimal, runnable config
 	content := `# devpipe configuration file

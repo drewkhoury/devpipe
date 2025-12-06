@@ -1,3 +1,4 @@
+// Package git provides git repository integration for detecting changed files.
 package git
 
 import (

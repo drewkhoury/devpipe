@@ -355,7 +355,7 @@ func generateJSONSchema(docs []SectionDoc) error {
 					fieldSchema["default"] = field.Default
 				case "int":
 					var intVal int
-					fmt.Sscanf(field.Default, "%d", &intVal)
+					_, _ = fmt.Sscanf(field.Default, "%d", &intVal) // Best effort parsing
 					fieldSchema["default"] = intVal
 				case "bool":
 					fieldSchema["default"] = field.Default == "true"

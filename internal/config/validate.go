@@ -280,7 +280,7 @@ func validateTask(taskID string, task TaskConfig, result *ValidationResult) {
 }
 
 // validatePhaseHeaders checks that phase headers are properly formatted
-func validatePhaseHeaders(path string, result *ValidationResult) error {
+func validatePhaseHeaders(path string, _ *ValidationResult) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err

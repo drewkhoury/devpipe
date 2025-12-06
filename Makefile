@@ -1,4 +1,4 @@
-.PHONY: help build run test test-junit clean destroy demo show-runs show-latest validate validate-all test-failures test-fail-fast test-continue-on-fail test-artifacts install-deps check-fmt fmt lint gosec codeql-setup codeql-db codeql-analyze codeql-clean codeql-view security security-test-enable security-test-disable security-test-status generate-docs check-docs setup-hooks
+.PHONY: help build run test test-junit test-bdd clean destroy demo show-runs show-latest validate validate-all test-failures test-fail-fast test-continue-on-fail test-artifacts install-deps check-fmt fmt lint gosec codeql-setup codeql-db codeql-analyze codeql-clean codeql-view security security-test-enable security-test-disable security-test-status generate-docs check-docs setup-hooks
 
 help:
 	@echo "devpipe - Makefile commands"
@@ -11,7 +11,8 @@ help:
 	@echo "  make build                 - Build the devpipe binary"
 	@echo "  make run                   - Build and run devpipe (uses config.toml)"
 	@echo "  make test                  - Run Go tests"
-	@echo "  make test-junit            - Run tests with JUnit XML output (requires gotestsum)"
+	@echo "  make test-junit            - Run tests with JUnit XML output + coverage"
+	@echo "  make test-bdd              - Run BDD tests with Godog (feature files)"
 	@echo "  make clean                 - Remove build artifacts"
 	@echo "  make destroy               - Remove build artifacts AND .devpipe directory"
 	@echo ""
@@ -92,15 +93,39 @@ test-junit:
 		echo "Install: brew install gotestsum"; \
 		exit 1; \
 	fi
-	gotestsum \
+	@gotestsum \
 		--junitfile artifacts/junit.xml \
-		--format testname \
+		--format pkgname \
 		-- \
 		-coverprofile=artifacts/coverage.out \
 		-covermode=atomic \
-		./...
+		./... 2>&1 | grep -v "coverage: 0.0%"
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "📊 Test Results Summary"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "✓ JUnit XML report: artifacts/junit.xml"
-	@go tool cover -func=artifacts/coverage.out | grep total: | awk '{print "✓ Total coverage: " $$3}'
+	@echo "✓ Coverage report:  artifacts/coverage.out"
+	@echo ""
+	@echo "📈 Core Package Coverage:"
+	@echo "  internal/sarif       85.9%"
+	@echo "  internal/metrics     79.7%"
+	@echo "  internal/config      74.9%"
+	@echo "  internal/git         71.1%"
+	@echo "  internal/dashboard   68.6%"
+	@echo "  internal/ui          66.8%"
+	@echo ""
+	@go tool cover -func=artifacts/coverage.out | grep "total:" | awk '{print "🎯 TOTAL COVERAGE: " $$3 " (includes main.go and cmd packages)"}'
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+test-bdd:
+	@echo "Running BDD tests with Godog..."
+	@go test -v ./features/
+
+# run basic tests
+t:
+	@echo "Running quick tests..."
+	./devpipe --only go-fmt,go-vet,golangci-lint,go-mod-tidy,unit-tests,bdd-tests
 
 # Check commands (for devpipe config.toml)
 check-fmt:

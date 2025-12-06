@@ -91,14 +91,14 @@ func TestParse(t *testing.T) {
 			// Create temp file
 			tmpDir := t.TempDir()
 			sarifPath := filepath.Join(tmpDir, "results.sarif")
-			
+
 			if err := os.WriteFile(sarifPath, []byte(tt.sarifContent), 0644); err != nil {
 				t.Fatalf("Failed to write test file: %v", err)
 			}
 
 			// Parse SARIF
 			doc, err := Parse(sarifPath)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -126,7 +126,7 @@ func TestParse(t *testing.T) {
 
 func TestParse_NonExistentFile(t *testing.T) {
 	_, err := Parse("/nonexistent/file.sarif")
-	
+
 	if err == nil {
 		t.Error("Expected error for nonexistent file")
 	}
@@ -184,7 +184,7 @@ func TestGetFindings(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	sarifPath := filepath.Join(tmpDir, "results.sarif")
-	
+
 	if err := os.WriteFile(sarifPath, []byte(sarifContent), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
@@ -316,7 +316,7 @@ func TestGetFindings_MultipleRuns(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	sarifPath := filepath.Join(tmpDir, "results.sarif")
-	
+
 	if err := os.WriteFile(sarifPath, []byte(sarifContent), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestGetFindings_NoLocations(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	sarifPath := filepath.Join(tmpDir, "results.sarif")
-	
+
 	if err := os.WriteFile(sarifPath, []byte(sarifContent), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}

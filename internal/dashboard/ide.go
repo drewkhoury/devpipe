@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"os"
 	"path/filepath"
@@ -47,7 +48,11 @@ func writeIDEViewer(path, runID, runDir string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close file: %w", cerr)
+		}
+	}()
 
 	return tmpl.Execute(f, data)
 }
@@ -112,7 +117,7 @@ func collectFiles(runDir string) []FileInfo {
 
 	// Add all artifact files (recursively walk subdirectories)
 	artifactsDir := filepath.Join(runDir, "artifacts")
-	filepath.Walk(artifactsDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}

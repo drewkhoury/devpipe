@@ -1,3 +1,4 @@
+// Package sarif provides comprehensive tests for SARIF parsing and validation.
 package sarif
 
 import (
@@ -92,7 +93,7 @@ func TestComprehensiveSARIF(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	sarifPath := filepath.Join(tmpDir, "comprehensive.sarif")
-	
+
 	if err := os.WriteFile(sarifPath, []byte(sarifContent), 0644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}

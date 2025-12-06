@@ -47,7 +47,11 @@ func writeHTMLDashboard(path string, summary Summary) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close file: %w", cerr)
+		}
+	}()
 
 	return tmpl.Execute(f, data)
 }
@@ -215,11 +219,10 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 		}
 
 		// Check for artifact file (stored in metrics for artifact format)
-		if task.Metrics != nil && task.Metrics.SummaryFormat == "artifact" {
-			// The artifact path should be in the workdir + metrics path from task definition
-			// We need to reconstruct it from the run record
-			// For now, check if we can get it from the task's workdir
-		}
+		// TODO: The artifact path should be in the workdir + metrics path from task definition
+		// We need to reconstruct it from the run record
+		// For now, check if we can get it from the task's workdir
+		_ = task.Metrics // Placeholder for future artifact handling
 
 		data.TasksWithLogs = append(data.TasksWithLogs, taskWithLog)
 	}
@@ -284,7 +287,11 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close file: %w", cerr)
+		}
+	}()
 
 	return tmpl.Execute(f, data)
 }
@@ -1676,6 +1683,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                     </div>
                 </div>
                 
+                {{if .Git}}
                 <div>
                     <h3 style="font-size: 16px; color: #2c3e50; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #dee2e6;">Git Information</h3>
                     <div class="task-details" style="grid-template-columns: 1fr;">
@@ -1704,6 +1712,7 @@ const runDetailTemplate = `<!DOCTYPE html>
                         {{end}}
                     </div>
                 </div>
+                {{end}}
             </div>
         </div>
         

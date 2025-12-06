@@ -1,3 +1,4 @@
+// Package main implements the sarif-viewer CLI tool for viewing SARIF reports.
 package main
 
 import (

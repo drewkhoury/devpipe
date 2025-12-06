@@ -1,8 +1,10 @@
+// Package model defines the core data structures for devpipe tasks and results.
 package model
 
 // TaskStatus represents the status of a task
 type TaskStatus string
 
+// Task status constants
 const (
 	StatusPending TaskStatus = "PENDING"
 	StatusRunning TaskStatus = "RUNNING"

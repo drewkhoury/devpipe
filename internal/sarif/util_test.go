@@ -35,11 +35,11 @@ func TestPrintFindings(t *testing.T) {
 
 	PrintFindings(findings, false)
 
-	w.Close()
+	_ = w.Close() // Test cleanup
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r) // Test output capture
 	output := buf.String()
 
 	// Should contain finding information
@@ -80,11 +80,11 @@ func TestPrintFindings_Verbose(t *testing.T) {
 
 	PrintFindings(findings, true)
 
-	w.Close()
+	_ = w.Close() // Test cleanup
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r) // Test output capture
 	output := buf.String()
 
 	// Verbose mode should include more details
@@ -112,11 +112,11 @@ func TestPrintSummary(t *testing.T) {
 
 	PrintSummary(findings)
 
-	w.Close()
+	_ = w.Close() // Test cleanup
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r) // Test output capture
 	output := buf.String()
 
 	// Should contain summary information - just verify non-empty output
@@ -136,10 +136,10 @@ func TestFindSARIFFiles(t *testing.T) {
 	file2 := filepath.Join(tmpDir, "subdir", "more.sarif")
 	file3 := filepath.Join(tmpDir, "not-sarif.txt")
 
-	os.WriteFile(file1, []byte("{}"), 0644)
-	os.MkdirAll(filepath.Dir(file2), 0755)
-	os.WriteFile(file2, []byte("{}"), 0644)
-	os.WriteFile(file3, []byte("text"), 0644)
+	_ = os.WriteFile(file1, []byte("{}"), 0644)        // Test setup
+	_ = os.MkdirAll(filepath.Dir(file2), 0755)         // Test setup
+	_ = os.WriteFile(file2, []byte("{}"), 0644)        // Test setup
+	_ = os.WriteFile(file3, []byte("not sarif"), 0644) // Test setup
 
 	files, err := FindSARIFFiles(tmpDir)
 	if err != nil {

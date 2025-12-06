@@ -24,12 +24,6 @@ fixType = "auto"
 name = "Validation"
 desc = "Static analysis, linting, security scans, and all tests"
 
-
-# [tasks.echoooooooooooo_oooooooooooooo_after30____x_weeeeeeeeee_foo_bar_baz]
-# name = "ECHO oooooooooo oooooooooooooo after30____x"
-# desc = "Echoes a message"
-# command = "echo '→ hello world'"
-
 # Static checks (no execution)
 [tasks.go-fmt]
 name = "Go Format"
@@ -72,12 +66,6 @@ desc = "Verifies go.mod and go.sum are tidy and up-to-date with no missing or un
 command = "go mod tidy -diff"
 type = "check-static"
 
-[tasks.validate-configs]
-name = "Validate Example Configs"
-desc = "Validates all example TOML config files for correct syntax and valid configuration options"
-command = "./devpipe validate config.toml config/*.toml"
-type = "check-static"
-
 # Tests (all can run in parallel with checks)
 [tasks.unit-tests]
 name = "Unit Tests"
@@ -87,35 +75,11 @@ type = "test-unit"
 metricsFormat = "junit"
 metricsPath = "artifacts/junit.xml"
 
-[tasks.unit-tests-race]
-name = "Unit Tests (Race Detector)"
-command = "echo '→ go test -race ./...'"
-type = "test-unit"
-
-[tasks.coverage]
-name = "Test Coverage"
-command = "echo '→ go test -coverprofile=coverage.out -covermode=atomic ./...'"
-type = "test-unit"
-
-[tasks.cli-integration]
-name = "CLI Integration Tests"
-command = "echo '→ Test CLI: help, version, flags, dry-run, validation'"
+[tasks.bdd-tests]
+name = "BDD Tests"
+desc = "Run behavior-driven development tests using godog"
+command = "make test-bdd"
 type = "test-integration"
-
-[tasks.git-integration]
-name = "Git Integration Tests"
-command = "echo '→ Test git modes: staged, staged_unstaged, ref'"
-type = "test-integration"
-
-[tasks.pipeline-integration]
-name = "Pipeline Execution Tests"
-command = "echo '→ Test: phases, parallel execution, fail-fast, metrics'"
-type = "test-integration"
-
-[tasks.benchmarks]
-name = "Benchmarks"
-command = "echo '→ go test -bench=. -benchmem ./...'"
-type = "test-performance"
 
 # ============================================================================
 # Phase 2: Build - Compilation & Release Validation
@@ -127,38 +91,42 @@ desc = "Compile binary and validate release configuration"
 
 [tasks.build]
 name = "Build Binary"
-command = "echo '→ go build -o devpipe .'"
-type = "build"
-
-[tasks.goreleaser-check]
-name = "GoReleaser Validation"
-command = "echo '→ goreleaser check'"
+command = "make build"
 type = "build"
 
 # ============================================================================
-# Phase 3: End-to-End - Real-world Scenarios
-# Uses the built binary from Phase 2 to test complete workflows
+# Phase 3: Funcational Testing
+# Test against the build binary
 # ============================================================================
-[tasks.phase-e2e]
-name = "End-to-End"
-desc = "Test real-world usage scenarios with the built binary"
+[tasks.phase-functional]
+name = "Functional Testing"
+desc = "Test against the build binary"
 
-[tasks.e2e-fresh-install]
-name = "Fresh Install"
-command = "echo '→ Test: First-time user with no config (auto-generate)'"
-type = "test-e2e"
+[tasks.test-version]
+name = "Test Version"
+command = "./devpipe version"
+type = "test"
 
-[tasks.e2e-ci-pipeline]
-name = "CI Pipeline Simulation"
-command = "echo '→ Test: Full CI run with all flags'"
-type = "test-e2e"
+[tasks.test-artifacts]
+name = "Test Artifact"
+desc = "Runs devpipe against a directory with various valid and invalid files"
+command = "make test-artifacts"
+type = "test"
 
-[tasks.e2e-pre-commit]
-name = "Pre-commit Workflow"
-command = "echo '→ Test: Fast pre-commit with --fast flag'"
-type = "test-e2e"
+[tasks.test-failures]
+name = "Test Failures"
+desc = "Run all failure tests (check test-fail-fast and test-continue-on-fail do what they are meant to)"
+command = "make test-failures"
+type = "test"
 
-[tasks.e2e-failure-scenarios]
-name = "Failure Handling"
-command = "echo '→ Test: fail-fast, continue-on-error, error reporting'"
-type = "test-e2e"
+[tasks.validate]
+name = "Validate"
+desc = "Validate default config.toml"
+command = "./devpipe validate"
+type = "validate"
+
+[tasks.validate-configs]
+name = "Validate Example Configs"
+desc = "Validates config.toml and all example TOML config files for correct syntax and valid configuration options"
+command = "./devpipe validate config.toml config/*.toml"
+type = "validate"

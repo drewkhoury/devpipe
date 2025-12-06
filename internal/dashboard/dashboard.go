@@ -1,3 +1,4 @@
+// Package dashboard generates HTML reports and dashboards from pipeline run data.
 package dashboard
 
 import (
@@ -132,7 +133,11 @@ func writeRunJSON(path string, run model.RunRecord) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close file: %w", cerr)
+		}
+	}()
 
 	encoder := json.NewEncoder(f)
 	encoder.SetIndent("", "  ")
@@ -224,9 +229,9 @@ func aggregateRuns(runs []model.RunRecord, version string) Summary {
 	}
 
 	// Calculate task stats for different ranges
-	summary.TaskStats = calculateTaskStats(runs, len(runs))                // All runs
-	summary.TaskStatsRecent = calculateTaskStats(runs, 1)                  // Most recent run
-	summary.TaskStatsLast25 = calculateTaskStats(runs, min(25, len(runs))) // Last 25 runs
+	summary.TaskStats = calculateTaskStats(runs, len(runs))                   // All runs
+	summary.TaskStatsRecent = calculateTaskStats(runs, 1)                     // Most recent run
+	summary.TaskStatsLast25 = calculateTaskStats(runs, minInt(25, len(runs))) // Last 25 runs
 
 	return summary
 }
@@ -289,8 +294,8 @@ func calculateTaskStats(runs []model.RunRecord, numRuns int) map[string]TaskStat
 	return taskStats
 }
 
-// min returns the minimum of two integers
-func min(a, b int) int {
+// minInt returns the minimum of two integers
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}

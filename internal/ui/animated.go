@@ -1,3 +1,4 @@
+// Package ui provides terminal UI components for rendering pipeline progress.
 package ui
 
 import (
@@ -128,9 +129,7 @@ func (a *AnimatedTaskTracker) Stop() {
 // testRender tests if terminal supports ANSI escape codes
 func (a *AnimatedTaskTracker) testRender() error {
 	defer func() {
-		if r := recover(); r != nil {
-			// Rendering panicked
-		}
+		_ = recover() // Ignore panics during test render
 	}()
 
 	// Try basic ANSI sequences
@@ -273,10 +272,9 @@ func (a *AnimatedTaskTracker) calculateLines() int {
 		lines += 1 + a.maxLogLines // "─── Output ───" + max log lines
 
 		return lines
-	} else {
-		// Basic mode: progress bar + blank + tasks + blank + log header + FIXED log lines
-		return 2 + len(a.tasks) + 1 + 1 + a.maxLogLines
 	}
+	// Basic mode: progress bar + blank + tasks + blank + log header + FIXED log lines
+	return 2 + len(a.tasks) + 1 + 1 + a.maxLogLines
 }
 
 // renderBasicMode renders the basic animated mode
@@ -418,7 +416,7 @@ func (a *AnimatedTaskTracker) renderFullMode() {
 				elapsed := FormatDuration(int64(task.ElapsedSeconds * 1000))
 				estimated := FormatDuration(int64(task.EstimatedSeconds * 1000))
 				if task.IsEstimateGuess {
-					estimated = estimated + "?"
+					estimated += "?"
 				}
 
 				// Mini progress bar
