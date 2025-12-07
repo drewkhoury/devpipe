@@ -199,6 +199,47 @@ func (c *runFlagsContext) iRunDevpipeWithDryRun() error {
 	return nil
 }
 
+func (c *runFlagsContext) iRunDevpipeWithDryRunAndOnly(taskName string) error {
+	taskName = strings.Trim(taskName, `"`)
+	cmd := exec.Command(c.devpipeBinary, "-config", c.configPath, "-dry-run", "-only", taskName)
+	cmd.Dir = c.tempDir
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
+	return nil
+}
+
+func (c *runFlagsContext) theOutputShouldShowOnlyTaskWouldRun(taskName string) error {
+	taskName = strings.Trim(taskName, `"`)
+	// In dry-run mode, should show the task would run
+	if !strings.Contains(c.output, taskName) {
+		return fmt.Errorf("expected output to show %q would run, got: %s", taskName, c.output)
+	}
+	return nil
+}
+
+func (c *runFlagsContext) taskAndTaskShouldNotAppearInOutput(taskList string) error {
+	// Parse task names (e.g., "task-b and task-c")
+	taskList = strings.ReplaceAll(taskList, " and ", ",")
+	tasks := strings.Split(taskList, ",")
+
+	for _, task := range tasks {
+		task = strings.TrimSpace(task)
+		if strings.Contains(c.output, task) {
+			return fmt.Errorf("expected %q not to appear in output, but found: %s", task, c.output)
+		}
+	}
+	return nil
+}
+
 func (c *runFlagsContext) theOutputShouldContain(expected string) error {
 	expected = strings.Trim(expected, `"`)
 	if !strings.Contains(strings.ToLower(c.output), strings.ToLower(expected)) {
@@ -342,6 +383,41 @@ func (c *runFlagsContext) theOutputShouldNotContainAnimationCharacters() error {
 			return fmt.Errorf("expected no animation characters, but found %q in output", char)
 		}
 	}
+	return nil
+}
+
+func (c *runFlagsContext) iRunDevpipeWithVerboseAndFast() error {
+	cmd := exec.Command(c.devpipeBinary, "-config", c.configPath, "-verbose", "-fast")
+	cmd.Dir = c.tempDir
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
+	return nil
+}
+
+func (c *runFlagsContext) iRunDevpipeWithNoColorAndUI(uiMode string) error {
+	uiMode = strings.Trim(uiMode, `"`)
+	cmd := exec.Command(c.devpipeBinary, "-config", c.configPath, "-no-color", "-ui", uiMode)
+	cmd.Dir = c.tempDir
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
 	return nil
 }
 
@@ -701,6 +777,13 @@ func InitializeRunFlagsScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a config with a fixable task$`, c.aConfigWithAFixableTask)
 	ctx.Step(`^I run devpipe with --fix-type "([^"]*)"$`, c.iRunDevpipeWithFixType)
 	ctx.Step(`^I run devpipe with multiple --skip flags for "([^"]*)"$`, c.iRunDevpipeWithMultipleSkipFlagsFor)
+
+	// Flag combination steps
+	ctx.Step(`^I run devpipe with --dry-run and --only "([^"]*)"$`, c.iRunDevpipeWithDryRunAndOnly)
+	ctx.Step(`^the output should show only ([^ ]+) would run$`, c.theOutputShouldShowOnlyTaskWouldRun)
+	ctx.Step(`^([^ ]+) and ([^ ]+) should not appear in output$`, c.taskAndTaskShouldNotAppearInOutput)
+	ctx.Step(`^I run devpipe with --verbose and --fast$`, c.iRunDevpipeWithVerboseAndFast)
+	ctx.Step(`^I run devpipe with --no-color and --ui "([^"]*)"$`, c.iRunDevpipeWithNoColorAndUI)
 
 	ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		c.cleanup()

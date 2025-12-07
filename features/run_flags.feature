@@ -68,3 +68,24 @@ Feature: Run Command Flags
     Then the execution should succeed
     And "one,four" should run
     And "two,three" should not run
+
+  Scenario: Run with --dry-run and --only flag combination
+    Given a config with tasks "task-a,task-b,task-c"
+    When I run devpipe with --dry-run and --only "task-a"
+    Then the execution should succeed
+    And the output should show only task-a would run
+    And task-b and task-c should not appear in output
+
+  Scenario: Run with --verbose and --fast flag combination
+    Given a config with fast and slow tasks
+    When I run devpipe with --verbose and --fast
+    Then the execution should succeed
+    And the output should show verbose details
+    And slow tasks should be skipped
+    And fast tasks should run
+
+  Scenario: Run with --no-color and --ui full flag combination
+    Given a config with a simple task
+    When I run devpipe with --no-color and --ui "full"
+    Then the execution should succeed
+    And the output should not contain ANSI color codes
