@@ -60,6 +60,35 @@ make build
 
 </details>
 
+## AI Integration (MCP)
+
+The [devpipe MCP server](https://github.com/drewkhoury/devpipe-mcp) enables AI assistants (like Windsurf, Claude Desktop, and other MCP clients) to interact with devpipe directly. This helps new users learn devpipe commands, debug failures, and optimize configurations.
+
+**Key capabilities:**
+- 📋 List and analyze tasks with execution statistics
+- 🚀 Run pipelines with full control over flags
+- 📊 Access run results and parse metrics (JUnit, SARIF)
+- 🔍 Debug failures by reading task logs
+- 🔧 Auto-detect technologies and generate task configs
+- 🔄 Generate CI/CD configurations
+
+**Windsurf configuration:**
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "devpipe": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "devpipe-mcp@latest"
+      ]
+    }
+  }
+}
+```
+
 ## Configuration
 
 **📖 Configuration Reference**
