@@ -271,6 +271,37 @@ if [[ "$DEVPIPE_CHANGED_FILES" == *"src/api/"* ]]; then
 fi
 ```
 
+#### WatchPaths Pattern Reference
+
+**Supported glob patterns:**
+- `*` - Matches files in current directory only
+- `**` - Matches files at any depth (recursive)
+- `*.{ts,tsx}` - Brace expansion for multiple extensions
+- `src/**/*.go` - Nested patterns
+
+**Pattern behavior:**
+- Patterns are relative to task's `workdir` (defaults to `.`)
+- `***` is treated the same as `**` (both match any depth)
+- Parent directory patterns (`../**`) are supported
+- Absolute paths are supported but won't match relative git changes
+- Empty patterns show a warning and are ignored
+- Spaces in patterns break matching (avoid `"src/ **/*.ts"`)
+
+**Examples:**
+```toml
+# Match TypeScript files in src/ at any depth
+watchPaths = ["src/**/*.ts"]
+
+# Match multiple file types
+watchPaths = ["src/**/*.{ts,tsx,js,jsx}"]
+
+# Match specific files
+watchPaths = ["package.json", "package-lock.json"]
+
+# Match root-level files only
+watchPaths = ["*.md"]
+```
+
 ## Metrics & Dashboard
 
 devpipe can parse test results, SARIF security findings, and artifacts, and generate HTML dashboards with detailed contextual information:
