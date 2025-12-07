@@ -130,6 +130,75 @@ func (c *commandsContext) theOutputShouldContainTaskTypes() error {
 	return nil
 }
 
+func (c *commandsContext) aCustomConfigFileWithSpecificTasks() error {
+	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-commands-%d", os.Getpid()))
+	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
+		return err
+	}
+
+	c.configPath = filepath.Join(c.tempDir, "custom.toml")
+	config := `[defaults]
+outputRoot = ".devpipe"
+
+[tasks.custom-task-1]
+name = "Custom Task One"
+command = "echo custom1"
+type = "test-unit"
+
+[tasks.custom-task-2]
+name = "Custom Task Two"
+command = "echo custom2"
+type = "build"
+`
+	c.taskIDs = []string{"custom-task-1", "custom-task-2"}
+	return os.WriteFile(c.configPath, []byte(config), 0644)
+}
+
+func (c *commandsContext) iRunDevpipeListWithConfigFlag() error {
+	cmd := exec.Command(c.devpipeBinary, "list", "--config", c.configPath)
+	cmd.Dir = c.tempDir
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
+	return nil
+}
+
+func (c *commandsContext) theOutputShouldContainTasksFromCustomConfig() error {
+	customTasks := []string{"custom-task-1", "custom-task-2"}
+	for _, task := range customTasks {
+		if !strings.Contains(c.output, task) {
+			return fmt.Errorf("expected output to contain custom task %q, got: %s", task, c.output)
+		}
+	}
+	return nil
+}
+
+func (c *commandsContext) iRunDevpipeListWithNonexistentConfig() error {
+	nonexistentPath := filepath.Join(c.tempDir, "nonexistent.toml")
+	cmd := exec.Command(c.devpipeBinary, "list", "--config", nonexistentPath)
+	cmd.Dir = c.tempDir
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
+	return nil
+}
+
 func (c *commandsContext) noConfigFileExists() error {
 	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-commands-%d", os.Getpid()))
 	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
@@ -880,6 +949,10 @@ func InitializeCommandsScenario(ctx *godog.ScenarioContext, shared *sharedContex
 	ctx.Step(`^the output should show a table format$`, c.theOutputShouldShowATableFormat)
 	ctx.Step(`^the output should contain task names$`, c.theOutputShouldContainTaskNames)
 	ctx.Step(`^the output should contain task types$`, c.theOutputShouldContainTaskTypes)
+	ctx.Step(`^a custom config file with specific tasks$`, c.aCustomConfigFileWithSpecificTasks)
+	ctx.Step(`^I run devpipe list with config flag$`, c.iRunDevpipeListWithConfigFlag)
+	ctx.Step(`^the output should contain tasks from custom config$`, c.theOutputShouldContainTasksFromCustomConfig)
+	ctx.Step(`^I run devpipe list with nonexistent config$`, c.iRunDevpipeListWithNonexistentConfig)
 	ctx.Step(`^no config file exists$`, c.noConfigFileExists)
 	ctx.Step(`^the execution should fail$`, shared.theExecutionShouldFail)
 	ctx.Step(`^the output should indicate config file not found$`, c.theOutputShouldIndicateConfigFileNotFound)

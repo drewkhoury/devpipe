@@ -17,6 +17,18 @@ Feature: DevPipe Commands
     And the output should contain task names
     And the output should contain task types
 
+  Scenario: List command with custom config file
+    Given a custom config file with specific tasks
+    When I run devpipe list with config flag
+    Then the execution should succeed
+    And the output should contain tasks from custom config
+
+  Scenario: List command with nonexistent config file
+    Given no config file exists
+    When I run devpipe list with nonexistent config
+    Then the execution should fail
+    And the output should indicate config file not found
+
   Scenario: Validate command with valid config
     Given a valid config file for validation
     When I run devpipe validate command
