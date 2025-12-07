@@ -339,6 +339,43 @@ func (c *commandsContext) theOutputShouldIndicateFileNotFound() error {
 	return nil
 }
 
+func (c *commandsContext) aValidDefaultConfigFile() error {
+	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-validate-default-%d", os.Getpid()))
+	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
+		return err
+	}
+
+	// Create config.toml in temp directory
+	c.configPath = filepath.Join(c.tempDir, "config.toml")
+	config := fmt.Sprintf(`[defaults]
+outputRoot = "%s/.devpipe"
+
+[tasks.test]
+name = "Test Task"
+command = "echo test"
+type = "test-unit"
+`, c.tempDir)
+
+	return os.WriteFile(c.configPath, []byte(config), 0644)
+}
+
+func (c *commandsContext) iRunDevpipeValidateWithoutArguments() error {
+	cmd := exec.Command(c.devpipeBinary, "validate")
+	cmd.Dir = c.tempDir
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
+	return nil
+}
+
 // SARIF command steps
 func (c *commandsContext) aSARIFFileWithSecurityFindings() error {
 	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-sarif-%d", os.Getpid()))
@@ -637,6 +674,8 @@ func InitializeCommandsScenario(ctx *godog.ScenarioContext, shared *sharedContex
 	ctx.Step(`^the output should show validation errors$`, c.theOutputShouldShowValidationErrors)
 	ctx.Step(`^the output should show which files failed$`, c.theOutputShouldShowWhichFilesFailed)
 	ctx.Step(`^the output should indicate file not found$`, c.theOutputShouldIndicateFileNotFound)
+	ctx.Step(`^a valid default config file$`, c.aValidDefaultConfigFile)
+	ctx.Step(`^I run devpipe validate without arguments$`, c.iRunDevpipeValidateWithoutArguments)
 
 	// SARIF command steps
 	ctx.Step(`^a SARIF file with security findings$`, c.aSARIFFileWithSecurityFindings)

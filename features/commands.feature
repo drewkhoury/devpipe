@@ -33,6 +33,12 @@ Feature: DevPipe Commands
     Then the execution should fail
     And the output should indicate file not found
 
+  Scenario: Validate command without arguments uses default config
+    Given a valid default config file
+    When I run devpipe validate without arguments
+    Then the execution should succeed
+    And the output should indicate validation passed
+
   Scenario: SARIF command displays security findings
     Given a SARIF file with security findings
     When I run devpipe sarif with the file
