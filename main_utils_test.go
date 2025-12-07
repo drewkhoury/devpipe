@@ -132,6 +132,88 @@ func TestFilterTasks_InvalidOnlyExits(t *testing.T) {
 	}
 }
 
+func TestWrapText_EmptyString(t *testing.T) {
+	result := wrapText("", 80)
+	if len(result) != 0 {
+		t.Fatalf("expected empty slice for empty string, got %d lines", len(result))
+	}
+}
+
+func TestWrapText_ShortText(t *testing.T) {
+	text := "short text"
+	result := wrapText(text, 80)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 line, got %d", len(result))
+	}
+	if result[0] != text {
+		t.Fatalf("expected %q, got %q", text, result[0])
+	}
+}
+
+func TestWrapText_LongText(t *testing.T) {
+	text := "This is a very long line of text that should be wrapped at word boundaries when it exceeds the specified width"
+	result := wrapText(text, 40)
+	if len(result) < 2 {
+		t.Fatalf("expected multiple lines, got %d", len(result))
+	}
+	// Verify no line exceeds width
+	for i, line := range result {
+		if len(line) > 40 {
+			t.Fatalf("line %d exceeds width: %q (len=%d)", i, line, len(line))
+		}
+	}
+	// Verify all words are present
+	joined := strings.Join(result, " ")
+	words := strings.Fields(text)
+	for _, word := range words {
+		if !strings.Contains(joined, word) {
+			t.Fatalf("word %q missing from wrapped text", word)
+		}
+	}
+}
+
+func TestWrapText_SingleLongWord(t *testing.T) {
+	// A single word longer than width should still be on one line
+	text := "verylongwordthatexceedsthewidthlimit"
+	result := wrapText(text, 20)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 line for single long word, got %d", len(result))
+	}
+	if result[0] != text {
+		t.Fatalf("expected %q, got %q", text, result[0])
+	}
+}
+
+func TestTruncate_ShortString(t *testing.T) {
+	text := "short"
+	result := truncate(text, 10)
+	if result != text {
+		t.Fatalf("expected %q, got %q", text, result)
+	}
+}
+
+func TestTruncate_ExactLength(t *testing.T) {
+	text := "exactly10!"
+	result := truncate(text, 10)
+	if result != text {
+		t.Fatalf("expected %q, got %q", text, result)
+	}
+}
+
+func TestTruncate_LongString(t *testing.T) {
+	text := "this is a very long string that needs truncation"
+	result := truncate(text, 20)
+	if len(result) != 20 {
+		t.Fatalf("expected length 20, got %d", len(result))
+	}
+	if !strings.HasSuffix(result, "...") {
+		t.Fatalf("expected truncated string to end with '...', got %q", result)
+	}
+	if result != "this is a very lo..." {
+		t.Fatalf("expected %q, got %q", "this is a very lo...", result)
+	}
+}
+
 func TestFilterTasks(t *testing.T) {
 	tasks := []model.TaskDefinition{
 		{ID: "task1", Name: "Task 1", EstimatedSeconds: 5},

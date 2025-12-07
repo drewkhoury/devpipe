@@ -2246,11 +2246,13 @@ func sarifCmd() {
 
 	// Process all files
 	var allFindings []sarif.Finding
+	var parseErrors bool
 	for _, file := range files {
 		// Parse SARIF file
 		doc, err := sarif.Parse(file)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", file, err)
+			parseErrors = true
 			continue
 		}
 
@@ -2271,8 +2273,8 @@ func sarifCmd() {
 		sarif.PrintFindings(allFindings, *verbose)
 	}
 
-	// Exit with error code if issues found
-	if len(allFindings) > 0 {
+	// Exit with error code only if parse errors occurred
+	if parseErrors {
 		os.Exit(1)
 	}
 }

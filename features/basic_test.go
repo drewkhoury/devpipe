@@ -73,7 +73,7 @@ func TestFeatures(t *testing.T) {
 			InitializeAdvancedFeaturesScenario(sc, shared)
 			InitializeTaskExecutionScenario(sc, shared)
 			InitializeRunFlagsScenario(sc)
-			InitializeCommandsScenario(sc)
+			InitializeCommandsScenario(sc, shared)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",

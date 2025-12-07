@@ -8,3 +8,51 @@ Feature: DevPipe Commands
     When I run devpipe list
     Then the execution should succeed
     And the output should contain all task IDs
+
+  Scenario: Validate command with valid config
+    Given a valid config file for validation
+    When I run devpipe validate command
+    Then the execution should succeed
+    And the output should indicate validation passed
+
+  Scenario: Validate command with invalid config
+    Given an invalid config file with missing required field
+    When I run devpipe validate command
+    Then the execution should fail
+    And the output should show validation errors
+
+  Scenario: Validate command with multiple files
+    Given multiple config files with mixed validity
+    When I run devpipe validate with multiple files
+    Then the execution should fail
+    And the output should show which files failed
+
+  Scenario: Validate command with nonexistent file
+    Given no config file exists for validation
+    When I run devpipe validate with nonexistent file
+    Then the execution should fail
+    And the output should indicate file not found
+
+  Scenario: SARIF command displays security findings
+    Given a SARIF file with security findings
+    When I run devpipe sarif with the file
+    Then the execution should succeed
+    And the output should display the findings
+
+  Scenario: SARIF command with summary flag
+    Given a SARIF file with multiple findings
+    When I run devpipe sarif with summary flag
+    Then the execution should succeed
+    And the output should show grouped summary
+
+  Scenario: SARIF command with verbose flag
+    Given a SARIF file with security findings
+    When I run devpipe sarif with verbose flag
+    Then the execution should succeed
+    And the output should show detailed metadata
+
+  Scenario: SARIF command with nonexistent file
+    Given no SARIF file exists
+    When I run devpipe sarif with nonexistent file
+    Then the execution should fail
+    And the output should indicate SARIF file not found

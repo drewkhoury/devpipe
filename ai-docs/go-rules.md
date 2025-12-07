@@ -1,0 +1,9 @@
+- All code must be gofmt and goimports formatted.
+- Exported names use CamelCase.
+- Unexported names use camelCase.
+- Do not use panic for normal control flow.
+- Prefer small focused functions.
+- Prefer dependency injection via interfaces in the consuming package.
+- Always handle errors explicitly.
+- Use table-driven tests.
+- All test files must end with _test.go.
