@@ -63,7 +63,8 @@ func (s *sliceFlag) Set(val string) error {
 func main() {
 	// Check for subcommands first
 	if len(os.Args) > 1 {
-		switch os.Args[1] {
+		arg := os.Args[1]
+		switch arg {
 		case "list":
 			listCmd()
 			return
@@ -82,6 +83,20 @@ func main() {
 		case "help", "--help", "-h":
 			printHelp()
 			return
+		default:
+			// Check if it looks like a subcommand (doesn't start with -)
+			if !strings.HasPrefix(arg, "-") {
+				fmt.Fprintf(os.Stderr, "Unknown command: %s\n", arg)
+
+				// Suggest similar commands
+				commands := []string{"list", "validate", "generate-reports", "sarif", "version", "help"}
+				if suggestion := findSimilarCommand(arg, commands); suggestion != "" {
+					fmt.Fprintf(os.Stderr, "Did you mean '%s'?\n", suggestion)
+				}
+				fmt.Fprintln(os.Stderr)
+				printHelp()
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -1616,6 +1631,74 @@ func printVersion() {
 	fmt.Printf("  built: %s\n", buildDate)
 	fmt.Printf("  go: %s\n", runtime.Version())
 	fmt.Printf("  platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+}
+
+// findSimilarCommand finds the most similar command using simple string matching
+func findSimilarCommand(input string, commands []string) string {
+	minDist := len(input)
+	var bestMatch string
+
+	for _, cmd := range commands {
+		dist := levenshteinDistance(input, cmd)
+		// Only suggest if distance is small (typo, not completely different)
+		if dist < minDist && dist <= 2 {
+			minDist = dist
+			bestMatch = cmd
+		}
+	}
+
+	return bestMatch
+}
+
+// levenshteinDistance calculates the edit distance between two strings
+func levenshteinDistance(s1, s2 string) int {
+	if len(s1) == 0 {
+		return len(s2)
+	}
+	if len(s2) == 0 {
+		return len(s1)
+	}
+
+	// Create matrix
+	matrix := make([][]int, len(s1)+1)
+	for i := range matrix {
+		matrix[i] = make([]int, len(s2)+1)
+		matrix[i][0] = i
+	}
+	for j := range matrix[0] {
+		matrix[0][j] = j
+	}
+
+	// Fill matrix
+	for i := 1; i <= len(s1); i++ {
+		for j := 1; j <= len(s2); j++ {
+			cost := 0
+			if s1[i-1] != s2[j-1] {
+				cost = 1
+			}
+			matrix[i][j] = min(
+				matrix[i-1][j]+1,      // deletion
+				matrix[i][j-1]+1,      // insertion
+				matrix[i-1][j-1]+cost, // substitution
+			)
+		}
+	}
+
+	return matrix[len(s1)][len(s2)]
+}
+
+// min returns the minimum of three integers
+func min(a, b, c int) int {
+	if a < b {
+		if a < c {
+			return a
+		}
+		return c
+	}
+	if b < c {
+		return b
+	}
+	return c
 }
 
 // printHelp prints usage information
