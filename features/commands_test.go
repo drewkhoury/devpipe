@@ -376,6 +376,130 @@ func (c *commandsContext) iRunDevpipeValidateWithoutArguments() error {
 	return nil
 }
 
+// Generate-reports command steps
+func (c *commandsContext) aConfigWithExistingRunReports() error {
+	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-generate-reports-%d", os.Getpid()))
+	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
+		return err
+	}
+
+	// Create config.toml
+	c.configPath = filepath.Join(c.tempDir, "config.toml")
+	config := `[defaults]
+outputRoot = ".devpipe"
+
+[tasks.test]
+name = "Test Task"
+command = "echo test"
+type = "test-unit"
+`
+	if err := os.WriteFile(c.configPath, []byte(config), 0644); err != nil {
+		return err
+	}
+
+	// Create .devpipe/runs directory with mock run directories
+	runsDir := filepath.Join(c.tempDir, ".devpipe", "runs")
+	if err := os.MkdirAll(runsDir, 0755); err != nil {
+		return err
+	}
+
+	// Create 2 mock run directories
+	for i := 1; i <= 2; i++ {
+		runDir := filepath.Join(runsDir, fmt.Sprintf("2025-12-07T00-00-%02d_test", i))
+		if err := os.MkdirAll(runDir, 0755); err != nil {
+			return err
+		}
+		// Create a minimal log file
+		logFile := filepath.Join(runDir, "logs", "test.log")
+		if err := os.MkdirAll(filepath.Dir(logFile), 0755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(logFile, []byte("test log"), 0644); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *commandsContext) aValidConfigButNoRunsDirectory() error {
+	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-generate-reports-noruns-%d", os.Getpid()))
+	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
+		return err
+	}
+
+	// Create config.toml
+	c.configPath = filepath.Join(c.tempDir, "config.toml")
+	config := `[defaults]
+outputRoot = ".devpipe"
+
+[tasks.test]
+name = "Test Task"
+command = "echo test"
+type = "test-unit"
+`
+	if err := os.WriteFile(c.configPath, []byte(config), 0644); err != nil {
+		return err
+	}
+
+	// Create .devpipe directory but NOT the runs subdirectory
+	devpipeDir := filepath.Join(c.tempDir, ".devpipe")
+	if err := os.MkdirAll(devpipeDir, 0755); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *commandsContext) iRunDevpipeGenerateReports() error {
+	cmd := exec.Command(c.devpipeBinary, "generate-reports")
+	cmd.Dir = c.tempDir
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
+	return nil
+}
+
+func (c *commandsContext) theOutputShouldIndicateReportsWereRegenerated() error {
+	lowerOutput := strings.ToLower(c.output)
+	if !strings.Contains(lowerOutput, "regenerat") {
+		return fmt.Errorf("expected output to indicate reports were regenerated, got: %s", c.output)
+	}
+	return nil
+}
+
+func (c *commandsContext) theOutputShouldShowTheNumberOfRunsProcessed() error {
+	// Should contain a number followed by "reports" or "runs"
+	if !strings.Contains(c.output, "2 reports") && !strings.Contains(c.output, "Regenerated 2") {
+		return fmt.Errorf("expected output to show number of runs processed, got: %s", c.output)
+	}
+	return nil
+}
+
+func (c *commandsContext) theOutputShouldIndicateConfigError() error {
+	lowerOutput := strings.ToLower(c.output)
+	if !strings.Contains(lowerOutput, "config") && !strings.Contains(lowerOutput, "error") {
+		return fmt.Errorf("expected output to indicate config error, got: %s", c.output)
+	}
+	return nil
+}
+
+func (c *commandsContext) theOutputShouldIndicateRunsDirectoryError() error {
+	lowerOutput := strings.ToLower(c.output)
+	if !strings.Contains(lowerOutput, "runs") || !strings.Contains(lowerOutput, "error") {
+		return fmt.Errorf("expected output to indicate runs directory error, got: %s", c.output)
+	}
+	return nil
+}
+
 // SARIF command steps
 func (c *commandsContext) aSARIFFileWithSecurityFindings() error {
 	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-sarif-%d", os.Getpid()))
@@ -676,6 +800,15 @@ func InitializeCommandsScenario(ctx *godog.ScenarioContext, shared *sharedContex
 	ctx.Step(`^the output should indicate file not found$`, c.theOutputShouldIndicateFileNotFound)
 	ctx.Step(`^a valid default config file$`, c.aValidDefaultConfigFile)
 	ctx.Step(`^I run devpipe validate without arguments$`, c.iRunDevpipeValidateWithoutArguments)
+
+	// Generate-reports command steps
+	ctx.Step(`^a config with existing run reports$`, c.aConfigWithExistingRunReports)
+	ctx.Step(`^a valid config but no runs directory$`, c.aValidConfigButNoRunsDirectory)
+	ctx.Step(`^I run devpipe generate-reports$`, c.iRunDevpipeGenerateReports)
+	ctx.Step(`^the output should indicate reports were regenerated$`, c.theOutputShouldIndicateReportsWereRegenerated)
+	ctx.Step(`^the output should show the number of runs processed$`, c.theOutputShouldShowTheNumberOfRunsProcessed)
+	ctx.Step(`^the output should indicate config error$`, c.theOutputShouldIndicateConfigError)
+	ctx.Step(`^the output should indicate runs directory error$`, c.theOutputShouldIndicateRunsDirectoryError)
 
 	// SARIF command steps
 	ctx.Step(`^a SARIF file with security findings$`, c.aSARIFFileWithSecurityFindings)

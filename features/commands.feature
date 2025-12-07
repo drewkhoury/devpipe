@@ -62,3 +62,22 @@ Feature: DevPipe Commands
     When I run devpipe sarif with nonexistent file
     Then the execution should fail
     And the output should indicate SARIF file not found
+
+  Scenario: Generate-reports command regenerates all reports
+    Given a config with existing run reports
+    When I run devpipe generate-reports
+    Then the execution should succeed
+    And the output should indicate reports were regenerated
+    And the output should show the number of runs processed
+
+  Scenario: Generate-reports command with missing config
+    Given no config file exists
+    When I run devpipe generate-reports
+    Then the execution should fail
+    And the output should indicate config error
+
+  Scenario: Generate-reports command with no runs directory
+    Given a valid config but no runs directory
+    When I run devpipe generate-reports
+    Then the execution should fail
+    And the output should indicate runs directory error
