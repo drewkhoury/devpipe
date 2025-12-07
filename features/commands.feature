@@ -119,3 +119,19 @@ Feature: DevPipe Commands
     When I run devpipe sarif with directory flag
     Then the execution should fail
     And the output should indicate no SARIF files found
+
+  Scenario: SARIF command uses default path when no arguments provided
+    Given a SARIF file at default path
+    When I run devpipe sarif without arguments
+    Then the execution should succeed
+    And the output should display the findings
+
+  Scenario: Version command displays version information
+    When I run devpipe version
+    Then the execution should succeed
+    And the output should contain version number
+
+  Scenario: Help command displays usage information
+    When I run devpipe help
+    Then the execution should succeed
+    And the output should contain usage information

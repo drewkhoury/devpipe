@@ -669,6 +669,79 @@ func (c *commandsContext) theOutputShouldIndicateNoSARIFFilesFound() error {
 	return nil
 }
 
+// SARIF default path test
+func (c *commandsContext) aSARIFFileAtDefaultPath() error {
+	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-sarif-default-%d", os.Getpid()))
+	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
+		return err
+	}
+
+	// Create the default path structure: tmp/codeql/results.sarif
+	defaultDir := filepath.Join(c.tempDir, "tmp", "codeql")
+	if err := os.MkdirAll(defaultDir, 0755); err != nil {
+		return err
+	}
+
+	c.sarifPath = filepath.Join(defaultDir, "results.sarif")
+	sarif := `{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [{
+    "tool": {"driver": {"name": "DefaultScanner", "version": "1.0.0"}},
+    "results": [{
+      "ruleId": "DEFAULT001",
+      "level": "error",
+      "message": {"text": "Finding from default path"},
+      "locations": [{"physicalLocation": {"artifactLocation": {"uri": "default.go"}}}]
+    }]
+  }]
+}`
+	return os.WriteFile(c.sarifPath, []byte(sarif), 0644)
+}
+
+func (c *commandsContext) iRunDevpipeSarifWithoutArguments() error {
+	cmd := exec.Command(c.devpipeBinary, "sarif")
+	cmd.Dir = c.tempDir
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
+	return nil
+}
+
+// Help command test
+func (c *commandsContext) iRunDevpipeHelp() error {
+	cmd := exec.Command(c.devpipeBinary, "help")
+	cmd.Dir = c.tempDir
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
+	return nil
+}
+
+func (c *commandsContext) theOutputShouldContainUsageInformation() error {
+	lowerOutput := strings.ToLower(c.output)
+	if !strings.Contains(lowerOutput, "usage") && !strings.Contains(lowerOutput, "commands") && !strings.Contains(lowerOutput, "help") {
+		return fmt.Errorf("expected output to contain usage information, got: %s", c.output)
+	}
+	return nil
+}
+
 // SARIF command steps
 func (c *commandsContext) aSARIFFileWithSecurityFindings() error {
 	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-sarif-%d", os.Getpid()))
@@ -958,6 +1031,8 @@ func InitializeCommandsScenario(ctx *godog.ScenarioContext, shared *sharedContex
 	ctx.Step(`^the output should indicate config file not found$`, c.theOutputShouldIndicateConfigFileNotFound)
 	ctx.Step(`^I run devpipe version$`, c.iRunDevpipeVersion)
 	ctx.Step(`^the output should contain version number$`, c.theOutputShouldContainVersionNumber)
+	ctx.Step(`^I run devpipe help$`, c.iRunDevpipeHelp)
+	ctx.Step(`^the output should contain usage information$`, c.theOutputShouldContainUsageInformation)
 	ctx.Step(`^the output should contain "([^"]*)"$`, shared.theOutputShouldContain)
 
 	// Validate command steps
@@ -1004,6 +1079,10 @@ func InitializeCommandsScenario(ctx *godog.ScenarioContext, shared *sharedContex
 	ctx.Step(`^I run devpipe sarif with directory flag$`, c.iRunDevpipeSarifWithDirectoryFlag)
 	ctx.Step(`^the output should display findings from all files$`, c.theOutputShouldDisplayFindingsFromAllFiles)
 	ctx.Step(`^the output should indicate no SARIF files found$`, c.theOutputShouldIndicateNoSARIFFilesFound)
+
+	// SARIF default path steps
+	ctx.Step(`^a SARIF file at default path$`, c.aSARIFFileAtDefaultPath)
+	ctx.Step(`^I run devpipe sarif without arguments$`, c.iRunDevpipeSarifWithoutArguments)
 
 	ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		shared.cleanup()
