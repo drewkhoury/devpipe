@@ -9,6 +9,14 @@ Feature: DevPipe Commands
     Then the execution should succeed
     And the output should contain all task IDs
 
+  Scenario: List command with verbose flag shows table format
+    Given a config with multiple tasks
+    When I run devpipe list with verbose flag
+    Then the execution should succeed
+    And the output should show a table format
+    And the output should contain task names
+    And the output should contain task types
+
   Scenario: Validate command with valid config
     Given a valid config file for validation
     When I run devpipe validate command

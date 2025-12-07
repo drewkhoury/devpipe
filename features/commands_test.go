@@ -55,7 +55,7 @@ type = "build"
 }
 
 func (c *commandsContext) iRunDevpipeList() error {
-	cmd := exec.Command(c.devpipeBinary, "-config", c.configPath, "list")
+	cmd := exec.Command(c.devpipeBinary, "list", "--config", c.configPath)
 	cmd.Dir = c.tempDir
 	output, err := cmd.CombinedOutput()
 	c.output = string(output)
@@ -81,7 +81,7 @@ func (c *commandsContext) theOutputShouldContainAllTaskIDs() error {
 }
 
 func (c *commandsContext) iRunDevpipeListVerbose() error {
-	cmd := exec.Command(c.devpipeBinary, "-config", c.configPath, "list", "--verbose")
+	cmd := exec.Command(c.devpipeBinary, "list", "--verbose", "--config", c.configPath)
 	cmd.Dir = c.tempDir
 	output, err := cmd.CombinedOutput()
 	c.output = string(output)
@@ -99,7 +99,8 @@ func (c *commandsContext) iRunDevpipeListVerbose() error {
 
 func (c *commandsContext) theOutputShouldShowATableFormat() error {
 	// Check for table formatting indicators (borders, headers, etc.)
-	if !strings.Contains(c.output, "ID") && !strings.Contains(c.output, "Name") {
+	upperOutput := strings.ToUpper(c.output)
+	if !strings.Contains(upperOutput, "NAME") && !strings.Contains(upperOutput, "TYPE") {
 		return fmt.Errorf("expected output to show table format with headers, got: %s", c.output)
 	}
 	return nil
@@ -874,6 +875,7 @@ func InitializeCommandsScenario(ctx *godog.ScenarioContext, shared *sharedContex
 	ctx.Step(`^I run devpipe list$`, c.iRunDevpipeList)
 	ctx.Step(`^the execution should succeed$`, shared.theExecutionShouldSucceed)
 	ctx.Step(`^the output should contain all task IDs$`, c.theOutputShouldContainAllTaskIDs)
+	ctx.Step(`^I run devpipe list with verbose flag$`, c.iRunDevpipeListVerbose)
 	ctx.Step(`^I run devpipe list --verbose$`, c.iRunDevpipeListVerbose)
 	ctx.Step(`^the output should show a table format$`, c.theOutputShouldShowATableFormat)
 	ctx.Step(`^the output should contain task names$`, c.theOutputShouldContainTaskNames)
