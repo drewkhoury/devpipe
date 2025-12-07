@@ -81,3 +81,21 @@ Feature: DevPipe Commands
     When I run devpipe generate-reports
     Then the execution should fail
     And the output should indicate runs directory error
+
+  Scenario: SARIF command with directory scan finds multiple files
+    Given a directory with multiple SARIF files
+    When I run devpipe sarif with directory flag
+    Then the execution should succeed
+    And the output should display findings from all files
+
+  Scenario: SARIF command with directory scan on empty directory
+    Given an empty directory
+    When I run devpipe sarif with directory flag
+    Then the execution should fail
+    And the output should indicate no SARIF files found
+
+  Scenario: SARIF command with directory containing no SARIF files
+    Given a directory with non-SARIF files
+    When I run devpipe sarif with directory flag
+    Then the execution should fail
+    And the output should indicate no SARIF files found

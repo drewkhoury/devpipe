@@ -500,6 +500,105 @@ func (c *commandsContext) theOutputShouldIndicateRunsDirectoryError() error {
 	return nil
 }
 
+// SARIF directory scan steps
+func (c *commandsContext) aDirectoryWithMultipleSARIFFiles() error {
+	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-sarif-dir-%d", os.Getpid()))
+	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
+		return err
+	}
+
+	// Create 2 SARIF files with different findings
+	sarif1 := `{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [{
+    "tool": {"driver": {"name": "Scanner1", "version": "1.0.0"}},
+    "results": [{
+      "ruleId": "RULE001",
+      "level": "error",
+      "message": {"text": "Finding from file 1"},
+      "locations": [{"physicalLocation": {"artifactLocation": {"uri": "file1.go"}}}]
+    }]
+  }]
+}`
+	sarif2 := `{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [{
+    "tool": {"driver": {"name": "Scanner2", "version": "1.0.0"}},
+    "results": [{
+      "ruleId": "RULE002",
+      "level": "warning",
+      "message": {"text": "Finding from file 2"},
+      "locations": [{"physicalLocation": {"artifactLocation": {"uri": "file2.go"}}}]
+    }]
+  }]
+}`
+
+	if err := os.WriteFile(filepath.Join(c.tempDir, "results1.sarif"), []byte(sarif1), 0644); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(c.tempDir, "results2.sarif"), []byte(sarif2), 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *commandsContext) anEmptyDirectory() error {
+	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-sarif-empty-%d", os.Getpid()))
+	return os.MkdirAll(c.tempDir, 0755)
+}
+
+func (c *commandsContext) aDirectoryWithNonSARIFFiles() error {
+	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-sarif-nofiles-%d", os.Getpid()))
+	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
+		return err
+	}
+
+	// Create some non-SARIF files
+	if err := os.WriteFile(filepath.Join(c.tempDir, "test.txt"), []byte("not sarif"), 0644); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(c.tempDir, "data.json"), []byte("{}"), 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *commandsContext) iRunDevpipeSarifWithDirectoryFlag() error {
+	cmd := exec.Command(c.devpipeBinary, "sarif", "-d", c.tempDir)
+	output, err := cmd.CombinedOutput()
+	c.output = string(output)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			c.exitCode = exitErr.ExitCode()
+		}
+	} else {
+		c.exitCode = 0
+	}
+
+	return nil
+}
+
+func (c *commandsContext) theOutputShouldDisplayFindingsFromAllFiles() error {
+	// Should contain findings from both files
+	if !strings.Contains(c.output, "RULE001") || !strings.Contains(c.output, "RULE002") {
+		return fmt.Errorf("expected output to display findings from all files, got: %s", c.output)
+	}
+	return nil
+}
+
+func (c *commandsContext) theOutputShouldIndicateNoSARIFFilesFound() error {
+	lowerOutput := strings.ToLower(c.output)
+	if !strings.Contains(lowerOutput, "no sarif files") && !strings.Contains(lowerOutput, "no") {
+		return fmt.Errorf("expected output to indicate no SARIF files found, got: %s", c.output)
+	}
+	return nil
+}
+
 // SARIF command steps
 func (c *commandsContext) aSARIFFileWithSecurityFindings() error {
 	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-sarif-%d", os.Getpid()))
@@ -822,6 +921,14 @@ func InitializeCommandsScenario(ctx *godog.ScenarioContext, shared *sharedContex
 	ctx.Step(`^the output should show grouped summary$`, c.theOutputShouldShowGroupedSummary)
 	ctx.Step(`^the output should show detailed metadata$`, c.theOutputShouldShowDetailedMetadata)
 	ctx.Step(`^the output should indicate SARIF file not found$`, c.theOutputShouldIndicateSARIFFileNotFound)
+
+	// SARIF directory scan steps
+	ctx.Step(`^a directory with multiple SARIF files$`, c.aDirectoryWithMultipleSARIFFiles)
+	ctx.Step(`^an empty directory$`, c.anEmptyDirectory)
+	ctx.Step(`^a directory with non-SARIF files$`, c.aDirectoryWithNonSARIFFiles)
+	ctx.Step(`^I run devpipe sarif with directory flag$`, c.iRunDevpipeSarifWithDirectoryFlag)
+	ctx.Step(`^the output should display findings from all files$`, c.theOutputShouldDisplayFindingsFromAllFiles)
+	ctx.Step(`^the output should indicate no SARIF files found$`, c.theOutputShouldIndicateNoSARIFFilesFound)
 
 	ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		shared.cleanup()
