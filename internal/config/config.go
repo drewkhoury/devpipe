@@ -75,6 +75,8 @@ type TaskConfig struct {
 	FixType string `toml:"fixType" doc:"Fix behavior: auto, helper, none (overrides task_defaults)" enum:"auto,helper,none"`
 	// Command to run to fix issues (required if fixType is set)
 	FixCommand string `toml:"fixCommand" doc:"Command to run to fix issues (required if fixType is set)"`
+	// File patterns to watch (glob patterns relative to workdir). Task runs only if matching files changed.
+	WatchPaths []string `toml:"watchPaths" doc:"File patterns to watch (glob patterns relative to workdir). Task runs only if matching files changed."`
 }
 
 // LoadConfig loads configuration from a TOML file

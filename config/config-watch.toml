@@ -1,0 +1,25 @@
+[defaults]
+outputRoot = ".devpipe"
+fastThreshold = 300
+uiMode = "basic"
+animationRefreshMs = 500
+animatedGroupBy = "phase"
+
+[defaults.git]
+mode = "staged"
+
+[task_defaults]
+enabled = true
+workdir = "."
+fixType = "auto"
+
+[tasks.phase-foo]
+name = "Phase Foo"
+desc = "Phase Foo"
+
+
+[tasks.bar]
+name = "Bar"
+desc = "Bar"
+command = "echo $DEVPIPE_CHANGED_FILES"
+watchPaths = ["*"]

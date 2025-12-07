@@ -121,6 +121,10 @@ workdir = "."
 # Default: 
 # fixCommand = 
 
+# File patterns to watch (glob patterns relative to workdir). Task runs only if matching files changed.
+# Default: 
+# watchPaths = 
+
 
 # -----------------------------------------------------------------------------
 # Phase-Based Execution

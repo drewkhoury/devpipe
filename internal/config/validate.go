@@ -277,6 +277,17 @@ func validateTask(taskID string, task TaskConfig, result *ValidationResult) {
 			Message: "metricsPath is set but metricsFormat is not specified",
 		})
 	}
+
+	// Validate watchPaths patterns if specified
+	for i, pattern := range task.WatchPaths {
+		if pattern == "" {
+			result.Warnings = append(result.Warnings, ValidationError{
+				Field:   fmt.Sprintf("%s.watchPaths[%d]", prefix, i),
+				Message: "Empty watchPath pattern will be ignored",
+			})
+		}
+		// Note: We don't validate glob syntax here as filepath.Match will handle it at runtime
+	}
 }
 
 // validatePhaseHeaders checks that phase headers are properly formatted

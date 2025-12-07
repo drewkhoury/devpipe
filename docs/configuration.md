@@ -61,6 +61,7 @@ Individual task configuration. Task ID must be unique.
 | `metricsPath` | string | No | `-` | Path to metrics file (relative to workdir) |
 | `fixType` | string | No | `-` | Fix behavior: auto, helper, none (overrides task_defaults) (valid: `auto`, `helper`, `none`) |
 | `fixCommand` | string | No | `-` | Command to run to fix issues (required if fixType is set) |
+| `watchPaths` | []string | No | `-` | File patterns to watch (glob patterns relative to workdir). Task runs only if matching files changed. |
 
 ## Phase-Based Execution
 

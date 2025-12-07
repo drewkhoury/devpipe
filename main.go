@@ -31,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/drew/devpipe/internal/config"
 	"github.com/drew/devpipe/internal/dashboard"
 	"github.com/drew/devpipe/internal/git"
@@ -102,18 +103,19 @@ func main() {
 
 	// CLI flags
 	var (
-		flagConfig    string
-		flagSince     string
-		flagOnly      string
-		flagUI        string
-		flagFixType   string
-		flagNoColor   bool
-		flagDashboard bool
-		flagFailFast  bool
-		flagDryRun    bool
-		flagVerbose   bool
-		flagFast      bool
-		flagSkipVals  sliceFlag
+		flagConfig           string
+		flagSince            string
+		flagOnly             string
+		flagUI               string
+		flagFixType          string
+		flagNoColor          bool
+		flagDashboard        bool
+		flagFailFast         bool
+		flagDryRun           bool
+		flagVerbose          bool
+		flagFast             bool
+		flagIgnoreWatchPaths bool
+		flagSkipVals         sliceFlag
 	)
 
 	flag.StringVar(&flagConfig, "config", "", "Path to config file (default: config.toml)")
@@ -128,6 +130,7 @@ func main() {
 	flag.BoolVar(&flagDryRun, "dry-run", false, "Do not execute commands, simulate only")
 	flag.BoolVar(&flagVerbose, "verbose", false, "Verbose logging")
 	flag.BoolVar(&flagFast, "fast", false, "Skip long running tasks")
+	flag.BoolVar(&flagIgnoreWatchPaths, "ignore-watch-paths", false, "Ignore watchPaths and run all tasks")
 	flag.Parse()
 
 	// Load configuration first to get UI mode
@@ -370,11 +373,19 @@ func main() {
 		taskDef.FixType = fixType
 		taskDef.FixCommand = resolved.FixCommand
 
+		// Add watchPaths if present
+		taskDef.WatchPaths = resolved.WatchPaths
+
 		taskDefs = append(taskDefs, taskDef)
 	}
 
 	// Apply CLI filters
 	filteredTasks := filterTasks(taskDefs, flagOnly, flagSkipVals, flagFast, mergedCfg.Defaults.FastThreshold, flagVerbose)
+
+	// Apply watchPaths filtering based on git changes (unless --ignore-watch-paths is set)
+	if !flagIgnoreWatchPaths && gitInfo.InGitRepo && len(gitInfo.ChangedFiles) >= 0 {
+		filteredTasks = filterTasksByWatchPaths(filteredTasks, gitInfo.ChangedFiles, repoRoot, flagVerbose)
+	}
 
 	// Run tasks
 	var (
@@ -464,6 +475,20 @@ func main() {
 
 	// Track total pipeline duration
 	pipelineStart := time.Now()
+
+	// Set git-related environment variables for all tasks
+	if gitInfo.InGitRepo {
+		_ = os.Setenv("DEVPIPE_GIT_MODE", gitInfo.Mode)
+		_ = os.Setenv("DEVPIPE_GIT_REF", gitInfo.Ref)
+		_ = os.Setenv("DEVPIPE_CHANGED_FILES_COUNT", fmt.Sprintf("%d", len(gitInfo.ChangedFiles)))
+
+		// Newline-separated list (handles spaces in filenames)
+		_ = os.Setenv("DEVPIPE_CHANGED_FILES", strings.Join(gitInfo.ChangedFiles, "\n"))
+
+		// JSON array (language-agnostic)
+		changedFilesJSON, _ := json.Marshal(gitInfo.ChangedFiles)
+		_ = os.Setenv("DEVPIPE_CHANGED_FILES_JSON", string(changedFilesJSON))
+	}
 
 	// Execute phases sequentially, tasks within each phase in parallel
 	var resultsMu sync.Mutex
@@ -1168,6 +1193,71 @@ func filterTasks(tasks []model.TaskDefinition, only string, skip sliceFlag, _ bo
 	return out
 }
 
+func filterTasksByWatchPaths(tasks []model.TaskDefinition, changedFiles []string, repoRoot string, verbose bool) []model.TaskDefinition {
+	var out []model.TaskDefinition
+	for _, task := range tasks {
+		// If task has no watchPaths, always include it
+		if len(task.WatchPaths) == 0 {
+			out = append(out, task)
+			continue
+		}
+
+		// If task has watchPaths but no changed files, skip it
+		if len(changedFiles) == 0 {
+			if verbose {
+				fmt.Printf("[%-15s] SKIP (no changed files, has watchPaths)\n", task.ID)
+			}
+			continue
+		}
+
+		// Check if any changed file matches any watchPath pattern
+		matched := false
+		for _, changedFile := range changedFiles {
+			// Make changed file path absolute
+			absChangedFile := changedFile
+			if !filepath.IsAbs(changedFile) {
+				absChangedFile = filepath.Join(repoRoot, changedFile)
+			}
+
+			// Check against each watchPath pattern
+			for _, pattern := range task.WatchPaths {
+				// Make pattern absolute relative to task workdir
+				absPattern := pattern
+				if !filepath.IsAbs(pattern) {
+					absPattern = filepath.Join(task.Workdir, pattern)
+				}
+
+				// Use doublestar for glob matching (supports **)
+				match, err := doublestar.Match(absPattern, absChangedFile)
+				if err != nil {
+					// Invalid pattern, log and skip
+					if verbose {
+						fmt.Printf("[%-15s] WARNING: invalid watchPath pattern %q: %v\n", task.ID, pattern, err)
+					}
+					continue
+				}
+
+				if match {
+					matched = true
+					break
+				}
+			}
+
+			if matched {
+				break
+			}
+		}
+
+		if matched {
+			out = append(out, task)
+		} else if verbose {
+			fmt.Printf("[%-15s] SKIP (no matching changes for watchPaths)\n", task.ID)
+		}
+	}
+
+	return out
+}
+
 func makeRunID() string {
 	now := time.Now().UTC()
 	ts := now.Format("2006-01-02T15-04-05Z")
@@ -1723,6 +1813,7 @@ func printHelp() {
 	fmt.Println("  --dashboard           Show dashboard with live progress")
 	fmt.Println("  --fail-fast           Stop on first task failure")
 	fmt.Println("  --fast                Skip long running tasks")
+	fmt.Println("  --ignore-watch-paths  Ignore watchPaths and run all tasks")
 	fmt.Println("  --dry-run             Do not execute commands, simulate only")
 	fmt.Println("  --verbose             Verbose logging")
 	fmt.Println("  --no-color            Disable colored output")

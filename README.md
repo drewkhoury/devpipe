@@ -214,23 +214,62 @@ Overall: ███████████████████████�
 └───────────────────────────────────────────────────────┘
 ```
 
-## Git Modes
+## Git Modes & Smart Task Filtering
 
-Control which files are in scope for changes:
+Control which files are in scope for changes and automatically skip tasks that don't need to run:
 
 - **`staged`** - Only staged files (`git diff --cached`)
 - **`staged_unstaged`** - Staged + unstaged (`git diff HEAD`)
 - **`ref`** - Compare against ref (`git diff <ref>`)
 
+### WatchPaths - Automatic Task Filtering
+
+Tasks can declare which files they care about using `watchPaths`. devpipe will automatically skip tasks when their watched files haven't changed:
+
+```toml
+[tasks.frontend-test]
+command = "npm test"
+workdir = "frontend"
+watchPaths = ["src/**/*.ts", "src/**/*.tsx", "package.json"]
+
+[tasks.backend-test]
+command = "go test ./..."
+workdir = "backend"
+watchPaths = ["**/*.go", "go.mod"]
+
+[tasks.security-scan]
+command = "trivy fs ."
+# No watchPaths = always runs
+```
+
 ```bash
-# Check only staged files
-./devpipe --config config/config-staged.toml
+# Only runs tasks with matching file changes
+./devpipe
 
 # Compare against main branch
 ./devpipe --since main
+
+# Force all tasks to run, ignore watchPaths
+./devpipe --ignore-watch-paths
 ```
 
-devpipe will collect this information but doesn't handle the logic within each task.
+### Environment Variables
+
+Git information is available to all tasks via environment variables:
+
+- `DEVPIPE_GIT_MODE` - Git mode (staged, staged_unstaged, ref)
+- `DEVPIPE_GIT_REF` - Git ref being compared
+- `DEVPIPE_CHANGED_FILES_COUNT` - Number of changed files
+- `DEVPIPE_CHANGED_FILES` - Newline-separated list of changed files
+- `DEVPIPE_CHANGED_FILES_JSON` - JSON array of changed files
+
+```bash
+#!/bin/bash
+# Example: Smart test runner
+if [[ "$DEVPIPE_CHANGED_FILES" == *"src/api/"* ]]; then
+    npm run test:api
+fi
+```
 
 ## Metrics & Dashboard
 

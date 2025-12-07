@@ -5,6 +5,7 @@ go 1.25.4
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
+	github.com/bmatcuk/doublestar/v4 v4.9.1
 	github.com/cucumber/godog v0.15.1
 	github.com/joshdk/go-junit v1.0.0
 	golang.org/x/sync v0.18.0

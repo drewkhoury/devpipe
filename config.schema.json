@@ -138,6 +138,9 @@
               "description": "Task type for grouping (e.g., check, build, test)",
               "type": "string"
             },
+            "watchPaths": {
+              "description": "File patterns to watch (glob patterns relative to workdir). Task runs only if matching files changed."
+            },
             "workdir": {
               "description": "Working directory for this task",
               "type": "string"

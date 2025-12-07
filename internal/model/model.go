@@ -23,12 +23,13 @@ type TaskDefinition struct {
 	Command          string
 	Workdir          string
 	EstimatedSeconds int
-	IsEstimateGuess  bool   // True if estimate is a default guess (show as "10s?")
-	Wait             bool   // If true, marks end of phase (wait for all previous tasks)
-	MetricsFormat    string // "junit", "eslint", etc.
-	MetricsPath      string // Path to metrics file
-	FixType          string // "auto", "helper", "none", or ""
-	FixCommand       string // Command to run to fix issues
+	IsEstimateGuess  bool     // True if estimate is a default guess (show as "10s?")
+	Wait             bool     // If true, marks end of phase (wait for all previous tasks)
+	MetricsFormat    string   // "junit", "eslint", etc.
+	MetricsPath      string   // Path to metrics file
+	FixType          string   // "auto", "helper", "none", or ""
+	FixCommand       string   // Command to run to fix issues
+	WatchPaths       []string // Glob patterns to watch (relative to workdir)
 }
 
 // TaskResult is the per-task record written into run.json

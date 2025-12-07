@@ -79,6 +79,7 @@ func TestFeatures(t *testing.T) {
 			InitializePhaseExecutionScenario(sc, shared)
 			InitializeSinceFlagScenario(sc, shared)
 			InitializeConfigEdgeCasesScenario(sc, shared)
+			InitializeWatchPathsScenario(sc, shared)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
