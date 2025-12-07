@@ -13,6 +13,9 @@ Rules:
 - No direct shell commands for testing unless devpipe or make is unavailable.
 - All changes require explicit validation commands before completion.
 
+Workflow Rule:
+Once your changes are ready, provide a summary including the commit message, files to be staged, and test results.
+
 Commit Patterns
 ALWAYS ASK BEFORE COMMITING. NEVER PUSH.
 

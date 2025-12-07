@@ -79,6 +79,7 @@ func TestFeatures(t *testing.T) {
 		Options: &godog.Options{
 			Format:   "pretty",
 			Paths:    []string{"."},
+			Tags:     "~@wip", // Exclude work-in-progress scenarios
 			TestingT: t,
 		},
 	}
