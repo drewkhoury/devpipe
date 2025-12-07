@@ -1671,13 +1671,16 @@ func validateCmd() {
 
 	hasErrors := false
 	for _, file := range files {
-		fmt.Printf("Validating %s...\n", file)
-		_, _, _, _, err := config.LoadConfig(file)
+		result, err := config.ValidateConfigFile(file)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ ERROR: %v\n", err)
 			hasErrors = true
-		} else {
-			fmt.Printf("✓ Valid\n")
+			continue
+		}
+
+		config.PrintValidationResult(file, result)
+		if !result.Valid {
+			hasErrors = true
 		}
 	}
 
