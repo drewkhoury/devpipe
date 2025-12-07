@@ -1,4 +1,3 @@
-@wip
 Feature: Since Flag
   As a devpipe user
   I want to filter tasks based on git changes since a specific ref

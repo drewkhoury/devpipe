@@ -76,6 +76,9 @@ func TestFeatures(t *testing.T) {
 			InitializeCommandsScenario(sc, shared)
 			InitializeFailFastScenario(sc, shared)
 			InitializeUnknownCommandsScenario(sc, shared)
+			InitializePhaseExecutionScenario(sc, shared)
+			InitializeSinceFlagScenario(sc, shared)
+			InitializeConfigEdgeCasesScenario(sc, shared)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
