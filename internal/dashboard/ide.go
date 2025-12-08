@@ -115,18 +115,18 @@ func collectFiles(runDir string) []FileInfo {
 		}
 	}
 
-	// Add all artifact files (recursively walk subdirectories)
-	artifactsDir := filepath.Join(runDir, "artifacts")
-	_ = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
+	// Add all output files (recursively walk subdirectories)
+	outputsDir := filepath.Join(runDir, "outputs")
+	_ = filepath.Walk(outputsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
-		// Get relative path from artifacts directory
-		relPath, _ := filepath.Rel(artifactsDir, path)
+		// Get relative path from outputs directory
+		relPath, _ := filepath.Rel(outputsDir, path)
 		content, _ := os.ReadFile(path)
 		files = append(files, FileInfo{
 			Name:    filepath.Base(path),
-			Path:    "artifacts/" + relPath,
+			Path:    "outputs/" + relPath,
 			Size:    info.Size(),
 			Content: stripansi.Strip(string(content)),
 		})
@@ -393,14 +393,14 @@ const ideTemplate = `<!DOCTYPE html>
             const structure = {
                 'root': [],
                 'logs': [],
-                'artifacts': []
+                'outputs': []
             };
             
             files.forEach(file => {
                 if (file.path.startsWith('logs/')) {
                     structure.logs.push(file);
-                } else if (file.path.startsWith('artifacts/')) {
-                    structure.artifacts.push(file);
+                } else if (file.path.startsWith('outputs/')) {
+                    structure.outputs.push(file);
                 } else {
                     structure.root.push(file);
                 }
@@ -417,10 +417,10 @@ const ideTemplate = `<!DOCTYPE html>
                 tree.appendChild(logsFolder);
             }
             
-            // Render artifacts folder
-            if (structure.artifacts.length > 0) {
-                const artifactsFolder = createFolderItem('📦 artifacts', structure.artifacts);
-                tree.appendChild(artifactsFolder);
+            // Render outputs folder
+            if (structure.outputs.length > 0) {
+                const outputsFolder = createFolderItem('📦 outputs', structure.outputs);
+                tree.appendChild(outputsFolder);
             }
         }
         

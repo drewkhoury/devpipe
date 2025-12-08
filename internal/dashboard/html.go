@@ -179,9 +179,9 @@ func writeRunDetailHTML(path string, run model.RunRecord) error {
 	// Prepare data with log previews
 	type TaskWithLog struct {
 		model.TaskResult
-		LogPreview   []string
-		ArtifactPath string
-		ArtifactSize int64
+		LogPreview []string
+		OutputPath string
+		OutputSize int64
 	}
 
 	type DetailData struct {

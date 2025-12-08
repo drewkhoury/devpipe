@@ -69,10 +69,10 @@ type TaskConfig struct {
 	Enabled *bool `toml:"enabled" doc:"Whether this task is enabled"`
 	// Internal use only: set automatically by phase headers
 	Wait bool `toml:"wait"`
-	// Metrics format: junit, sarif, artifact
-	MetricsFormat string `toml:"metricsFormat" doc:"Metrics format: junit, sarif, artifact" enum:"junit,sarif,artifact"`
-	// Path to metrics file (relative to workdir)
-	MetricsPath string `toml:"metricsPath" doc:"Path to metrics file (relative to workdir)"`
+	// Output type: junit, sarif, artifact
+	OutputType string `toml:"outputType" doc:"Output type: junit, sarif, artifact" enum:"junit,sarif,artifact"`
+	// Path to output file (relative to workdir)
+	OutputPath string `toml:"outputPath" doc:"Path to output file (relative to workdir)"`
 	// Fix behavior: auto, helper, none (overrides task_defaults)
 	FixType string `toml:"fixType" doc:"Fix behavior: auto, helper, none (overrides task_defaults)" enum:"auto,helper,none"`
 	// Command to run to fix issues (required if fixType is set)

@@ -57,8 +57,8 @@ name = "Security Scan (CodeQL)"
 desc = "Deep security analysis with CodeQL: detects complex vulnerabilities, data flow issues, and security patterns"
 command = "make codeql-analyze"
 type = "check-security"
-metricsFormat = "sarif"
-metricsPath = "tmp/codeql/results.sarif"
+outputType = "sarif"
+outputPath = "tmp/codeql/results.sarif"
 
 [tasks.go-mod-tidy]
 name = "Go Mod Tidy Check"
@@ -72,8 +72,8 @@ name = "Unit Tests"
 desc = "Run all unit tests and generate JUnit XML report"
 command = "make test-junit"
 type = "test-unit"
-metricsFormat = "junit"
-metricsPath = "artifacts/junit.xml"
+outputType = "junit"
+outputPath = "artifacts/junit.xml"
 
 [tasks.bdd-tests]
 name = "BDD Tests"

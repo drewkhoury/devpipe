@@ -1,12 +1,12 @@
 @wip
-Feature: Artifact Metrics
+Feature: Artifact Output
   As a devpipe user
-  I want to collect artifact metrics
+  I want to collect artifact output
   So that I can track build artifacts and outputs
 
   @wip
-  Scenario: Artifact collection with metricsFormat
-    Given a config with a task that has metricsFormat = "artifact"
+  Scenario: Artifact collection with outputType
+    Given a config with a task that has outputType = "artifact"
     And the task generates an artifact file
     When I run devpipe with that config
     Then the artifact should be collected

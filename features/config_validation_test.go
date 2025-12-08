@@ -246,7 +246,7 @@ outputRoot = ".devpipe"
 name = "Test"
 command = "echo test"
 type = "test"
-metricsFormat = "junit"
+outputType = "junit"
 `
 	return os.WriteFile(c.configPath, []byte(config), 0644)
 }
@@ -265,7 +265,7 @@ outputRoot = ".devpipe"
 name = "Test"
 command = "echo test"
 type = "test"
-metricsPath = "results.xml"
+outputPath = "results.xml"
 `
 	return os.WriteFile(c.configPath, []byte(config), 0644)
 }

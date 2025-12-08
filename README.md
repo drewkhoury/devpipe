@@ -106,8 +106,8 @@ command = "npm run lint"
 
 [tasks.test]
 command = "npm test"
-metricsFormat = "junit"
-metricsPath = "test-results/junit.xml"
+outputType = "junit"
+outputPath = "test-results/junit.xml"
 
 [tasks.build]
 command = "npm run build"
@@ -333,23 +333,23 @@ watchPaths = ["*.md"]
 
 ## Metrics & Dashboard
 
-devpipe can parse test results, SARIF security findings, and artifacts, and generate HTML dashboards with detailed contextual information:
+devpipe can parse test results, SARIF security findings, and build artifacts, and generate HTML dashboards with detailed contextual information:
 
 ```toml
 [tasks.unit-tests]
 command = "npm test"
-metricsFormat = "junit"
-metricsPath = "test-results/junit.xml"
+outputType = "junit"
+outputPath = "test-results/junit.xml"
 
 [tasks.security-scan]
 command = "make security-scan"
-metricsFormat = "sarif"
-metricsPath = "tmp/codeql/results.sarif"
+outputType = "sarif"
+outputPath = "tmp/codeql/results.sarif"
 
 [tasks.build]
 command = "make build"
-metricsFormat = "artifact"
-metricsPath = "dist/app.js"
+outputType = "artifact"
+outputPath = "dist/app.js"
 ```
 
 View the dashboard:
@@ -374,8 +374,8 @@ devpipe has built-in support for SARIF (Static Analysis Results Interchange Form
 name = "Security Scan (CodeQL)"
 command = "make codeql-analyze"
 type = "check-security"
-metricsFormat = "sarif"
-metricsPath = "tmp/codeql/results.sarif"
+outputType = "sarif"
+outputPath = "tmp/codeql/results.sarif"
 ```
 
 The dashboard will display:

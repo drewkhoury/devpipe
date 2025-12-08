@@ -80,12 +80,12 @@ func TestCollectFiles(t *testing.T) {
 		t.Fatalf("Failed to write task log: %v", err)
 	}
 
-	// Create artifacts directory
-	artifactsDir := filepath.Join(tmpDir, "artifacts")
-	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
-		t.Fatalf("Failed to create artifacts dir: %v", err)
+	// Create outputs directory
+	outputsDir := filepath.Join(tmpDir, "outputs")
+	if err := os.MkdirAll(outputsDir, 0755); err != nil {
+		t.Fatalf("Failed to create outputs dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(artifactsDir, "report.xml"), []byte("<report/>"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(outputsDir, "report.xml"), []byte("<report/>"), 0644); err != nil {
 		t.Fatalf("Failed to write artifact: %v", err)
 	}
 
@@ -118,20 +118,20 @@ func TestCollectFiles(t *testing.T) {
 		t.Error("Expected logs/task1.log to be collected")
 	}
 
-	if _, ok := fileMap["artifacts/report.xml"]; !ok {
-		t.Error("Expected artifacts/report.xml to be collected")
+	if _, ok := fileMap["outputs/report.xml"]; !ok {
+		t.Error("Expected outputs/report.xml to be collected")
 	}
 }
 
 func TestCollectFilesWithNestedArtifacts(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create nested artifacts directory
-	artifactsDir := filepath.Join(tmpDir, "artifacts", "subdir")
-	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
-		t.Fatalf("Failed to create nested artifacts dir: %v", err)
+	// Create nested outputs directory
+	outputsDir := filepath.Join(tmpDir, "outputs", "subdir")
+	if err := os.MkdirAll(outputsDir, 0755); err != nil {
+		t.Fatalf("Failed to create nested outputs dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(artifactsDir, "nested.txt"), []byte("nested content"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(outputsDir, "nested.txt"), []byte("nested content"), 0644); err != nil {
 		t.Fatalf("Failed to write nested artifact: %v", err)
 	}
 
@@ -140,7 +140,7 @@ func TestCollectFilesWithNestedArtifacts(t *testing.T) {
 	// Find the nested artifact
 	found := false
 	for _, f := range files {
-		if strings.Contains(f.Path, "artifacts/subdir/nested.txt") {
+		if strings.Contains(f.Path, "outputs/subdir/nested.txt") {
 			found = true
 			if f.Content != "nested content" {
 				t.Errorf("Expected content 'nested content', got %q", f.Content)
@@ -284,13 +284,13 @@ func TestCollectFilesAllFileTypes(t *testing.T) {
 
 	// Create all possible file types
 	files := map[string]string{
-		"pipeline.log":                "pipeline content",
-		"config.toml":                 "[test]\nkey = \"value\"",
-		"run.json":                    `{"runId":"test"}`,
-		"logs/task1.log":              "task1 output",
-		"logs/task2.log":              "task2 output",
-		"artifacts/report.xml":        "<report/>",
-		"artifacts/coverage/data.txt": "coverage data",
+		"pipeline.log":              "pipeline content",
+		"config.toml":               "[test]\nkey = \"value\"",
+		"run.json":                  `{"runId":"test"}`,
+		"logs/task1.log":            "task1 output",
+		"logs/task2.log":            "task2 output",
+		"outputs/report.xml":        "<report/>",
+		"outputs/coverage/data.txt": "coverage data",
 	}
 
 	for path, content := range files {
@@ -323,8 +323,8 @@ func TestCollectFilesAllFileTypes(t *testing.T) {
 		"run.json",
 		"logs/task1.log",
 		"logs/task2.log",
-		"artifacts/report.xml",
-		"artifacts/coverage/data.txt",
+		"outputs/report.xml",
+		"outputs/coverage/data.txt",
 	}
 
 	for _, expected := range expectedPaths {

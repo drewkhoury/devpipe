@@ -17,14 +17,14 @@ command = "./hello-world.sh type-check"
 [tasks.build]
 name = "Build"
 command = "./hello-world.sh build"
-metricsFormat = "artifact"
-metricsPath = "artifacts/build/app.txt"
+outputType = "artifact"
+outputPath = "artifacts/build/app.txt"
 
 [tasks.unit-tests]
 name = "Unit Tests"
 command = "./hello-world.sh unit-tests"
-metricsFormat = "junit"
-metricsPath = "artifacts/test/junit.xml"
+outputType = "junit"
+outputPath = "artifacts/test/junit.xml"
 
 [tasks.e2e-tests]
 name = "E2E Tests"

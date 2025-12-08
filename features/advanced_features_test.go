@@ -72,8 +72,8 @@ mode = ""
 name = "JUnit Test"
 command = "%s"
 type = "test"
-metricsFormat = "junit"
-metricsPath = "%s"
+outputType = "junit"
+outputPath = "%s"
 `, c.outputRoot, scriptPath, c.junitPath)
 
 	return os.WriteFile(c.configPath, []byte(config), 0644)
@@ -177,8 +177,8 @@ mode = ""
 name = "SARIF Scan"
 command = "%s"
 type = "security"
-metricsFormat = "sarif"
-metricsPath = "%s"
+outputType = "sarif"
+outputPath = "%s"
 `, c.outputRoot, scriptPath, c.sarifPath)
 
 	return os.WriteFile(c.configPath, []byte(config), 0644)

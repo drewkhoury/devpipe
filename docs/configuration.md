@@ -58,8 +58,8 @@ Individual task configuration. Task ID must be unique.
 | `type` | string | No | `-` | Task type for grouping (e.g., check, build, test) |
 | `workdir` | string | No | `-` | Working directory for this task |
 | `enabled` | bool | No | `-` | Whether this task is enabled |
-| `metricsFormat` | string | No | `-` | Metrics format: junit, sarif, artifact (valid: `junit`, `sarif`, `artifact`) |
-| `metricsPath` | string | No | `-` | Path to metrics file (relative to workdir) |
+| `outputType` | string | No | `-` | Output type: junit, sarif, artifact (valid: `junit`, `sarif`, `artifact`) |
+| `outputPath` | string | No | `-` | Path to output file (relative to workdir) |
 | `fixType` | string | No | `-` | Fix behavior: auto, helper, none (overrides task_defaults) (valid: `auto`, `helper`, `none`) |
 | `fixCommand` | string | No | `-` | Command to run to fix issues (required if fixType is set) |
 | `watchPaths` | []string | No | `-` | File patterns to watch (glob patterns relative to workdir). Task runs only if matching files changed. |

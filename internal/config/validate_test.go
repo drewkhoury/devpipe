@@ -107,9 +107,9 @@ func TestValidateTaskMetrics(t *testing.T) {
 		{
 			name: "valid junit metrics",
 			task: TaskConfig{
-				Command:       "go test",
-				MetricsFormat: "junit",
-				MetricsPath:   "artifacts/junit.xml",
+				Command:    "go test",
+				OutputType: "junit",
+				OutputPath: "artifacts/junit.xml",
 			},
 			taskID:    "test",
 			wantValid: true,
@@ -117,19 +117,19 @@ func TestValidateTaskMetrics(t *testing.T) {
 		{
 			name: "valid sarif metrics",
 			task: TaskConfig{
-				Command:       "golangci-lint run",
-				MetricsFormat: "sarif",
-				MetricsPath:   "results.sarif",
+				Command:    "golangci-lint run",
+				OutputType: "sarif",
+				OutputPath: "results.sarif",
 			},
 			taskID:    "lint",
 			wantValid: true,
 		},
 		{
-			name: "invalid metrics format",
+			name: "invalid output type",
 			task: TaskConfig{
-				Command:       "go test",
-				MetricsFormat: "invalid",
-				MetricsPath:   "results.xml",
+				Command:    "go test",
+				OutputType: "invalid",
+				OutputPath: "results.xml",
 			},
 			taskID:    "test",
 			wantValid: false,
@@ -425,29 +425,29 @@ func TestValidateTaskMetricsWarnings(t *testing.T) {
 		wantWarnings int
 	}{
 		{
-			name: "metricsFormat without metricsPath",
+			name: "outputType without outputPath",
 			task: TaskConfig{
-				Command:       "go test",
-				MetricsFormat: "junit",
-				// Missing metricsPath
+				Command:    "go test",
+				OutputType: "junit",
+				// Missing outputPath
 			},
 			wantWarnings: 1,
 		},
 		{
-			name: "metricsPath without metricsFormat",
+			name: "outputPath without outputType",
 			task: TaskConfig{
-				Command:     "go test",
-				MetricsPath: "results.xml",
-				// Missing metricsFormat
+				Command:    "go test",
+				OutputPath: "results.xml",
+				// Missing outputType
 			},
 			wantWarnings: 1,
 		},
 		{
 			name: "both set correctly",
 			task: TaskConfig{
-				Command:       "go test",
-				MetricsFormat: "junit",
-				MetricsPath:   "results.xml",
+				Command:    "go test",
+				OutputType: "junit",
+				OutputPath: "results.xml",
 			},
 			wantWarnings: 0,
 		},

@@ -19,11 +19,11 @@ Feature: Report Generation Edge Cases
     And valid runs should still be processed
 
   @wip
-  Scenario: Dashboard with missing metrics files
-    Given runs that reference missing metrics files
+  Scenario: Dashboard with missing output files
+    Given runs that reference missing output files
     When I run devpipe generate-reports
     Then the report should handle missing files gracefully
-    And a warning should indicate missing metrics
+    And a warning should indicate missing output
 
   @wip
   Scenario: Dashboard regeneration after config change

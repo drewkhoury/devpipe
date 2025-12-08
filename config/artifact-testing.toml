@@ -5,49 +5,49 @@
 [tasks.test-valid-file]
 name = "Test Valid File - JUnit"
 command = "./hello-world.sh unit-tests"
-metricsFormat = "junit"
-metricsPath = "artifacts/test/junit.xml"
+outputType = "junit"
+outputPath = "artifacts/test/junit.xml"
 
 [tasks.test-zero-tests]
 name = "Test Zero Tests - JUnit"
 command = "./hello-world.sh unit-tests"
-metricsFormat = "junit"
-metricsPath = "testdata/zero-tests.xml"
+outputType = "junit"
+outputPath = "testdata/zero-tests.xml"
 
 [tasks.test-valid-artifact]
 name = "Test Valid Artifact"
 command = "./hello-world.sh build"
-metricsFormat = "artifact"
-metricsPath = "artifacts/build/app.txt"
+outputType = "artifact"
+outputPath = "artifacts/build/app.txt"
 
 # should fail
 # -----------
 [tasks.test-empty-file]
 name = "Test Empty File - JUnit"
 command = "./hello-world.sh unit-tests"
-metricsFormat = "junit"
-metricsPath = "testdata/empty"
+outputType = "junit"
+outputPath = "testdata/empty"
 
 [tasks.test-missing-file]
 name = "Test Missing File - JUnit"
 command = "./hello-world.sh unit-tests"
-metricsFormat = "junit"
-metricsPath = "missing-file"
+outputType = "junit"
+outputPath = "missing-file"
 
 [tasks.test-invalid-xml]
 name = "Test Invalid XML - JUnit"
 command = "./hello-world.sh unit-tests"
-metricsFormat = "junit"
-metricsPath = "testdata/not.xml"
+outputType = "junit"
+outputPath = "testdata/not.xml"
 
 [tasks.test-artifact-empty]
 name = "Test Artifact Empty"
 command = "./hello-world.sh build"
-metricsFormat = "artifact"
-metricsPath = "testdata/empty"
+outputType = "artifact"
+outputPath = "testdata/empty"
 
 [tasks.test-artifact-not-found]
 name = "Test Artifact Not Found"
 command = "./hello-world.sh build"
-metricsFormat = "artifact"
-metricsPath = "missing-file"
+outputType = "artifact"
+outputPath = "missing-file"

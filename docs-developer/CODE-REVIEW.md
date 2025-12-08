@@ -532,7 +532,7 @@ artifactPath = filepath.Join(st.Workdir, st.MetricsPath)
 
 **Impact**: Path traversal possible via malicious config:
 ```toml
-metricsPath = "../../../etc/passwd"
+outputPath = "../../../etc/passwd"
 ```
 
 **Fix**: Validate paths with `filepath.Clean` and boundary checks:

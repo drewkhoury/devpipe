@@ -51,14 +51,14 @@ Feature: Config Validation
     Then the execution should succeed
     And the output should show validation warning about missing ref
 
-  Scenario: Config with metrics format but no metrics path
-    Given a config with metrics format but no metrics path
+  Scenario: Config with output type but no output path
+    Given a config with output type but no output path
     When I run devpipe validate with that config
     Then the execution should succeed
-    And the output should show validation warning about missing metrics path
+    And the output should show validation warning about missing output path
 
-  Scenario: Config with metrics path but no metrics format
-    Given a config with metrics path but no metrics format
+  Scenario: Config with output path but no output type
+    Given a config with output path but no output type
     When I run devpipe validate with that config
     Then the execution should succeed
-    And the output should show validation warning about missing metrics format
+    And the output should show validation warning about missing output type

@@ -262,10 +262,10 @@ func TestParseTaskMetrics_JUnit(t *testing.T) {
 	}
 
 	task := model.TaskDefinition{
-		ID:            "junit-task",
-		Workdir:       projectRoot,
-		MetricsFormat: "junit",
-		MetricsPath:   "testdata/junit-single-suite.xml",
+		ID:         "junit-task",
+		Workdir:    projectRoot,
+		OutputType: "junit",
+		OutputPath: "testdata/junit-single-suite.xml",
 	}
 
 	m := parseTaskMetrics(task, false)
@@ -282,10 +282,10 @@ func TestParseTaskMetrics_JUnit(t *testing.T) {
 
 func TestParseTaskMetrics_FileNotFound(t *testing.T) {
 	task := model.TaskDefinition{
-		ID:            "missing-metrics",
-		Workdir:       t.TempDir(),
-		MetricsFormat: "junit",
-		MetricsPath:   "does-not-exist.xml",
+		ID:         "missing-metrics",
+		Workdir:    t.TempDir(),
+		OutputType: "junit",
+		OutputPath: "does-not-exist.xml",
 	}
 
 	m := parseTaskMetrics(task, true)
@@ -301,10 +301,10 @@ func TestParseTaskMetrics_SARIF(t *testing.T) {
 	}
 
 	task := model.TaskDefinition{
-		ID:            "sarif-task",
-		Workdir:       projectRoot,
-		MetricsFormat: "sarif",
-		MetricsPath:   "testdata/sarif-sample.json",
+		ID:         "sarif-task",
+		Workdir:    projectRoot,
+		OutputType: "sarif",
+		OutputPath: "testdata/sarif-sample.json",
 	}
 
 	m := parseTaskMetrics(task, false)
@@ -329,10 +329,10 @@ func TestParseTaskMetrics_Artifact(t *testing.T) {
 	}
 
 	task := model.TaskDefinition{
-		ID:            "artifact-task",
-		Workdir:       tempDir,
-		MetricsFormat: "artifact",
-		MetricsPath:   "artifact.txt",
+		ID:         "artifact-task",
+		Workdir:    tempDir,
+		OutputType: "artifact",
+		OutputPath: "artifact.txt",
 	}
 
 	m := parseTaskMetrics(task, false)
@@ -366,10 +366,10 @@ func TestParseTaskMetrics_UnknownFormat(t *testing.T) {
 	}
 
 	task := model.TaskDefinition{
-		ID:            "unknown-format-task",
-		Workdir:       tempDir,
-		MetricsFormat: "unknown-format",
-		MetricsPath:   "test.txt",
+		ID:         "unknown-format-task",
+		Workdir:    tempDir,
+		OutputType: "unknown-format",
+		OutputPath: "test.txt",
 	}
 
 	m := parseTaskMetrics(task, false)
@@ -389,10 +389,10 @@ func TestParseTaskMetrics_MalformedJUnit(t *testing.T) {
 	}
 
 	task := model.TaskDefinition{
-		ID:            "malformed-junit-task",
-		Workdir:       tempDir,
-		MetricsFormat: "junit",
-		MetricsPath:   "malformed.xml",
+		ID:         "malformed-junit-task",
+		Workdir:    tempDir,
+		OutputType: "junit",
+		OutputPath: "malformed.xml",
 	}
 
 	m := parseTaskMetrics(task, false)
@@ -412,10 +412,10 @@ func TestParseTaskMetrics_MalformedSARIF(t *testing.T) {
 	}
 
 	task := model.TaskDefinition{
-		ID:            "malformed-sarif-task",
-		Workdir:       tempDir,
-		MetricsFormat: "sarif",
-		MetricsPath:   "malformed.sarif",
+		ID:         "malformed-sarif-task",
+		Workdir:    tempDir,
+		OutputType: "sarif",
+		OutputPath: "malformed.sarif",
 	}
 
 	m := parseTaskMetrics(task, false)
@@ -434,10 +434,10 @@ func TestParseTaskMetrics_AbsolutePath(t *testing.T) {
 	}
 
 	task := model.TaskDefinition{
-		ID:            "absolute-path-task",
-		Workdir:       "/some/other/dir", // Different workdir
-		MetricsFormat: "artifact",
-		MetricsPath:   artifactPath, // Absolute path
+		ID:         "absolute-path-task",
+		Workdir:    "/some/other/dir", // Different workdir
+		OutputType: "artifact",
+		OutputPath: artifactPath, // Absolute path
 	}
 
 	m := parseTaskMetrics(task, false)
@@ -465,10 +465,10 @@ func TestParseTaskMetrics_RelativePath(t *testing.T) {
 	}
 
 	task := model.TaskDefinition{
-		ID:            "relative-path-task",
-		Workdir:       tempDir,
-		MetricsFormat: "artifact",
-		MetricsPath:   "relative-artifact.txt", // Relative path
+		ID:         "relative-path-task",
+		Workdir:    tempDir,
+		OutputType: "artifact",
+		OutputPath: "relative-artifact.txt", // Relative path
 	}
 
 	m := parseTaskMetrics(task, false)

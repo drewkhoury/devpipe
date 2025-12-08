@@ -25,8 +25,8 @@ type TaskDefinition struct {
 	EstimatedSeconds int
 	IsEstimateGuess  bool     // True if estimate is a default guess (show as "10s?")
 	Wait             bool     // If true, marks end of phase (wait for all previous tasks)
-	MetricsFormat    string   // "junit", "eslint", etc.
-	MetricsPath      string   // Path to metrics file
+	OutputType       string   // "junit", "sarif", "artifact"
+	OutputPath       string   // Path to output file
 	FixType          string   // "auto", "helper", "none", or ""
 	FixCommand       string   // Command to run to fix issues
 	WatchPaths       []string // Glob patterns to watch (relative to workdir)
@@ -58,7 +58,7 @@ type TaskResult struct {
 	Metrics           *TaskMetrics `json:"metrics,omitempty"`
 }
 
-// TaskMetrics holds parsed metrics from task artifacts
+// TaskMetrics holds parsed metrics from task outputs
 type TaskMetrics struct {
 	Kind          string                 `json:"kind"`                    // "test", "lint", "coverage", "build"
 	SummaryFormat string                 `json:"summaryFormat,omitempty"` // "junit", "eslint", "sarif"

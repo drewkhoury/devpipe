@@ -107,14 +107,14 @@ workdir = "."
 # Default: 
 # enabled = 
 
-# Metrics format: junit, sarif, artifact
+# Output type: junit, sarif, artifact
 # Default: 
 # Valid values: junit, sarif, artifact
-# metricsFormat = 
+# outputType = 
 
-# Path to metrics file (relative to workdir)
+# Path to output file (relative to workdir)
 # Default: 
-# metricsPath = 
+# outputPath = 
 
 # Fix behavior: auto, helper, none (overrides task_defaults)
 # Default: 

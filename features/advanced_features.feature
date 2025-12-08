@@ -3,19 +3,19 @@ Feature: Advanced DevPipe Features
   I want to use advanced pipeline features
   So that I can build sophisticated CI/CD workflows
 
-  Scenario: JUnit XML metrics collection
+  Scenario: JUnit XML output collection
     Given a config with a task that generates JUnit XML
     When I run devpipe with that config
     Then the execution should succeed
-    And the JUnit metrics should be parsed
-    And the metrics should show test counts
+    And the JUnit output should be parsed
+    And the output should show test counts
 
-  Scenario: SARIF metrics collection
+  Scenario: SARIF output collection
     Given a config with a task that generates SARIF output
     When I run devpipe with that config
     Then the execution should succeed
-    And the SARIF metrics should be parsed
-    And the metrics should show security findings
+    And the SARIF output should be parsed
+    And the output should show security findings
 
   Scenario: Auto-fix workflow for failing task
     Given a config with a fixable task that fails

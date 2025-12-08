@@ -435,13 +435,13 @@ func main() {
 			Wait:             resolved.Wait,
 		}
 
-		// Add metrics config if present
-		if resolved.MetricsFormat != "" {
-			taskDef.MetricsFormat = resolved.MetricsFormat
-			taskDef.MetricsPath = resolved.MetricsPath
+		// Add output config if present
+		if resolved.OutputType != "" {
+			taskDef.OutputType = resolved.OutputType
+			taskDef.OutputPath = resolved.OutputPath
 			if flagVerbose && !useAnimated {
 				// Only print before dashboard starts; during dashboard it goes to output
-				fmt.Printf("[%-15s] %s Metrics configured: format=%s, path=%s\n", renderer.Gray("verbose"), id, resolved.MetricsFormat, resolved.MetricsPath)
+				fmt.Printf("[%-15s] %s Output configured: type=%s, path=%s\n", renderer.Gray("verbose"), id, resolved.OutputType, resolved.OutputPath)
 			}
 		}
 
@@ -1526,13 +1526,13 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 		res.Status = model.StatusFail
 		res.ExitCode = &exitCode
 
-		// Parse metrics even on failure (especially useful for SARIF/JUnit)
+		// Parse output even on failure (especially useful for SARIF/JUnit)
 		// This allows us to show what failed in the dashboard
-		if st.MetricsFormat != "" && st.MetricsPath != "" {
-			renderer.Verbose(verbose, "%s Task failed, but attempting to parse metrics: format=%s, path=%s", st.ID, st.MetricsFormat, st.MetricsPath)
+		if st.OutputType != "" && st.OutputPath != "" {
+			renderer.Verbose(verbose, "%s Task failed, but attempting to parse output: type=%s, path=%s", st.ID, st.OutputType, st.OutputPath)
 			res.Metrics = parseTaskMetrics(st, verbose)
 			if res.Metrics != nil {
-				renderer.Verbose(verbose, "%s Metrics parsed successfully despite failure: %+v", st.ID, res.Metrics.Data)
+				renderer.Verbose(verbose, "%s Output parsed successfully despite failure: %+v", st.ID, res.Metrics.Data)
 			}
 		}
 
@@ -1556,44 +1556,44 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 	res.Status = model.StatusPass
 	res.ExitCode = &exitCode
 
-	// Parse metrics if configured
-	if st.MetricsFormat != "" && st.MetricsPath != "" {
-		renderer.Verbose(verbose, "%s Parsing metrics: format=%s, path=%s", st.ID, st.MetricsFormat, st.MetricsPath)
+	// Parse output if configured
+	if st.OutputType != "" && st.OutputPath != "" {
+		renderer.Verbose(verbose, "%s Parsing output: type=%s, path=%s", st.ID, st.OutputType, st.OutputPath)
 		res.Metrics = parseTaskMetrics(st, verbose)
 		if res.Metrics != nil {
-			renderer.Verbose(verbose, "%s Metrics parsed successfully: %+v", st.ID, res.Metrics.Data)
+			renderer.Verbose(verbose, "%s Output parsed successfully: %+v", st.ID, res.Metrics.Data)
 		}
-		// Metrics parsing failed - this means either:
+		// Output parsing failed - this means either:
 		// 1. File doesn't exist (will be caught below)
 		// 2. Invalid format (error already printed)
 		// 3. Parse error (error already printed)
 		// We'll fail the task below if file is missing/empty, or here if it's a parse/format error
 
-		// Validate artifact if metrics path specified
+		// Validate artifact if output path specified
 		// Handle both absolute and relative paths
 		var artifactPath string
-		if filepath.IsAbs(st.MetricsPath) {
-			artifactPath = st.MetricsPath
+		if filepath.IsAbs(st.OutputPath) {
+			artifactPath = st.OutputPath
 		} else {
-			artifactPath = filepath.Join(st.Workdir, st.MetricsPath)
+			artifactPath = filepath.Join(st.Workdir, st.OutputPath)
 		}
 		if info, err := os.Stat(artifactPath); err != nil || info.Size() == 0 {
 			// Artifact missing or empty - fail the task
 			res.Status = model.StatusFail
 			if err != nil {
 				// Always show this error (not just in verbose)
-				fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Metrics file not found: %s\n", st.ID, st.MetricsPath)
+				fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Output file not found: %s\n", st.ID, st.OutputPath)
 				renderer.Verbose(verbose, "%s Full path: %s", st.ID, artifactPath)
 			} else {
 				// Always show this error (not just in verbose)
-				fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Metrics file is empty: %s\n", st.ID, st.MetricsPath)
+				fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Output file is empty: %s\n", st.ID, st.OutputPath)
 				renderer.Verbose(verbose, "%s Full path: %s", st.ID, artifactPath)
 			}
 		} else if res.Metrics == nil {
-			// File exists but metrics parsing failed (invalid format or parse error)
+			// File exists but output parsing failed (invalid format or parse error)
 			res.Status = model.StatusFail
 			// Error already printed by parseTaskMetrics
-			renderer.Verbose(verbose, "%s Metrics validation FAILED: file exists but parsing failed", st.ID)
+			renderer.Verbose(verbose, "%s Output validation FAILED: file exists but parsing failed", st.ID)
 		} else {
 			// Artifact exists, has size, and metrics parsed successfully
 			res.Metrics.Data["path"] = artifactPath
@@ -1601,38 +1601,38 @@ func runTask(st model.TaskDefinition, runDir, logDir string, dryRun bool, verbos
 
 			renderer.Verbose(verbose, "%s Artifact validation PASSED: %s (%d bytes)", st.ID, artifactPath, info.Size())
 
-			// Copy artifact to run directory for historical preservation
-			artifactsDir := filepath.Join(runDir, "artifacts")
-			if err := os.MkdirAll(artifactsDir, 0755); err != nil {
-				renderer.Verbose(verbose, "%s Failed to create artifacts directory: %v", st.ID, err)
+			// Copy output to run directory for historical preservation
+			outputsDir := filepath.Join(runDir, "outputs")
+			if err := os.MkdirAll(outputsDir, 0755); err != nil {
+				renderer.Verbose(verbose, "%s Failed to create outputs directory: %v", st.ID, err)
 			} else {
 				// Determine destination path based on whether source is absolute or relative
 				var destPath string
-				if filepath.IsAbs(st.MetricsPath) {
+				if filepath.IsAbs(st.OutputPath) {
 					// For absolute paths, store under task ID with full path to avoid conflicts
-					// e.g., /foo/bar/file.xml -> artifacts/<task-id>/foo/bar/file.xml
-					destPath = filepath.Join(artifactsDir, st.ID, st.MetricsPath)
+					// e.g., /foo/bar/file.xml -> outputs/<task-id>/foo/bar/file.xml
+					destPath = filepath.Join(outputsDir, st.ID, st.OutputPath)
 				} else {
 					// For relative paths, preserve directory structure
-					destPath = filepath.Join(artifactsDir, st.MetricsPath)
+					destPath = filepath.Join(outputsDir, st.OutputPath)
 				}
 				destDir := filepath.Dir(destPath)
 				if err := os.MkdirAll(destDir, 0755); err != nil {
-					renderer.Verbose(verbose, "%s Failed to create artifact subdirectory: %v", st.ID, err)
+					renderer.Verbose(verbose, "%s Failed to create output subdirectory: %v", st.ID, err)
 				} else {
 					// Copy the file
 					if content, err := os.ReadFile(artifactPath); err != nil {
-						renderer.Verbose(verbose, "%s Failed to read artifact for copying: %v", st.ID, err)
+						renderer.Verbose(verbose, "%s Failed to read output for copying: %v", st.ID, err)
 					} else if err := os.WriteFile(destPath, content, 0644); err != nil {
-						renderer.Verbose(verbose, "%s Failed to copy artifact: %v", st.ID, err)
+						renderer.Verbose(verbose, "%s Failed to copy output: %v", st.ID, err)
 					} else {
-						renderer.Verbose(verbose, "%s Artifact copied to: %s", st.ID, destPath)
+						renderer.Verbose(verbose, "%s Output copied to: %s", st.ID, destPath)
 					}
 				}
 			}
 		}
 	} else {
-		renderer.Verbose(verbose, "%s No metrics configured (format=%s, path=%s)", st.ID, st.MetricsFormat, st.MetricsPath)
+		renderer.Verbose(verbose, "%s No output configured (type=%s, path=%s)", st.ID, st.OutputType, st.OutputPath)
 	}
 
 	// Update tracker with final status
@@ -1705,41 +1705,41 @@ func writeRunJSON(runDir string, record model.RunRecord) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// parseTaskMetrics parses metrics for a completed task
+// parseTaskMetrics parses output for a completed task
 func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics {
-	// Build full path to metrics file (handle both absolute and relative paths)
-	var metricsPath string
-	if filepath.IsAbs(st.MetricsPath) {
-		metricsPath = st.MetricsPath
+	// Build full path to output file (handle both absolute and relative paths)
+	var outputPath string
+	if filepath.IsAbs(st.OutputPath) {
+		outputPath = st.OutputPath
 	} else {
-		metricsPath = filepath.Join(st.Workdir, st.MetricsPath)
+		outputPath = filepath.Join(st.Workdir, st.OutputPath)
 	}
 
 	// Check if file exists
-	if _, err := os.Stat(metricsPath); os.IsNotExist(err) {
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
 		if verbose {
-			fmt.Fprintf(os.Stderr, "[%-15s] Metrics file not found: %s\n", st.ID, metricsPath)
+			fmt.Fprintf(os.Stderr, "[%-15s] Output file not found: %s\n", st.ID, outputPath)
 		}
 		return nil
 	}
 
-	// Parse based on format
-	switch st.MetricsFormat {
+	// Parse based on type
+	switch st.OutputType {
 	case "junit":
-		m, err := metrics.ParseJUnitXML(metricsPath)
+		m, err := metrics.ParseJUnitXML(outputPath)
 		if err != nil {
 			// Always show parse failures (not just in verbose mode)
 			fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Failed to parse JUnit XML: %v\n", st.ID, err)
-			fmt.Fprintf(os.Stderr, "[%-15s]          File: %s\n", st.ID, st.MetricsPath)
+			fmt.Fprintf(os.Stderr, "[%-15s]          File: %s\n", st.ID, st.OutputPath)
 			return nil
 		}
 		return m
 	case "sarif":
-		m, err := metrics.ParseSARIF(metricsPath)
+		m, err := metrics.ParseSARIF(outputPath)
 		if err != nil {
 			// Always show parse failures (not just in verbose mode)
 			fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Failed to parse SARIF: %v\n", st.ID, err)
-			fmt.Fprintf(os.Stderr, "[%-15s]          File: %s\n", st.ID, st.MetricsPath)
+			fmt.Fprintf(os.Stderr, "[%-15s]          File: %s\n", st.ID, st.OutputPath)
 			return nil
 		}
 		return m
@@ -1749,13 +1749,13 @@ func parseTaskMetrics(st model.TaskDefinition, verbose bool) *model.TaskMetrics 
 			Kind:          "artifact",
 			SummaryFormat: "artifact",
 			Data: map[string]interface{}{
-				"path": metricsPath,
+				"path": outputPath,
 			},
 		}
 	default:
-		// Unknown format - this is an error
-		fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Unknown metrics format: %s\n", st.ID, st.MetricsFormat)
-		fmt.Fprintf(os.Stderr, "[%-15s]          Supported formats: junit, sarif, artifact\n", st.ID)
+		// Unknown type - this is an error
+		fmt.Fprintf(os.Stderr, "[%-15s] ❌ ERROR: Unknown output type: %s\n", st.ID, st.OutputType)
+		fmt.Fprintf(os.Stderr, "[%-15s]          Supported types: junit, sarif, artifact\n", st.ID)
 		return nil
 	}
 }
@@ -2321,11 +2321,11 @@ func listCmd() {
 		for _, t := range phase.tasks {
 			resolvedTask := mergedCfg.ResolveTaskConfig(t.id, t.task, projectRoot)
 
-			// Add metrics emoji if present
+			// Add output emoji if present
 			metricsEmoji := ""
 			emojiDisplayWidth := 0
-			if resolvedTask.MetricsFormat != "" {
-				switch resolvedTask.MetricsFormat {
+			if resolvedTask.OutputType != "" {
+				switch resolvedTask.OutputType {
 				case "junit":
 					metricsEmoji = " 🧪"
 					emojiDisplayWidth = 3 // space + emoji (2 display chars)

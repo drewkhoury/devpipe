@@ -229,22 +229,22 @@ func validateTask(taskID string, task TaskConfig, result *ValidationResult) {
 
 	// Note: task.Type is user-defined and can be any string, so we don't validate it
 
-	// Validate metricsFormat if specified
-	if task.MetricsFormat != "" {
+	// Validate outputType if specified
+	if task.OutputType != "" {
 		validFormats := []string{"junit", "sarif", "artifact"}
-		if !contains(validFormats, task.MetricsFormat) {
+		if !contains(validFormats, task.OutputType) {
 			result.Valid = false
 			result.Errors = append(result.Errors, ValidationError{
-				Field:   prefix + ".metricsFormat",
-				Message: fmt.Sprintf("Invalid metrics format '%s'. Valid options: %s", task.MetricsFormat, strings.Join(validFormats, ", ")),
+				Field:   prefix + ".outputType",
+				Message: fmt.Sprintf("Invalid output type '%s'. Valid options: %s", task.OutputType, strings.Join(validFormats, ", ")),
 			})
 		}
 
-		// Warn if metricsFormat is set but metricsPath is not
-		if task.MetricsPath == "" {
+		// Warn if outputType is set but outputPath is not
+		if task.OutputPath == "" {
 			result.Warnings = append(result.Warnings, ValidationError{
-				Field:   prefix + ".metricsPath",
-				Message: "metricsFormat is set but metricsPath is not specified",
+				Field:   prefix + ".outputPath",
+				Message: "outputType is set but outputPath is not specified",
 			})
 		}
 	}
@@ -270,11 +270,11 @@ func validateTask(taskID string, task TaskConfig, result *ValidationResult) {
 		}
 	}
 
-	// Warn if metricsPath is set but metricsFormat is not
-	if task.MetricsPath != "" && task.MetricsFormat == "" {
+	// Warn if outputPath is set but outputType is not
+	if task.OutputPath != "" && task.OutputType == "" {
 		result.Warnings = append(result.Warnings, ValidationError{
-			Field:   prefix + ".metricsFormat",
-			Message: "metricsPath is set but metricsFormat is not specified",
+			Field:   prefix + ".outputType",
+			Message: "outputPath is set but outputType is not specified",
 		})
 	}
 

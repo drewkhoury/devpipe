@@ -121,21 +121,21 @@
               ],
               "type": "string"
             },
-            "metricsFormat": {
-              "description": "Metrics format: junit, sarif, artifact",
+            "name": {
+              "description": "Display name for the task",
+              "type": "string"
+            },
+            "outputPath": {
+              "description": "Path to output file (relative to workdir)",
+              "type": "string"
+            },
+            "outputType": {
+              "description": "Output type: junit, sarif, artifact",
               "enum": [
                 "junit",
                 "sarif",
                 "artifact"
               ],
-              "type": "string"
-            },
-            "metricsPath": {
-              "description": "Path to metrics file (relative to workdir)",
-              "type": "string"
-            },
-            "name": {
-              "description": "Display name for the task",
               "type": "string"
             },
             "type": {

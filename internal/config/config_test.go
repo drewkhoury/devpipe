@@ -404,9 +404,9 @@ func TestValidateTaskWithMetrics(t *testing.T) {
 			cfg: Config{
 				Tasks: map[string]TaskConfig{
 					"test": {
-						Command:       "go test",
-						MetricsFormat: "junit",
-						MetricsPath:   "results.xml",
+						Command:    "go test",
+						OutputType: "junit",
+						OutputPath: "results.xml",
 					},
 				},
 			},
@@ -417,9 +417,9 @@ func TestValidateTaskWithMetrics(t *testing.T) {
 			cfg: Config{
 				Tasks: map[string]TaskConfig{
 					"security": {
-						Command:       "gosec",
-						MetricsFormat: "sarif",
-						MetricsPath:   "results.sarif",
+						Command:    "gosec",
+						OutputType: "sarif",
+						OutputPath: "results.sarif",
 					},
 				},
 			},
@@ -430,9 +430,9 @@ func TestValidateTaskWithMetrics(t *testing.T) {
 			cfg: Config{
 				Tasks: map[string]TaskConfig{
 					"test": {
-						Command:       "go test",
-						MetricsFormat: "invalid",
-						MetricsPath:   "results.xml",
+						Command:    "go test",
+						OutputType: "invalid",
+						OutputPath: "results.xml",
 					},
 				},
 			},
