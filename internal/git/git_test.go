@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"testing"
 )
 
@@ -428,6 +429,58 @@ func TestDetectRepoRootConsistency(t *testing.T) {
 	}
 }
 
+func TestDetectRepoRootFrom(t *testing.T) {
+	// Test DetectRepoRootFrom with current directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	root, inRepo := DetectRepoRootFrom(cwd)
+
+	// Should return same result as DetectRepoRoot()
+	expectedRoot, expectedInRepo := DetectRepoRoot()
+
+	if root != expectedRoot {
+		t.Errorf("DetectRepoRootFrom(%s) root = %s, want %s", cwd, root, expectedRoot)
+	}
+
+	if inRepo != expectedInRepo {
+		t.Errorf("DetectRepoRootFrom(%s) inRepo = %v, want %v", cwd, inRepo, expectedInRepo)
+	}
+}
+
+func TestDetectRepoRootFromNonExistentDir(t *testing.T) {
+	// Test with non-existent directory
+	nonExistent := "/nonexistent/path/to/nowhere"
+	root, inRepo := DetectRepoRootFrom(nonExistent)
+
+	// Should return the directory itself and false
+	if root != nonExistent {
+		t.Errorf("DetectRepoRootFrom(%s) root = %s, want %s", nonExistent, root, nonExistent)
+	}
+
+	if inRepo {
+		t.Errorf("DetectRepoRootFrom(%s) inRepo = true, want false", nonExistent)
+	}
+}
+
+func TestDetectRepoRootFromTempDir(t *testing.T) {
+	// Create a temp directory (not a git repo)
+	tmpDir := t.TempDir()
+
+	root, inRepo := DetectRepoRootFrom(tmpDir)
+
+	// Should return the temp dir itself and false
+	if root != tmpDir {
+		t.Errorf("DetectRepoRootFrom(%s) root = %s, want %s", tmpDir, root, tmpDir)
+	}
+
+	if inRepo {
+		t.Errorf("DetectRepoRootFrom(%s) inRepo = true, want false for non-git directory", tmpDir)
+	}
+}
+
 func TestGitInfoWithEmptyChangedFiles(t *testing.T) {
 	// Test GitInfo with explicitly empty ChangedFiles slice
 	info := GitInfo{
@@ -496,6 +549,84 @@ func TestDetectChangedFilesNotInRepoWithDifferentModes(t *testing.T) {
 			// Mode should be preserved as-is when not in repo
 			if info.Mode != mode {
 				t.Errorf("Mode %s: expected mode '%s', got '%s'", mode, mode, info.Mode)
+			}
+		})
+	}
+}
+
+func TestIsSafeDirectory(t *testing.T) {
+	tests := []struct {
+		name     string
+		dir      string
+		wantSafe bool
+	}{
+		// Unsafe directories
+		{"root directory", "/", false},
+		{"usr directory", "/usr", false},
+		{"usr bin", "/usr/bin", false},
+		{"usr sbin", "/usr/sbin", false},
+		{"usr lib", "/usr/lib", false},
+		{"etc directory", "/etc", false},
+		{"bin directory", "/bin", false},
+		{"sbin directory", "/sbin", false},
+		{"boot directory", "/boot", false},
+		{"System directory", "/System", false},
+		{"Library directory", "/Library", false},
+		{"Applications directory", "/Applications", false},
+		{"Volumes directory", "/Volumes", false},
+		{"var directory", "/var", false},
+		{"tmp directory", "/tmp", false},
+		{"dev directory", "/dev", false},
+		{"proc directory", "/proc", false},
+		{"sys directory", "/sys", false},
+		// Safe directories
+		{"home directory", "/home/user/project", true},
+		{"Users directory", "/Users/drew/repos/devpipe", true},
+		{"opt subdirectory", "/opt/myproject", true},
+		{"usr local subdirectory", "/usr/local/myproject", true},
+		{"usr src subdirectory", "/usr/src/myapp", true},
+		{"Volumes subdirectory", "/Volumes/MyDrive/project", true},
+		{"var subdirectory", "/var/lib/myapp", true},
+		{"tmp subdirectory", "/tmp/myproject", true},
+		{"current directory", ".", true},
+		{"relative path", "./project", true},
+		{"empty path", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsSafeDirectory(tt.dir)
+			if got != tt.wantSafe {
+				t.Errorf("IsSafeDirectory(%q) = %v, want %v", tt.dir, got, tt.wantSafe)
+			}
+		})
+	}
+}
+
+func TestIsSafeDirectoryEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		dir      string
+		wantSafe bool
+	}{
+		{"trailing slash", "/usr/", false},
+		{"double slash", "//usr", false},
+		{"usr bin with subdirs", "/usr/bin/local", false},
+		{"usr lib with subdirs", "/usr/lib/python", false},
+		{"System with subdirs", "/System/Library", false},
+		{"usr local bin", "/usr/local/bin", true}, // Allow /usr/local subdirs
+		{"usr local homebrew", "/usr/local/Cellar/myapp", true},
+		{"usr src with subdirs", "/usr/src/myapp", true},           // Allow /usr/src subdirs
+		{"Volumes with subdirs", "/Volumes/MyDrive/project", true}, // Allow /Volumes subdirs
+		{"case sensitive usr", "/USR", true},                       // Unix is case-sensitive
+		{"windows-style path", "C:\\Windows", true},                // Not a Unix dangerous path
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsSafeDirectory(tt.dir)
+			if got != tt.wantSafe {
+				t.Errorf("IsSafeDirectory(%q) = %v, want %v", tt.dir, got, tt.wantSafe)
 			}
 		})
 	}

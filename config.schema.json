@@ -50,6 +50,10 @@
           "description": "Directory for run outputs and logs",
           "type": "string"
         },
+        "projectRoot": {
+          "description": "Repo/project root directory (optional override, auto-detected from git or config location if not set)",
+          "type": "string"
+        },
         "uiMode": {
           "default": "basic",
           "description": "UI mode: basic or full",

@@ -20,6 +20,7 @@ Global configuration options
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
+| `projectRoot` | string | No | `-` | Repo/project root directory (optional override, auto-detected from git or config location if not set) |
 | `outputRoot` | string | No | `.devpipe` | Directory for run outputs and logs |
 | `fastThreshold` | int | No | `300` | Tasks longer than this (seconds) are skipped with --fast |
 | `uiMode` | string | No | `basic` | UI mode: basic or full (valid: `basic`, `full`) |

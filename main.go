@@ -185,10 +185,21 @@ func main() {
 	useAnimated := flagDashboard && ui.IsTTY(uintptr(1))
 	renderer := ui.NewRenderer(uiMode, enableColors, useAnimated)
 
-	// Determine repo root
-	repoRoot, inGitRepo := git.DetectRepoRoot()
-	if !inGitRepo && flagVerbose {
-		fmt.Println("WARNING: not in a git repo, using current directory as repo root")
+	// Determine repo root first (for all path resolution)
+	// This can be overridden in config, or auto-detected from git/config location
+	// We need to do this before git detection to know where to look for git
+	cwdGitRoot, cwdInGitRepo := git.DetectRepoRoot()
+	repoRoot := determineRepoRoot(flagConfig, mergedCfg, cwdGitRoot, cwdInGitRepo)
+
+	// Now detect git root from the repo root location (for git operations)
+	gitRoot, inGitRepo := git.DetectRepoRootFrom(repoRoot)
+
+	// Safety check: prevent running in dangerous system directories
+	if !git.IsSafeDirectory(repoRoot) {
+		fmt.Fprintf(os.Stderr, "ERROR: Refusing to run devpipe in system directory: %s\n", repoRoot)
+		fmt.Fprintf(os.Stderr, "This safety check prevents accidental execution in critical system paths.\n")
+		fmt.Fprintf(os.Stderr, "Please run devpipe from your project directory, or set repoRoot in your config.\n")
+		os.Exit(1)
 	}
 
 	// Auto-generate config.toml if it doesn't exist and no custom config specified
@@ -276,11 +287,80 @@ func main() {
 		gitRef = flagSince
 	}
 
-	// Get changed files
-	gitInfo := git.DetectChangedFiles(repoRoot, inGitRepo, gitMode, gitRef, flagVerbose)
+	// Get changed files (uses git root)
+	gitInfo := git.DetectChangedFiles(gitRoot, inGitRepo, gitMode, gitRef, flagVerbose)
 
-	// Prepare output dir
-	outputRoot := filepath.Join(repoRoot, mergedCfg.Defaults.OutputRoot)
+	// Prepare output dir (uses repo root for relative paths, respects absolute paths)
+	var outputRoot string
+	// Clean the configured path first (handles trailing slashes, .., etc.)
+	cleanedOutputRoot := filepath.Clean(mergedCfg.Defaults.OutputRoot)
+
+	if filepath.IsAbs(cleanedOutputRoot) {
+		// Use absolute path as-is
+		outputRoot = cleanedOutputRoot
+	} else {
+		// Relative path - join with repoRoot
+		outputRoot = filepath.Join(repoRoot, cleanedOutputRoot)
+	}
+
+	// Clean the final path
+	outputRoot = filepath.Clean(outputRoot)
+
+	// Resolve symlinks (best effort) to check actual destination
+	// Try to resolve the full path first
+	resolvedOutput, err := filepath.EvalSymlinks(outputRoot)
+	if err == nil {
+		outputRoot = resolvedOutput
+	} else {
+		// If full path doesn't exist, try resolving parent directories
+		dir := outputRoot
+		for dir != "/" && dir != "." {
+			if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+				// Found a resolvable parent, reconstruct the path
+				rel, _ := filepath.Rel(dir, outputRoot)
+				outputRoot = filepath.Join(resolved, rel)
+				break
+			}
+			dir = filepath.Dir(dir)
+		}
+	}
+
+	// Safety check on final resolved path (allow /tmp subdirectories)
+	if !git.IsSafeDirectory(outputRoot) && !strings.HasPrefix(outputRoot, "/tmp/") {
+		fmt.Fprintf(os.Stderr, "ERROR: Output directory resolves to dangerous location: %s\n", outputRoot)
+		fmt.Fprintf(os.Stderr, "This safety check prevents accidental execution in critical system paths.\n")
+		fmt.Fprintf(os.Stderr, "Use a safe location like /tmp/devpipe or a relative path within your project.\n")
+		os.Exit(1)
+	}
+
+	// Verbose logging (after all paths are determined)
+	if flagVerbose {
+		configPath := flagConfig
+		if configPath == "" {
+			configPath = "config.toml"
+		}
+		if flagConfig != "" {
+			fmt.Printf("Config: %s (from --config)\n", configPath)
+		} else {
+			fmt.Printf("Config: %s\n", configPath)
+		}
+		if mergedCfg.Defaults.RepoRoot != "" {
+			fmt.Printf("Repo root: %s (from config)\n", repoRoot)
+		} else {
+			if inGitRepo {
+				fmt.Printf("Repo root: %s (auto-detected from git)\n", repoRoot)
+			} else {
+				fmt.Printf("Repo root: %s (auto-detected from config location)\n", repoRoot)
+			}
+		}
+		if inGitRepo {
+			fmt.Printf("Git root: %s (detected by running git from repo root)\n", gitRoot)
+		} else {
+			fmt.Printf("Git root: %s (no git repo found at repo root)\n", gitRoot)
+		}
+		fmt.Printf("Output directory: %s\n", outputRoot)
+		fmt.Println() // Blank line before run output
+	}
 	runID := makeRunID()
 	runDir := filepath.Join(outputRoot, "runs", runID)
 	logDir := filepath.Join(runDir, "logs")
@@ -1256,6 +1336,47 @@ func filterTasksByWatchPaths(tasks []model.TaskDefinition, changedFiles []string
 	}
 
 	return out
+}
+
+// determineRepoRoot resolves the repo root directory
+// Priority: 1) config.repoRoot override, 2) git root from config location, 3) config directory
+func determineRepoRoot(configPath string, cfg config.Config, gitRoot string, inGitRepo bool) string {
+	// If repoRoot is explicitly set in config, use it
+	if cfg.Defaults.RepoRoot != "" {
+		repoRoot := cfg.Defaults.RepoRoot
+		// If relative, resolve from config file location
+		if !filepath.IsAbs(repoRoot) {
+			if configPath != "" {
+				absConfigPath, err := filepath.Abs(configPath)
+				if err == nil {
+					configDir := filepath.Dir(absConfigPath)
+					repoRoot = filepath.Join(configDir, repoRoot)
+				}
+			}
+		}
+		return filepath.Clean(repoRoot)
+	}
+
+	// Auto-detect: if config path is provided, detect from config location
+	if configPath != "" {
+		absConfigPath, err := filepath.Abs(configPath)
+		if err == nil {
+			configDir := filepath.Dir(absConfigPath)
+			// Try to find git root from config directory
+			detectedRoot, detectedInRepo := git.DetectRepoRootFrom(configDir)
+			if detectedInRepo {
+				return detectedRoot
+			}
+			// No git repo, use config directory
+			return configDir
+		}
+	}
+
+	// Fallback: use git root if in repo, otherwise current directory
+	if inGitRepo {
+		return gitRoot
+	}
+	return gitRoot // gitRoot is already CWD if not in repo
 }
 
 func makeRunID() string {

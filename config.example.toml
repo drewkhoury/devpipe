@@ -16,6 +16,10 @@
 # -----------------------------------------------------------------------------
 
 [defaults]
+# Repo/project root directory (optional override, auto-detected from git or config location if not set)
+# Default: 
+# projectRoot = 
+
 # Directory for run outputs and logs
 # Default: .devpipe
 outputRoot = ".devpipe"

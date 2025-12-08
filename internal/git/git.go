@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -18,30 +19,34 @@ type GitInfo struct {
 	ChangedFiles []string `json:"changedFiles"`
 }
 
-// DetectRepoRoot detects the git repository root
+// DetectRepoRoot detects the git repository root from current working directory
 // Returns the root path and whether we're in a git repo
 func DetectRepoRoot() (string, bool) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ".", false
+	}
+	return DetectRepoRootFrom(cwd)
+}
+
+// DetectRepoRootFrom detects the git repository root starting from a specific directory
+// Returns the root path and whether we're in a git repo
+// If not in a git repo, returns the provided directory
+func DetectRepoRootFrom(dir string) (string, bool) {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	cmd.Dir = dir // Run git command from specified directory
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &bytes.Buffer{}
 
 	if err := cmd.Run(); err != nil {
-		// Not a git repo, use cwd
-		cwd, err2 := os.Getwd()
-		if err2 != nil {
-			return ".", false
-		}
-		return cwd, false
+		// Not a git repo, return the directory itself
+		return dir, false
 	}
 
 	root := strings.TrimSpace(buf.String())
 	if root == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return ".", false
-		}
-		return cwd, false
+		return dir, false
 	}
 
 	return root, true
@@ -110,4 +115,70 @@ func DetectChangedFiles(repoRoot string, inGitRepo bool, mode string, ref string
 
 	info.ChangedFiles = files
 	return info
+}
+
+// IsSafeDirectory checks if a directory is safe to run devpipe in.
+// Returns false for system directories like /, /usr, /etc, /System, etc.
+// Returns true for user directories and subdirectories of some system paths.
+func IsSafeDirectory(dir string) bool {
+	// Empty or relative paths are safe
+	if dir == "" || dir == "." || !strings.HasPrefix(dir, "/") {
+		return true
+	}
+
+	// Clean the path to normalize it (handles //, trailing slashes, etc.)
+	dir = filepath.Clean(dir)
+
+	// Special case: root directory is never safe
+	if dir == "" || dir == "/" {
+		return false
+	}
+
+	// Allow safe subdirectories of /usr
+	if strings.HasPrefix(dir, "/usr/local/") || strings.HasPrefix(dir, "/usr/src/") {
+		return true
+	}
+
+	// Allow subdirectories of /Volumes (external drives, network shares)
+	if strings.HasPrefix(dir, "/Volumes/") {
+		return true
+	}
+
+	// Dangerous directories where we block both the directory and all subdirectories
+	strictlyDangerousDirs := []string{
+		"/usr",
+		"/etc",
+		"/private/etc", // macOS real path for /etc
+		"/bin",
+		"/sbin",
+		"/boot",
+		"/System",
+		"/Library",
+		"/Applications",
+		"/dev",
+		"/proc",
+		"/sys",
+	}
+
+	for _, dangerous := range strictlyDangerousDirs {
+		if dir == dangerous || strings.HasPrefix(dir, dangerous+"/") {
+			return false
+		}
+	}
+
+	// Dangerous directories where we only block the top level, not subdirectories
+	// (e.g., /tmp/myproject is OK, but /tmp itself is not)
+	topLevelOnlyDangerousDirs := []string{
+		"/var",
+		"/tmp",
+		"/Volumes",
+	}
+
+	for _, dangerous := range topLevelOnlyDangerousDirs {
+		if dir == dangerous {
+			return false
+		}
+	}
+
+	return true
 }

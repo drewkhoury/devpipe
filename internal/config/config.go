@@ -19,6 +19,8 @@ type Config struct {
 
 // DefaultsConfig holds global defaults
 type DefaultsConfig struct {
+	// Repo/project root directory (optional, auto-detected if not set)
+	RepoRoot string `toml:"repoRoot" doc:"Repo/project root directory (optional override, auto-detected from git or config location if not set)"`
 	// Directory for run outputs and logs
 	OutputRoot string `toml:"outputRoot" doc:"Directory for run outputs and logs"`
 	// Tasks longer than this (seconds) are skipped with --fast
