@@ -37,14 +37,14 @@ devpipe will refuse to run in the following directories:
 
 ## Error Messages
 
-### Unsafe Repo Root
+### Unsafe Project Root
 
-If the detected repo root is in an unsafe directory:
+If the detected project root is in an unsafe directory:
 
 ```
 ERROR: Refusing to run devpipe in system directory: /usr
 This safety check prevents accidental execution in critical system paths.
-Please run devpipe from your project directory, or set repoRoot in your config.
+Please run devpipe from your project directory, or set projectRoot in your config.
 ```
 
 ### Unsafe Output Directory
@@ -69,12 +69,12 @@ cd /path/to/your/project
 devpipe
 ```
 
-### 2. Set `repoRoot` in Config
-Override the auto-detected repo root:
+### 2. Set `projectRoot` in Config
+Override the auto-detected project root:
 
 ```toml
 [defaults]
-repoRoot = "/path/to/your/project"
+projectRoot = "/path/to/your/project"
 ```
 
 This tells devpipe where your project is, regardless of where you run it from.
@@ -96,12 +96,12 @@ workdir = "/path/to/your/project"
 ```
 
 ### 4. Use Absolute Config Path
-When using an absolute config path, devpipe auto-detects the repo root from the config location:
+When using an absolute config path, devpipe auto-detects the project root from the config location:
 
 ```bash
 cd /
 devpipe --config /path/to/your/project/config.toml
-# → Repo root auto-detected as /path/to/your/project
+# → Project root auto-detected as /path/to/your/project
 ```
 
 ## Design Rationale

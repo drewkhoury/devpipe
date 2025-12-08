@@ -5,6 +5,7 @@ devpipe
 .devpipe/
 .devpipe-test/
 tmp/
+./devpipe-output-test
 
 # goreleaser build artifacts
 dist/

@@ -256,14 +256,14 @@ func TestRunTask_VerboseMode(t *testing.T) {
 }
 
 func TestParseTaskMetrics_JUnit(t *testing.T) {
-	repoRoot, err := os.Getwd()
+	projectRoot, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Getwd failed: %v", err)
 	}
 
 	task := model.TaskDefinition{
 		ID:            "junit-task",
-		Workdir:       repoRoot,
+		Workdir:       projectRoot,
 		MetricsFormat: "junit",
 		MetricsPath:   "testdata/junit-single-suite.xml",
 	}
@@ -295,14 +295,14 @@ func TestParseTaskMetrics_FileNotFound(t *testing.T) {
 }
 
 func TestParseTaskMetrics_SARIF(t *testing.T) {
-	repoRoot, err := os.Getwd()
+	projectRoot, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Getwd failed: %v", err)
 	}
 
 	task := model.TaskDefinition{
 		ID:            "sarif-task",
-		Workdir:       repoRoot,
+		Workdir:       projectRoot,
 		MetricsFormat: "sarif",
 		MetricsPath:   "testdata/sarif-sample.json",
 	}

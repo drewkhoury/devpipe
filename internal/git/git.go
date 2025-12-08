@@ -13,26 +13,26 @@ import (
 // GitInfo holds git metadata for a run
 type GitInfo struct {
 	InGitRepo    bool     `json:"inGitRepo"`
-	RepoRoot     string   `json:"repoRoot"`
+	RepoRoot     string   `json:"projectRoot"`
 	Mode         string   `json:"mode"` // "staged", "staged_unstaged", "ref"
 	Ref          string   `json:"ref"`  // reference used for comparison
 	ChangedFiles []string `json:"changedFiles"`
 }
 
-// DetectRepoRoot detects the git repository root from current working directory
+// DetectProjectRoot detects the git repository root from current working directory
 // Returns the root path and whether we're in a git repo
-func DetectRepoRoot() (string, bool) {
+func DetectProjectRoot() (string, bool) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return ".", false
 	}
-	return DetectRepoRootFrom(cwd)
+	return DetectProjectRootFrom(cwd)
 }
 
-// DetectRepoRootFrom detects the git repository root starting from a specific directory
+// DetectProjectRootFrom detects the git repository root starting from a specific directory
 // Returns the root path and whether we're in a git repo
 // If not in a git repo, returns the provided directory
-func DetectRepoRootFrom(dir string) (string, bool) {
+func DetectProjectRootFrom(dir string) (string, bool) {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	cmd.Dir = dir // Run git command from specified directory
 	var buf bytes.Buffer
@@ -53,10 +53,10 @@ func DetectRepoRootFrom(dir string) (string, bool) {
 }
 
 // DetectChangedFiles detects changed files based on the specified mode
-func DetectChangedFiles(repoRoot string, inGitRepo bool, mode string, ref string, verbose bool) GitInfo {
+func DetectChangedFiles(projectRoot string, inGitRepo bool, mode string, ref string, verbose bool) GitInfo {
 	info := GitInfo{
 		InGitRepo:    inGitRepo,
-		RepoRoot:     repoRoot,
+		RepoRoot:     projectRoot,
 		Mode:         mode,
 		Ref:          ref,
 		ChangedFiles: []string{},
@@ -87,7 +87,7 @@ func DetectChangedFiles(repoRoot string, inGitRepo bool, mode string, ref string
 		info.Mode = "staged_unstaged"
 	}
 
-	cmd.Dir = repoRoot
+	cmd.Dir = projectRoot
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &bytes.Buffer{}

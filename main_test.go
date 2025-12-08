@@ -350,12 +350,12 @@ func TestWriteRunJSON(t *testing.T) {
 	_ = os.MkdirAll(runDir, 0755)
 
 	record := model.RunRecord{
-		RunID:      "test-run-123",
-		Timestamp:  "2024-01-01T00:00:00Z",
-		RepoRoot:   "/test/repo",
-		OutputRoot: "/test/output",
-		ConfigPath: "config.toml",
-		Command:    "devpipe --verbose",
+		RunID:       "test-run-123",
+		Timestamp:   "2024-01-01T00:00:00Z",
+		ProjectRoot: "/test/repo",
+		OutputRoot:  "/test/output",
+		ConfigPath:  "config.toml",
+		Command:     "devpipe --verbose",
 	}
 
 	err := writeRunJSON(runDir, record)

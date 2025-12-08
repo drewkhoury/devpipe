@@ -1,0 +1,81 @@
+{
+  "totalRuns": 3,
+  "recentRuns": [
+    {
+      "runId": "2025-12-08T01-41-58Z_098313",
+      "timestamp": "2025-12-08T01:41:58Z",
+      "status": "SKIPPED",
+      "duration": 0,
+      "passCount": 0,
+      "failCount": 0,
+      "skipCount": 1,
+      "totalTasks": 1,
+      "command": "/tmp/devpipe --dry-run --verbose --config /Users/drew/repos/devpipe/config/path-testing.toml",
+      "pipelineVersion": "dev"
+    },
+    {
+      "runId": "2025-12-08T01-36-49Z_097810",
+      "timestamp": "2025-12-08T01:36:49Z",
+      "status": "SKIPPED",
+      "duration": 0,
+      "passCount": 0,
+      "failCount": 0,
+      "skipCount": 1,
+      "totalTasks": 1,
+      "command": "./devpipe --dry-run --verbose --config /Users/drew/repos/devpipe/config/path-testing.toml",
+      "pipelineVersion": "dev"
+    },
+    {
+      "runId": "2025-12-08T01-35-55Z_097793",
+      "timestamp": "2025-12-08T01:35:55Z",
+      "status": "SKIPPED",
+      "duration": 0,
+      "passCount": 0,
+      "failCount": 0,
+      "skipCount": 1,
+      "totalTasks": 1,
+      "command": "/tmp/devpipe --dry-run --verbose --config /Users/drew/repos/devpipe/config/path-testing.toml",
+      "pipelineVersion": "dev"
+    }
+  ],
+  "taskStats": {
+    "echo": {
+      "id": "echo",
+      "name": "echo",
+      "totalRuns": 3,
+      "passCount": 0,
+      "failCount": 0,
+      "skipCount": 3,
+      "avgDuration": 0,
+      "lastStatus": "SKIPPED"
+    }
+  },
+  "taskStatsRecent": {
+    "echo": {
+      "id": "echo",
+      "name": "echo",
+      "totalRuns": 1,
+      "passCount": 0,
+      "failCount": 0,
+      "skipCount": 1,
+      "avgDuration": 0,
+      "lastStatus": "SKIPPED"
+    }
+  },
+  "taskStatsLast25": {
+    "echo": {
+      "id": "echo",
+      "name": "echo",
+      "totalRuns": 3,
+      "passCount": 0,
+      "failCount": 0,
+      "skipCount": 3,
+      "avgDuration": 0,
+      "lastStatus": "SKIPPED"
+    }
+  },
+  "lastGenerated": "2025-12-08T01:41:58Z",
+  "username": "drew",
+  "greeting": "Ahoy",
+  "version": "dev"
+}

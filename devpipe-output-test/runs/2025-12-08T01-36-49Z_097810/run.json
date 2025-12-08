@@ -1,0 +1,101 @@
+{
+  "runId": "2025-12-08T01-36-49Z_097810",
+  "timestamp": "2025-12-08T01:36:49Z",
+  "repoRoot": "/Users/drew/repos/devpipe",
+  "outputRoot": "/Users/drew/repos/devpipe/devpipe-output-test",
+  "configPath": "/Users/drew/repos/devpipe/config/path-testing.toml",
+  "command": "./devpipe --dry-run --verbose --config /Users/drew/repos/devpipe/config/path-testing.toml",
+  "pipelineVersion": "dev",
+  "reportVersion": "dev",
+  "git": {
+    "changedFiles": [
+      ".gitignore",
+      "config.example.toml",
+      "config.schema.json",
+      "config/path-testing.toml",
+      "docs/project-root.md",
+      "docs/safety-checks.md",
+      "internal/config/config.go",
+      "internal/config/config_test.go",
+      "internal/config/defaults.go",
+      "internal/git/git.go",
+      "internal/git/git_test.go",
+      "internal/model/model.go",
+      "internal/ui/renderer.go",
+      "internal/ui/renderer_test.go",
+      "main.go",
+      "main_task_test.go",
+      "main_test.go"
+    ],
+    "inGitRepo": true,
+    "mode": "staged_unstaged",
+    "ref": "HEAD",
+    "repoRoot": "/Users/drew/repos/devpipe"
+  },
+  "flags": {
+    "fast": false,
+    "failFast": false,
+    "dryRun": true,
+    "verbose": true,
+    "config": "/Users/drew/repos/devpipe/config/path-testing.toml"
+  },
+  "tasks": [
+    {
+      "id": "echo",
+      "name": "echo",
+      "type": "",
+      "status": "SKIPPED",
+      "skipped": true,
+      "skipReason": "dry-run",
+      "command": "echo hello",
+      "workdir": "/Users/drew/repos/devpipe",
+      "logPath": "/Users/drew/repos/devpipe/devpipe-output-test/runs/2025-12-08T01-36-49Z_097810/logs/echo.log",
+      "durationMs": 0,
+      "estimatedSeconds": 10
+    }
+  ],
+  "effectiveConfig": {
+    "values": [
+      {
+        "key": "defaults.outputRoot",
+        "value": "./devpipe-output-test",
+        "source": "config-file"
+      },
+      {
+        "key": "defaults.fastThreshold",
+        "value": "300",
+        "source": "config-file"
+      },
+      {
+        "key": "defaults.uiMode",
+        "value": "basic",
+        "source": "config-file"
+      },
+      {
+        "key": "defaults.animationRefreshMs",
+        "value": "500",
+        "source": "config-file"
+      },
+      {
+        "key": "defaults.git.mode",
+        "value": "staged_unstaged",
+        "source": "config-file"
+      },
+      {
+        "key": "defaults.git.ref",
+        "value": "HEAD",
+        "source": "config-file"
+      },
+      {
+        "key": "task_defaults.enabled",
+        "value": "true",
+        "source": "config-file"
+      },
+      {
+        "key": "task_defaults.workdir",
+        "value": ".",
+        "source": "config-file"
+      }
+    ]
+  }
+}

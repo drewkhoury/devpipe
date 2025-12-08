@@ -15,7 +15,7 @@ type configValidationContext struct {
 }
 
 func (c *configValidationContext) aValidConfigFile(filename string) error {
-	// Use the actual config.toml from the repo root (one level up from features/)
+	// Use the actual config.toml from the project root (one level up from features/)
 	c.configPath = filepath.Join("..", filename)
 	return nil
 }

@@ -61,16 +61,16 @@ func (r *Renderer) IsAnimated() bool {
 }
 
 // RenderHeader renders the pipeline header
-func (r *Renderer) RenderHeader(runID, repoRoot string, gitMode string, changedFiles int) {
+func (r *Renderer) RenderHeader(runID, projectRoot string, gitMode string, changedFiles int) {
 	switch r.mode {
 	case UIModeFull:
-		r.renderFullHeader(runID, repoRoot, gitMode, changedFiles)
+		r.renderFullHeader(runID, projectRoot, gitMode, changedFiles)
 	default:
-		r.renderBasicHeader(runID, repoRoot, gitMode, changedFiles)
+		r.renderBasicHeader(runID, projectRoot, gitMode, changedFiles)
 	}
 }
 
-func (r *Renderer) renderFullHeader(runID, repoRoot string, gitMode string, changedFiles int) {
+func (r *Renderer) renderFullHeader(runID, projectRoot string, gitMode string, changedFiles int) {
 	line := strings.Repeat("═", r.width-2)
 	fmt.Printf("╔%s╗\n", line)
 	fmt.Printf("║ %s%-*s%s║\n",
@@ -78,7 +78,7 @@ func (r *Renderer) renderFullHeader(runID, repoRoot string, gitMode string, chan
 		r.width-len("devpipe run "+runID)-3,
 		"",
 		"")
-	fmt.Printf("║ Repo: %-*s║\n", r.width-9, repoRoot)
+	fmt.Printf("║ Repo: %-*s║\n", r.width-9, projectRoot)
 	if gitMode != "" {
 		info := fmt.Sprintf("Git: %s | Files: %d", gitMode, changedFiles)
 		fmt.Printf("║ %-*s║\n", r.width-3, info)
@@ -87,9 +87,9 @@ func (r *Renderer) renderFullHeader(runID, repoRoot string, gitMode string, chan
 	fmt.Println()
 }
 
-func (r *Renderer) renderBasicHeader(runID, repoRoot string, gitMode string, changedFiles int) {
+func (r *Renderer) renderBasicHeader(runID, projectRoot string, gitMode string, changedFiles int) {
 	fmt.Printf("devpipe run %s\n", runID)
-	fmt.Printf("Repo root: %s\n", repoRoot)
+	fmt.Printf("Project root: %s\n", projectRoot)
 	if gitMode != "" {
 		fmt.Printf("Git mode: %s\n", gitMode)
 		fmt.Printf("Changed files: %d\n", changedFiles)

@@ -185,20 +185,20 @@ func main() {
 	useAnimated := flagDashboard && ui.IsTTY(uintptr(1))
 	renderer := ui.NewRenderer(uiMode, enableColors, useAnimated)
 
-	// Determine repo root first (for all path resolution)
+	// Determine project root first (for all path resolution)
 	// This can be overridden in config, or auto-detected from git/config location
 	// We need to do this before git detection to know where to look for git
-	cwdGitRoot, cwdInGitRepo := git.DetectRepoRoot()
-	repoRoot := determineRepoRoot(flagConfig, mergedCfg, cwdGitRoot, cwdInGitRepo)
+	cwdGitRoot, cwdInGitRepo := git.DetectProjectRoot()
+	projectRoot := determineProjectRoot(flagConfig, mergedCfg, cwdGitRoot, cwdInGitRepo)
 
-	// Now detect git root from the repo root location (for git operations)
-	gitRoot, inGitRepo := git.DetectRepoRootFrom(repoRoot)
+	// Now detect git root from the project root location (for git operations)
+	gitRoot, inGitRepo := git.DetectProjectRootFrom(projectRoot)
 
 	// Safety check: prevent running in dangerous system directories
-	if !git.IsSafeDirectory(repoRoot) {
-		fmt.Fprintf(os.Stderr, "ERROR: Refusing to run devpipe in system directory: %s\n", repoRoot)
+	if !git.IsSafeDirectory(projectRoot) {
+		fmt.Fprintf(os.Stderr, "ERROR: Refusing to run devpipe in system directory: %s\n", projectRoot)
 		fmt.Fprintf(os.Stderr, "This safety check prevents accidental execution in critical system paths.\n")
-		fmt.Fprintf(os.Stderr, "Please run devpipe from your project directory, or set repoRoot in your config.\n")
+		fmt.Fprintf(os.Stderr, "Please run devpipe from your project directory, or set projectRoot in your config.\n")
 		os.Exit(1)
 	}
 
@@ -212,7 +212,7 @@ func main() {
 		_, _ = fmt.Scanln(&response) // Best effort user input
 
 		if response == "y" || response == "Y" || response == "yes" || response == "Yes" {
-			if err := config.GenerateDefaultConfig(defaultConfigPath, repoRoot); err != nil {
+			if err := config.GenerateDefaultConfig(defaultConfigPath, projectRoot); err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: Could not generate config.toml: %v\n", err)
 				os.Exit(1)
 			}
@@ -237,7 +237,7 @@ func main() {
 		if flagVerbose {
 			fmt.Println("No config file found, using built-in tasks")
 		}
-		tasks = config.BuiltInTasks(repoRoot)
+		tasks = config.BuiltInTasks(projectRoot)
 		taskOrder = config.GetTaskOrder()
 	} else {
 		// Use tasks from config
@@ -290,7 +290,7 @@ func main() {
 	// Get changed files (uses git root)
 	gitInfo := git.DetectChangedFiles(gitRoot, inGitRepo, gitMode, gitRef, flagVerbose)
 
-	// Prepare output dir (uses repo root for relative paths, respects absolute paths)
+	// Prepare output dir (uses project root for relative paths, respects absolute paths)
 	var outputRoot string
 	// Clean the configured path first (handles trailing slashes, .., etc.)
 	cleanedOutputRoot := filepath.Clean(mergedCfg.Defaults.OutputRoot)
@@ -299,8 +299,8 @@ func main() {
 		// Use absolute path as-is
 		outputRoot = cleanedOutputRoot
 	} else {
-		// Relative path - join with repoRoot
-		outputRoot = filepath.Join(repoRoot, cleanedOutputRoot)
+		// Relative path - join with projectRoot
+		outputRoot = filepath.Join(projectRoot, cleanedOutputRoot)
 	}
 
 	// Clean the final path
@@ -344,19 +344,19 @@ func main() {
 		} else {
 			fmt.Printf("Config: %s\n", configPath)
 		}
-		if mergedCfg.Defaults.RepoRoot != "" {
-			fmt.Printf("Repo root: %s (from config)\n", repoRoot)
+		if mergedCfg.Defaults.ProjectRoot != "" {
+			fmt.Printf("Project root: %s (from config)\n", projectRoot)
 		} else {
 			if inGitRepo {
-				fmt.Printf("Repo root: %s (auto-detected from git)\n", repoRoot)
+				fmt.Printf("Project root: %s (auto-detected from git)\n", projectRoot)
 			} else {
-				fmt.Printf("Repo root: %s (auto-detected from config location)\n", repoRoot)
+				fmt.Printf("Project root: %s (auto-detected from config location)\n", projectRoot)
 			}
 		}
 		if inGitRepo {
-			fmt.Printf("Git root: %s (detected by running git from repo root)\n", gitRoot)
+			fmt.Printf("Git root: %s (detected by running git from project root)\n", gitRoot)
 		} else {
-			fmt.Printf("Git root: %s (no git repo found at repo root)\n", gitRoot)
+			fmt.Printf("Git root: %s (no git repo found at project root)\n", gitRoot)
 		}
 		fmt.Printf("Output directory: %s\n", outputRoot)
 		fmt.Println() // Blank line before run output
@@ -391,7 +391,7 @@ func main() {
 		}
 
 		// Resolve with defaults
-		resolved := mergedCfg.ResolveTaskConfig(id, taskCfg, repoRoot)
+		resolved := mergedCfg.ResolveTaskConfig(id, taskCfg, projectRoot)
 
 		// Skip if disabled
 		if resolved.Enabled != nil && !*resolved.Enabled {
@@ -464,7 +464,7 @@ func main() {
 
 	// Apply watchPaths filtering based on git changes (unless --ignore-watch-paths is set)
 	if !flagIgnoreWatchPaths && gitInfo.InGitRepo && len(gitInfo.ChangedFiles) >= 0 {
-		filteredTasks = filterTasksByWatchPaths(filteredTasks, gitInfo.ChangedFiles, repoRoot, flagVerbose)
+		filteredTasks = filterTasksByWatchPaths(filteredTasks, gitInfo.ChangedFiles, projectRoot, flagVerbose)
 	}
 
 	// Run tasks
@@ -492,7 +492,7 @@ func main() {
 	}
 
 	// Render header
-	renderer.RenderHeader(runID, repoRoot, gitMode, len(gitInfo.ChangedFiles))
+	renderer.RenderHeader(runID, projectRoot, gitMode, len(gitInfo.ChangedFiles))
 
 	// Setup animation if enabled
 	var tracker *ui.AnimatedTaskTracker
@@ -945,7 +945,7 @@ func main() {
 	runRecord := model.RunRecord{
 		RunID:           runID,
 		Timestamp:       time.Now().UTC().Format(time.RFC3339),
-		RepoRoot:        repoRoot,
+		ProjectRoot:     projectRoot,
 		OutputRoot:      outputRoot,
 		ConfigPath:      actualConfigPath,
 		Command:         buildCommandString(),
@@ -1273,7 +1273,7 @@ func filterTasks(tasks []model.TaskDefinition, only string, skip sliceFlag, _ bo
 	return out
 }
 
-func filterTasksByWatchPaths(tasks []model.TaskDefinition, changedFiles []string, repoRoot string, verbose bool) []model.TaskDefinition {
+func filterTasksByWatchPaths(tasks []model.TaskDefinition, changedFiles []string, projectRoot string, verbose bool) []model.TaskDefinition {
 	var out []model.TaskDefinition
 	for _, task := range tasks {
 		// If task has no watchPaths, always include it
@@ -1296,7 +1296,7 @@ func filterTasksByWatchPaths(tasks []model.TaskDefinition, changedFiles []string
 			// Make changed file path absolute
 			absChangedFile := changedFile
 			if !filepath.IsAbs(changedFile) {
-				absChangedFile = filepath.Join(repoRoot, changedFile)
+				absChangedFile = filepath.Join(projectRoot, changedFile)
 			}
 
 			// Check against each watchPath pattern
@@ -1338,23 +1338,23 @@ func filterTasksByWatchPaths(tasks []model.TaskDefinition, changedFiles []string
 	return out
 }
 
-// determineRepoRoot resolves the repo root directory
-// Priority: 1) config.repoRoot override, 2) git root from config location, 3) config directory
-func determineRepoRoot(configPath string, cfg config.Config, gitRoot string, inGitRepo bool) string {
-	// If repoRoot is explicitly set in config, use it
-	if cfg.Defaults.RepoRoot != "" {
-		repoRoot := cfg.Defaults.RepoRoot
+// determineProjectRoot resolves the project root directory
+// Priority: 1) config.projectRoot override, 2) git root from config location, 3) config directory
+func determineProjectRoot(configPath string, cfg config.Config, gitRoot string, inGitRepo bool) string {
+	// If projectRoot is explicitly set in config, use it
+	if cfg.Defaults.ProjectRoot != "" {
+		projectRoot := cfg.Defaults.ProjectRoot
 		// If relative, resolve from config file location
-		if !filepath.IsAbs(repoRoot) {
+		if !filepath.IsAbs(projectRoot) {
 			if configPath != "" {
 				absConfigPath, err := filepath.Abs(configPath)
 				if err == nil {
 					configDir := filepath.Dir(absConfigPath)
-					repoRoot = filepath.Join(configDir, repoRoot)
+					projectRoot = filepath.Join(configDir, projectRoot)
 				}
 			}
 		}
-		return filepath.Clean(repoRoot)
+		return filepath.Clean(projectRoot)
 	}
 
 	// Auto-detect: if config path is provided, detect from config location
@@ -1363,7 +1363,7 @@ func determineRepoRoot(configPath string, cfg config.Config, gitRoot string, inG
 		if err == nil {
 			configDir := filepath.Dir(absConfigPath)
 			// Try to find git root from config directory
-			detectedRoot, detectedInRepo := git.DetectRepoRootFrom(configDir)
+			detectedRoot, detectedInRepo := git.DetectProjectRootFrom(configDir)
 			if detectedInRepo {
 				return detectedRoot
 			}
@@ -1989,8 +1989,8 @@ func generateReportsCmd() {
 	startTime := time.Now()
 	fmt.Println("Regenerating all reports with latest template...")
 
-	// Determine repo root
-	repoRoot, _ := git.DetectRepoRoot()
+	// Determine project root
+	projectRoot, _ := git.DetectProjectRoot()
 
 	// Get output root from default config
 	cfg, _, _, _, err := config.LoadConfig("")
@@ -2000,7 +2000,7 @@ func generateReportsCmd() {
 	}
 
 	mergedCfg := config.MergeWithDefaults(cfg)
-	outputRoot := filepath.Join(repoRoot, mergedCfg.Defaults.OutputRoot)
+	outputRoot := filepath.Join(projectRoot, mergedCfg.Defaults.OutputRoot)
 
 	// Count runs before regenerating
 	runsDir := filepath.Join(outputRoot, "runs")
@@ -2172,11 +2172,11 @@ func listCmd() {
 	// Merge with defaults
 	mergedCfg := config.MergeWithDefaults(cfg)
 
-	// Determine repo root
-	repoRoot, _ := git.DetectRepoRoot()
+	// Determine project root
+	projectRoot, _ := git.DetectProjectRoot()
 
 	// Load historical averages
-	outputRoot := filepath.Join(repoRoot, mergedCfg.Defaults.OutputRoot)
+	outputRoot := filepath.Join(projectRoot, mergedCfg.Defaults.OutputRoot)
 	taskAverages := loadTaskAveragesLast25(outputRoot)
 
 	// Build task list (filter out phase markers)
@@ -2318,7 +2318,7 @@ func listCmd() {
 
 		// Tasks
 		for _, t := range phase.tasks {
-			resolvedTask := mergedCfg.ResolveTaskConfig(t.id, t.task, repoRoot)
+			resolvedTask := mergedCfg.ResolveTaskConfig(t.id, t.task, projectRoot)
 
 			// Add metrics emoji if present
 			metricsEmoji := ""

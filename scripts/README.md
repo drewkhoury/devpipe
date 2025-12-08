@@ -10,7 +10,7 @@ Interactive script that tests devpipe on a real-world Go project.
 
 **Usage:**
 ```bash
-# From repo root (uses ./devpipe)
+# From project root (uses ./devpipe)
 ./scripts/exploratory-test-realworld.sh
 
 # With custom devpipe binary

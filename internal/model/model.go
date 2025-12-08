@@ -104,7 +104,7 @@ type EffectiveConfig struct {
 type RunRecord struct {
 	RunID           string           `json:"runId"`
 	Timestamp       string           `json:"timestamp"`
-	RepoRoot        string           `json:"repoRoot"`
+	ProjectRoot     string           `json:"projectRoot"`
 	OutputRoot      string           `json:"outputRoot"`
 	ConfigPath      string           `json:"configPath,omitempty"`
 	Command         string           `json:"command,omitempty"` // Full command line that was executed

@@ -70,7 +70,7 @@ func TestRenderHeader(t *testing.T) {
 		name           string
 		mode           UIMode
 		runID          string
-		repoRoot       string
+		projectRoot    string
 		gitMode        string
 		changedFiles   int
 		expectInOutput []string
@@ -79,12 +79,12 @@ func TestRenderHeader(t *testing.T) {
 			name:         "basic mode",
 			mode:         UIModeBasic,
 			runID:        "test-123",
-			repoRoot:     "/home/user/project",
+			projectRoot:  "/home/user/project",
 			gitMode:      "staged",
 			changedFiles: 5,
 			expectInOutput: []string{
 				"devpipe run test-123",
-				"Repo root: /home/user/project",
+				"Project root: /home/user/project",
 				"Git mode: staged",
 				"Changed files: 5",
 			},
@@ -93,19 +93,19 @@ func TestRenderHeader(t *testing.T) {
 			name:         "basic mode without git",
 			mode:         UIModeBasic,
 			runID:        "test-456",
-			repoRoot:     "/project",
+			projectRoot:  "/project",
 			gitMode:      "",
 			changedFiles: 0,
 			expectInOutput: []string{
 				"devpipe run test-456",
-				"Repo root: /project",
+				"Project root: /project",
 			},
 		},
 		{
 			name:         "full mode",
 			mode:         UIModeFull,
 			runID:        "test-789",
-			repoRoot:     "/app",
+			projectRoot:  "/app",
 			gitMode:      "ref",
 			changedFiles: 10,
 			expectInOutput: []string{
@@ -123,7 +123,7 @@ func TestRenderHeader(t *testing.T) {
 			os.Stdout = w
 
 			renderer := NewRenderer(tt.mode, false, false)
-			renderer.RenderHeader(tt.runID, tt.repoRoot, tt.gitMode, tt.changedFiles)
+			renderer.RenderHeader(tt.runID, tt.projectRoot, tt.gitMode, tt.changedFiles)
 
 			_ = w.Close() // Test cleanup
 			os.Stdout = old

@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-func TestDetectRepoRoot(t *testing.T) {
+func TestDetectProjectRoot(t *testing.T) {
 	// This test requires being in a git repo
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
@@ -17,15 +17,15 @@ func TestDetectRepoRoot(t *testing.T) {
 
 	// Basic sanity checks
 	if root == "" {
-		t.Error("Expected non-empty repo root when in git repo")
+		t.Error("Expected non-empty project root when in git repo")
 	}
 }
 
-func TestDetectRepoRootNotInRepo(t *testing.T) {
+func TestDetectProjectRootNotInRepo(t *testing.T) {
 	// Test the case where we're not in a git repo
 	// We can't easily simulate this, but we can at least verify
 	// the function returns consistent results
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 
 	// If not in a git repo, root should be empty
 	if !inGitRepo && root != "" {
@@ -39,7 +39,7 @@ func TestDetectRepoRootNotInRepo(t *testing.T) {
 }
 
 func TestDetectChangedFiles(t *testing.T) {
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
@@ -128,7 +128,7 @@ func TestDetectChangedFilesNotInRepo(t *testing.T) {
 }
 
 func TestDetectChangedFilesRefMode(t *testing.T) {
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
@@ -157,7 +157,7 @@ func TestDetectChangedFilesRefMode(t *testing.T) {
 }
 
 func TestDetectChangedFilesDefaultMode(t *testing.T) {
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
@@ -181,7 +181,7 @@ func TestDetectChangedFilesDefaultMode(t *testing.T) {
 }
 
 func TestDetectChangedFilesVerbose(t *testing.T) {
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
@@ -202,7 +202,7 @@ func TestDetectChangedFilesVerbose(t *testing.T) {
 }
 
 func TestDetectChangedFilesInvalidRef(t *testing.T) {
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
@@ -222,7 +222,7 @@ func TestDetectChangedFilesInvalidRef(t *testing.T) {
 }
 
 func TestDetectChangedFilesEmptyMode(t *testing.T) {
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
@@ -241,13 +241,13 @@ func TestDetectChangedFilesEmptyMode(t *testing.T) {
 }
 
 func TestDetectChangedFilesWithInvalidRepoRoot(t *testing.T) {
-	_, inGitRepo := DetectRepoRoot()
+	_, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
 	}
 
-	// Test with an invalid repo root path - git command should fail
+	// Test with an invalid project root path - git command should fail
 	info := DetectChangedFiles("/nonexistent/path/to/repo", true, "staged", "", false)
 
 	// Should handle gracefully and return empty changed files
@@ -256,28 +256,28 @@ func TestDetectChangedFilesWithInvalidRepoRoot(t *testing.T) {
 	}
 
 	if len(info.ChangedFiles) != 0 {
-		t.Errorf("Expected 0 changed files with invalid repo root, got %d", len(info.ChangedFiles))
+		t.Errorf("Expected 0 changed files with invalid project root, got %d", len(info.ChangedFiles))
 	}
 }
 
 func TestDetectChangedFilesWithInvalidRepoRootVerbose(t *testing.T) {
-	_, inGitRepo := DetectRepoRoot()
+	_, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
 	}
 
-	// Test with an invalid repo root path and verbose=true
+	// Test with an invalid project root path and verbose=true
 	// This should trigger the verbose error message path
 	info := DetectChangedFiles("/nonexistent/path/to/repo", true, "staged", "", true)
 
 	// Should handle gracefully and return empty changed files
 	if info.ChangedFiles == nil {
-		t.Error("Expected ChangedFiles to be initialized")
+		t.Errorf("Expected ChangedFiles to be initialized, but got nil")
 	}
 
 	if len(info.ChangedFiles) != 0 {
-		t.Errorf("Expected 0 changed files with invalid repo root, got %d", len(info.ChangedFiles))
+		t.Errorf("Expected 0 changed files with invalid project root, got %d", len(info.ChangedFiles))
 	}
 }
 
@@ -313,7 +313,7 @@ func TestGitInfoStructFields(t *testing.T) {
 }
 
 func TestDetectChangedFilesAllModes(t *testing.T) {
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
@@ -356,7 +356,7 @@ func TestDetectChangedFilesAllModes(t *testing.T) {
 }
 
 func TestDetectChangedFilesRefWithEmptyRef(t *testing.T) {
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
@@ -380,7 +380,7 @@ func TestDetectChangedFilesRefWithEmptyRef(t *testing.T) {
 }
 
 func TestDetectChangedFilesMultipleRefs(t *testing.T) {
-	root, inGitRepo := DetectRepoRoot()
+	root, inGitRepo := DetectProjectRoot()
 	if !inGitRepo {
 		t.Skip("Skipping git test: not in a git repository")
 		return
@@ -415,69 +415,69 @@ func TestDetectChangedFilesMultipleRefs(t *testing.T) {
 	}
 }
 
-func TestDetectRepoRootConsistency(t *testing.T) {
-	// Test that DetectRepoRoot returns consistent results when called multiple times
-	root1, inRepo1 := DetectRepoRoot()
-	root2, inRepo2 := DetectRepoRoot()
+func TestDetectProjectRootConsistency(t *testing.T) {
+	// Test that DetectProjectRoot returns consistent results when called multiple times
+	root1, inRepo1 := DetectProjectRoot()
+	root2, inRepo2 := DetectProjectRoot()
 
 	if root1 != root2 {
-		t.Errorf("DetectRepoRoot returned inconsistent roots: '%s' vs '%s'", root1, root2)
+		t.Errorf("DetectProjectRoot returned inconsistent roots: '%s' vs '%s'", root1, root2)
 	}
 
 	if inRepo1 != inRepo2 {
-		t.Errorf("DetectRepoRoot returned inconsistent inGitRepo values: %v vs %v", inRepo1, inRepo2)
+		t.Errorf("DetectProjectRoot returned inconsistent inGitRepo values: %v vs %v", inRepo1, inRepo2)
 	}
 }
 
-func TestDetectRepoRootFrom(t *testing.T) {
-	// Test DetectRepoRootFrom with current directory
+func TestDetectProjectRootFrom(t *testing.T) {
+	// Test DetectProjectRootFrom with current directory
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Failed to get working directory: %v", err)
 	}
 
-	root, inRepo := DetectRepoRootFrom(cwd)
+	root, inRepo := DetectProjectRootFrom(cwd)
 
-	// Should return same result as DetectRepoRoot()
-	expectedRoot, expectedInRepo := DetectRepoRoot()
+	// Should return same result as DetectProjectRoot()
+	expectedRoot, expectedInRepo := DetectProjectRoot()
 
 	if root != expectedRoot {
-		t.Errorf("DetectRepoRootFrom(%s) root = %s, want %s", cwd, root, expectedRoot)
+		t.Errorf("DetectProjectRootFrom(%s) root = %s, want %s", cwd, root, expectedRoot)
 	}
 
 	if inRepo != expectedInRepo {
-		t.Errorf("DetectRepoRootFrom(%s) inRepo = %v, want %v", cwd, inRepo, expectedInRepo)
+		t.Errorf("DetectProjectRootFrom(%s) inRepo = %v, want %v", cwd, inRepo, expectedInRepo)
 	}
 }
 
-func TestDetectRepoRootFromNonExistentDir(t *testing.T) {
+func TestDetectProjectRootFromNonExistentDir(t *testing.T) {
 	// Test with non-existent directory
 	nonExistent := "/nonexistent/path/to/nowhere"
-	root, inRepo := DetectRepoRootFrom(nonExistent)
+	root, inRepo := DetectProjectRootFrom(nonExistent)
 
 	// Should return the directory itself and false
 	if root != nonExistent {
-		t.Errorf("DetectRepoRootFrom(%s) root = %s, want %s", nonExistent, root, nonExistent)
+		t.Errorf("DetectProjectRootFrom(%s) root = %s, want %s", nonExistent, root, nonExistent)
 	}
 
 	if inRepo {
-		t.Errorf("DetectRepoRootFrom(%s) inRepo = true, want false", nonExistent)
+		t.Errorf("DetectProjectRootFrom(%s) inRepo = true, want false", nonExistent)
 	}
 }
 
-func TestDetectRepoRootFromTempDir(t *testing.T) {
+func TestDetectProjectRootFromTempDir(t *testing.T) {
 	// Create a temp directory (not a git repo)
 	tmpDir := t.TempDir()
 
-	root, inRepo := DetectRepoRootFrom(tmpDir)
+	root, inRepo := DetectProjectRootFrom(tmpDir)
 
 	// Should return the temp dir itself and false
 	if root != tmpDir {
-		t.Errorf("DetectRepoRootFrom(%s) root = %s, want %s", tmpDir, root, tmpDir)
+		t.Errorf("DetectProjectRootFrom(%s) root = %s, want %s", tmpDir, root, tmpDir)
 	}
 
 	if inRepo {
-		t.Errorf("DetectRepoRootFrom(%s) inRepo = true, want false for non-git directory", tmpDir)
+		t.Errorf("DetectProjectRootFrom(%s) inRepo = true, want false for non-git directory", tmpDir)
 	}
 }
 

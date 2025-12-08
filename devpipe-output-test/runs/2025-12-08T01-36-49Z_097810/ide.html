@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevPipe IDE - 2025-12-08T01-36-49Z_097810</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .header {
+            background: #2d2d30;
+            padding: 10px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .back-btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .back-btn:hover {
+            background: #1177bb;
+        }
+        .title {
+            font-size: 14px;
+            color: #cccccc;
+        }
+        .container {
+            display: flex;
+            height: calc(100vh - 45px);
+        }
+        .sidebar {
+            width: 250px;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 10px 15px;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #888;
+            font-weight: 600;
+        }
+        .search-box {
+            padding: 10px 15px;
+            border-bottom: 1px solid #3e3e42;
+        }
+        .search-input {
+            width: 100%;
+            background: #3c3c3c;
+            border: 1px solid #3e3e42;
+            color: #cccccc;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+        .search-results {
+            padding: 10px 15px;
+            font-size: 12px;
+            color: #888;
+        }
+        .search-result-item {
+            padding: 6px 10px;
+            margin: 4px 0;
+            background: #2d2d30;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .search-result-item:hover {
+            background: #3e3e42;
+        }
+        .search-result-file {
+            color: #4ec9b0;
+            font-weight: 500;
+        }
+        .search-result-line {
+            color: #888;
+            margin-left: 5px;
+        }
+        .search-result-preview {
+            color: #d4d4d4;
+            margin-top: 3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .search-match {
+            background: #515c6a;
+            color: #f9f9f9;
+        }
+        .file-tree {
+            list-style: none;
+        }
+        .file-item, .folder-item {
+            padding: 4px 15px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-item:hover, .folder-item:hover {
+            background: #2a2d2e;
+        }
+        .file-item.active {
+            background: #094771;
+        }
+        .folder-item {
+            font-weight: 500;
+        }
+        .folder-children {
+            padding-left: 20px;
+        }
+        .folder-icon {
+            font-size: 12px;
+        }
+        .file-icon {
+            font-size: 12px;
+        }
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .editor-tabs {
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            min-height: 35px;
+        }
+        .editor-tab {
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #969696;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+        .editor-tab.active {
+            color: #ffffff;
+            background: #1e1e1e;
+        }
+        #editor {
+            flex: 1;
+        }
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="report.html" class="back-btn">← Back to Dashboard</a>
+        <span class="title">DevPipe IDE - Run 2025-12-08T01-36-49Z_097810</span>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <div class="search-box">
+                <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search in files...">
+            </div>
+            <div id="searchResults" class="search-results" style="display: none;"></div>
+            <div id="fileTreeContainer">
+                <div class="sidebar-header">Files</div>
+                <ul class="file-tree" id="fileTree">
+                    <li class="loading">Loading files...</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="editor-container">
+            <div class="editor-tabs" id="editorTabs">
+                <span style="color: #888; font-size: 13px;">No file open</span>
+            </div>
+            <div id="editor"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <script>
+        let editor;
+        let currentFile = null;
+        let files = [{"name":"pipeline.log","path":"pipeline.log","size":0,"content":""},{"name":"config.toml","path":"config.toml","size":155,"content":"# Test paths\n\n[defaults]\noutputRoot = \"./devpipe-output-test\"\n#projectRoot = \"/Users/drew/repos/devpipe\"\n\n[tasks.echo]\nname = \"echo\"\ncommand = \"echo hello\""},{"name":"run.json","path":"run.json","size":2656,"content":"{\n  \"runId\": \"2025-12-08T01-36-49Z_097810\",\n  \"timestamp\": \"2025-12-08T01:36:49Z\",\n  \"repoRoot\": \"/Users/drew/repos/devpipe\",\n  \"outputRoot\": \"/Users/drew/repos/devpipe/devpipe-output-test\",\n  \"configPath\": \"/Users/drew/repos/devpipe/config/path-testing.toml\",\n  \"command\": \"./devpipe --dry-run --verbose --config /Users/drew/repos/devpipe/config/path-testing.toml\",\n  \"pipelineVersion\": \"dev\",\n  \"reportVersion\": \"dev\",\n  \"git\": {\n    \"changedFiles\": [\n      \".gitignore\",\n      \"config.example.toml\",\n      \"config.schema.json\",\n      \"config/path-testing.toml\",\n      \"docs/project-root.md\",\n      \"docs/safety-checks.md\",\n      \"internal/config/config.go\",\n      \"internal/config/config_test.go\",\n      \"internal/config/defaults.go\",\n      \"internal/git/git.go\",\n      \"internal/git/git_test.go\",\n      \"internal/model/model.go\",\n      \"internal/ui/renderer.go\",\n      \"internal/ui/renderer_test.go\",\n      \"main.go\",\n      \"main_task_test.go\",\n      \"main_test.go\"\n    ],\n    \"inGitRepo\": true,\n    \"mode\": \"staged_unstaged\",\n    \"ref\": \"HEAD\",\n    \"repoRoot\": \"/Users/drew/repos/devpipe\"\n  },\n  \"flags\": {\n    \"fast\": false,\n    \"failFast\": false,\n    \"dryRun\": true,\n    \"verbose\": true,\n    \"config\": \"/Users/drew/repos/devpipe/config/path-testing.toml\"\n  },\n  \"tasks\": [\n    {\n      \"id\": \"echo\",\n      \"name\": \"echo\",\n      \"type\": \"\",\n      \"status\": \"SKIPPED\",\n      \"skipped\": true,\n      \"skipReason\": \"dry-run\",\n      \"command\": \"echo hello\",\n      \"workdir\": \"/Users/drew/repos/devpipe\",\n      \"logPath\": \"/Users/drew/repos/devpipe/devpipe-output-test/runs/2025-12-08T01-36-49Z_097810/logs/echo.log\",\n      \"durationMs\": 0,\n      \"estimatedSeconds\": 10\n    }\n  ],\n  \"effectiveConfig\": {\n    \"values\": [\n      {\n        \"key\": \"defaults.outputRoot\",\n        \"value\": \"./devpipe-output-test\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.fastThreshold\",\n        \"value\": \"300\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.uiMode\",\n        \"value\": \"basic\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.animationRefreshMs\",\n        \"value\": \"500\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.git.mode\",\n        \"value\": \"staged_unstaged\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.git.ref\",\n        \"value\": \"HEAD\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"task_defaults.enabled\",\n        \"value\": \"true\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"task_defaults.workdir\",\n        \"value\": \".\",\n        \"source\": \"config-file\"\n      }\n    ]\n  }\n}\n"},{"name":"config.toml","path":"artifacts/../config.toml","size":155,"content":"# Test paths\n\n[defaults]\noutputRoot = \"./devpipe-output-test\"\n#projectRoot = \"/Users/drew/repos/devpipe\"\n\n[tasks.echo]\nname = \"echo\"\ncommand = \"echo hello\""},{"name":"pipeline.log","path":"artifacts/../pipeline.log","size":0,"content":""},{"name":"report.html","path":"artifacts/../report.html","size":45555,"content":"\u003c!DOCTYPE html\u003e\n\u003chtml lang=\"en\"\u003e\n\u003chead\u003e\n    \u003cmeta charset=\"UTF-8\"\u003e\n    \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"\u003e\n    \u003ctitle\u003eRun 2025-12-08T01-36-49Z_097810 - devpipe\u003c/title\u003e\n    \u003cstyle\u003e\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        \n        body {\n            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;\n            background: #f5f5f5;\n            color: #333;\n            line-height: 1.6;\n        }\n        \n        .container {\n            max-width: 1100px;\n            margin: 0 auto;\n            padding: 20px;\n        }\n        \n        .breadcrumb {\n            margin-bottom: 20px;\n            color: #7f8c8d;\n        }\n        \n        .breadcrumb a {\n            color: #3498db;\n            text-decoration: none;\n        }\n        \n        .breadcrumb a:hover {\n            text-decoration: underline;\n        }\n        \n        header {\n            background: white;\n            padding: 30px;\n            border-radius: 8px;\n            box-shadow: 0 2px 4px rgba(0,0,0,0.1);\n            margin-bottom: 30px;\n        }\n        \n        h1 {\n            font-size: 28px;\n            margin-bottom: 10px;\n            color: #2c3e50;\n        }\n        \n        .run-meta {\n            display: grid;\n            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));\n            gap: 15px;\n            margin-top: 20px;\n        }\n        \n        .meta-item {\n            display: flex;\n            flex-direction: column;\n        }\n        \n        .meta-label {\n            font-size: 12px;\n            color: #7f8c8d;\n            text-transform: uppercase;\n            margin-bottom: 5px;\n        }\n        \n        .meta-value {\n            font-size: 16px;\n            color: #2c3e50;\n        }\n        \n        .section {\n            background: white;\n            padding: 30px;\n            border-radius: 8px;\n            box-shadow: 0 2px 4px rgba(0,0,0,0.1);\n            margin-bottom: 30px;\n        }\n        \n        h2 {\n            font-size: 20px;\n            margin-bottom: 20px;\n            color: #2c3e50;\n        }\n        \n        .task-card {\n            border: 1px solid #dee2e6;\n            border-radius: 6px;\n            padding: 20px;\n            margin-bottom: 15px;\n        }\n        \n        .task-header {\n            display: flex;\n            justify-content: space-between;\n            align-items: flex-start;\n            margin-bottom: 15px;\n            gap: 15px;\n        }\n        \n        .task-header \u003e div:first-child {\n            flex: 1;\n            min-width: 0;\n        }\n        \n        .task-title {\n            font-size: 18px;\n            font-weight: 600;\n            color: #2c3e50;\n            word-break: break-word;\n        }\n        \n        .task-id {\n            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;\n            font-size: 13px;\n            color: #7f8c8d;\n            margin-left: 10px;\n        }\n        \n        .task-details {\n            display: grid;\n            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));\n            gap: 15px;\n            margin-top: 15px;\n        }\n        \n        .detail-item {\n            display: flex;\n            flex-direction: column;\n        }\n        \n        .detail-label {\n            font-size: 11px;\n            color: #7f8c8d;\n            text-transform: uppercase;\n            margin-bottom: 3px;\n        }\n        \n        .detail-value {\n            font-size: 14px;\n            color: #2c3e50;\n        }\n        \n        .exit-code-success {\n            color: #27ae60;\n            font-weight: bold;\n        }\n        \n        .exit-code-error {\n            color: #e74c3c;\n            font-weight: bold;\n        }\n        \n        .status-pass {\n            color: #27ae60;\n            font-weight: bold;\n        }\n        \n        .status-fail {\n            color: #e74c3c;\n            font-weight: bold;\n        }\n        \n        .status-skip {\n            color: #f39c12;\n            font-weight: bold;\n        }\n        \n        .badge {\n            display: inline-block;\n            padding: 4px 8px;\n            border-radius: 4px;\n            font-size: 12px;\n            font-weight: 600;\n        }\n        \n        .badge-pass {\n            background: #d4edda;\n            color: #155724;\n        }\n        \n        .badge-fail {\n            background: #f8d7da;\n            color: #721c24;\n        }\n        \n        .badge-skip {\n            background: #fff3cd;\n            color: #856404;\n        }\n        \n        .mono {\n            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;\n            font-size: 13px;\n        }\n        \n        .metrics-box {\n            background: #f8f9fa;\n            border-left: 4px solid #3498db;\n            padding: 15px;\n            margin-top: 15px;\n            border-radius: 4px;\n        }\n        \n         \n        .phase-flow-container {\n            position: relative;\n        }\n        \n        .phase-flow-container.fullscreen {\n            position: fixed;\n            top: 0;\n            left: 0;\n            right: 0;\n            bottom: 0;\n            z-index: 9999;\n            background: white;\n            padding: 20px;\n            overflow-y: auto;\n            margin: 0;\n            display: flex;\n            flex-direction: column;\n        }\n        \n        .phase-flow-header {\n            display: flex;\n            justify-content: space-between;\n            align-items: center;\n            margin-bottom: 20px;\n            flex-shrink: 0;\n        }\n        \n        .fullscreen-btn {\n            padding: 8px 16px;\n            background: #3498db;\n            color: white;\n            border: none;\n            border-radius: 4px;\n            cursor: pointer;\n            font-size: 14px;\n        }\n        \n        .fullscreen-btn:hover {\n            background: #2980b9;\n        }\n        \n        .fullscreen-btn.active {\n            background: #27ae60;\n        }\n        \n        .fullscreen-btn.active:hover {\n            background: #229954;\n        }\n        \n         \n        .slider-container {\n            display: flex;\n            align-items: center;\n            gap: 10px;\n        }\n        \n        .slider-label {\n            font-size: 14px;\n            color: #2c3e50;\n            font-weight: 500;\n            white-space: nowrap;\n        }\n        \n        .column-slider {\n            width: 120px;\n            height: 6px;\n            border-radius: 3px;\n            background: #dee2e6;\n            outline: none;\n            -webkit-appearance: none;\n        }\n        \n        .column-slider::-webkit-slider-thumb {\n            -webkit-appearance: none;\n            appearance: none;\n            width: 18px;\n            height: 18px;\n            border-radius: 50%;\n            background: #3498db;\n            cursor: pointer;\n        }\n        \n        .column-slider::-moz-range-thumb {\n            width: 18px;\n            height: 18px;\n            border-radius: 50%;\n            background: #3498db;\n            cursor: pointer;\n            border: none;\n        }\n        \n        .phase-flow-scroll {\n            overflow-x: auto;\n            overflow-y: hidden;\n            padding-bottom: 10px;\n        }\n        \n        .phase-flow-container.fullscreen .phase-flow-scroll {\n            flex: 1;\n            overflow-x: auto;\n            overflow-y: auto;\n            min-height: 0;\n        }\n        \n        .phase-flow {\n            display: flex;\n            gap: 40px;\n            min-width: min-content;\n        }\n        \n        .phase-container {\n            flex-shrink: 0;\n            width: fit-content;\n            background: #f8f9fa;\n            border: 2px solid #dee2e6;\n            border-radius: 8px;\n            overflow: visible;\n        }\n        \n        .phase-header {\n            background: #f8f9fa;\n            border-bottom: 2px solid #dee2e6;\n            padding: 12px;\n        }\n        \n        .phase-header-top {\n            display: flex;\n            justify-content: space-between;\n            align-items: center;\n            margin-bottom: 8px;\n        }\n        \n        .phase-header h3 {\n            font-size: 18px;\n            color: #2c3e50;\n            margin: 0;\n        }\n        \n        .phase-status {\n            display: flex;\n            align-items: center;\n            gap: 8px;\n        }\n        \n        .phase-status-icon {\n            font-size: 20px;\n        }\n        \n        .phase-status-icon.success { color: #27ae60; }\n        .phase-status-icon.fail { color: #e74c3c; }\n        \n        .phase-desc {\n            font-size: 12px;\n            color: #7f8c8d;\n            margin-top: 6px;\n            margin-bottom: 4px;\n            line-height: 1.5;\n            overflow: hidden;\n            text-overflow: ellipsis;\n            display: -webkit-box;\n            -webkit-line-clamp: 2;\n            -webkit-box-orient: vertical;\n        }\n        \n        .phase-meta {\n            font-size: 13px;\n            color: #7f8c8d;\n            display: flex;\n            justify-content: space-between;\n        }\n        \n        .phase-tasks {\n            padding: 12px;\n            display: flex;\n            flex-direction: column;\n            gap: 8px;\n        }\n        \n        .phase-tasks.compact {\n            display: grid;\n            grid-auto-flow: column;\n        }\n        \n        .phase-task-card {\n            background: white;\n            border: 1px solid #dee2e6;\n            border-radius: 6px;\n            padding: 12px;\n            cursor: pointer;\n            transition: all 0.2s;\n            box-sizing: border-box;\n        }\n        \n        .phase-task-card:hover {\n            transform: translateY(-2px);\n            box-shadow: 0 4px 12px rgba(0,0,0,0.15);\n            border-color: #3498db;\n        }\n        \n        .phase-task-card-header {\n            display: flex;\n            align-items: center;\n            gap: 8px;\n            margin-bottom: 6px;\n        }\n        \n        .phase-task-icon {\n            font-size: 18px;\n        }\n        \n        .phase-task-icon.success { color: #27ae60; }\n        .phase-task-icon.fail { color: #e74c3c; }\n        .phase-task-icon.skip { color: #f39c12; }\n        \n        .phase-task-name {\n            font-weight: 600;\n            font-size: 14px;\n            color: #2c3e50;\n            flex: 1;\n            overflow: hidden;\n            text-overflow: ellipsis;\n            white-space: nowrap;\n            min-width: 0;\n        }\n        \n        .phase-task-duration {\n            font-size: 12px;\n            color: #7f8c8d;\n            font-weight: 500;\n        }\n        \n        .phase-task-desc {\n            font-size: 11px;\n            color: #7f8c8d;\n            margin-top: 4px;\n            overflow: hidden;\n            text-overflow: ellipsis;\n            white-space: nowrap;\n        }\n        \n        .phase-task-type {\n            display: inline-block;\n            font-size: 10px;\n            padding: 2px 6px;\n            background: #ecf0f1;\n            color: #7f8c8d;\n            border-radius: 3px;\n            margin-top: 4px;\n        }\n        \n        .phase-arrow {\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            font-size: 32px;\n            color: #95a5a6;\n            flex-shrink: 0;\n        }\n        \n        .metrics-title {\n            font-weight: 600;\n            margin-bottom: 10px;\n            color: #2c3e50;\n        }\n        \n        .metrics-grid {\n            display: grid;\n            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));\n            gap: 10px;\n        }\n        \n        .log-link {\n            display: inline-block;\n            margin-top: 10px;\n            color: #3498db;\n            text-decoration: none;\n            font-size: 14px;\n        }\n        \n        .log-link:hover {\n            text-decoration: underline;\n        }\n        \n         \n        .mascot {\n            position: fixed;\n            top: 20px;\n            right: 20px;\n            width: 200px;\n            height: 200px;\n            z-index: 1000;\n            pointer-events: none;\n            transition: opacity 0.3s ease-out;\n        }\n        \n        .mascot.hidden {\n            opacity: 0;\n            pointer-events: none;\n        }\n        \n        @media (max-width: 1500px) {\n            .mascot {\n                display: none;\n            }\n        }\n        \n        .mascot-container {\n            position: relative;\n            width: 100%;\n            height: 100%;\n        }\n        \n        .mascot-image {\n            width: 100%;\n            height: 100%;\n            object-fit: contain;\n        }\n        \n        .mascot-eyes-overlay {\n            position: absolute;\n            top: 0;\n            left: 0;\n            width: 100%;\n            height: 100%;\n            pointer-events: none;\n        }\n        \n        .mascot-eye {\n            position: absolute;\n            border-radius: 50%;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n        }\n        \n        .mascot-eye-left {\n            top: 29.5%;\n            left: 13.1%;\n            width: 13.08px;\n            height: 19.91px;\n        }\n        \n        .mascot-eye-right {\n            top: 29.7%;\n            left: 37.4%;\n            width: 16.50px;\n            height: 21.61px;\n        }\n        \n        .mascot-pupil {\n            position: relative;\n            width: 5.69px;\n            height: 6.83px;\n            background: #ffffff;\n            border-radius: 50%;\n            transition: transform 0.1s ease-out;\n        }\n    \u003c/style\u003e\n\u003c/head\u003e\n\u003cbody\u003e\n    \n    \u003cdiv class=\"mascot\"\u003e\n        \u003cdiv class=\"mascot-container\"\u003e\n            \u003cimg src=\"../../mascot/squirrel-blank-eyes-transparent.png\" alt=\"DevPipe Squirrel\" class=\"mascot-image\" onerror=\"this.style.display='none'\"\u003e\n            \u003cdiv class=\"mascot-eyes-overlay\"\u003e\n                \u003cdiv class=\"mascot-eye mascot-eye-left\"\u003e\n                    \u003cdiv class=\"mascot-pupil\"\u003e\u003c/div\u003e\n                \u003c/div\u003e\n                \u003cdiv class=\"mascot-eye mascot-eye-right\"\u003e\n                    \u003cdiv class=\"mascot-pupil\"\u003e\u003c/div\u003e\n                \u003c/div\u003e\n            \u003c/div\u003e\n        \u003c/div\u003e\n    \u003c/div\u003e\n\n    \u003cdiv class=\"container\"\u003e\n        \u003cdiv class=\"breadcrumb\"\u003e\n            \u003ca href=\"../../report.html\"\u003e← Back to Dashboard\u003c/a\u003e\n        \u003c/div\u003e\n        \n        \u003cheader\u003e\n            \u003ch1\u003eRun Details\u003c/h1\u003e\n            \u003cdiv class=\"run-meta\"\u003e\n                \u003cdiv class=\"meta-item\"\u003e\n                    \u003cdiv class=\"meta-label\"\u003eRun ID\u003c/div\u003e\n                    \u003cdiv class=\"meta-value mono\"\u003e2025-12-08T01-36-49Z_097810\u003c/div\u003e\n                \u003c/div\u003e\n                \u003cdiv class=\"meta-item\"\u003e\n                    \u003cdiv class=\"meta-label\"\u003eTimestamp (CST)\u003c/div\u003e\n                    \u003cdiv class=\"meta-value\"\u003e2025-12-07 19:36:49\u003c/div\u003e\n                \u003c/div\u003e\n                \u003cdiv class=\"meta-item\"\u003e\n                    \u003cdiv class=\"meta-label\"\u003eRepo Root\u003c/div\u003e\n                    \u003cdiv class=\"meta-value mono\"\u003e/Users/drew/repos/devpipe\u003c/div\u003e\n                \u003c/div\u003e\n                \n                \u003cdiv class=\"meta-item\"\u003e\n                    \u003cdiv class=\"meta-label\"\u003ePipeline Version\u003c/div\u003e\n                    \u003cdiv class=\"meta-value mono\"\u003edev\u003c/div\u003e\n                \u003c/div\u003e\n                \n                \n                \u003cdiv class=\"meta-item\"\u003e\n                    \u003cdiv class=\"meta-label\"\u003eReport Version\u003c/div\u003e\n                    \u003cdiv class=\"meta-value mono\"\u003edev\u003c/div\u003e\n                \u003c/div\u003e\n                \n            \u003c/div\u003e\n        \u003c/header\u003e\n        \n        \u003cdiv class=\"section\"\u003e\n            \u003ch2\u003eRun\u003c/h2\u003e\n            \n            \n            \u003cdiv class=\"detail-item\" style=\"margin-bottom: 20px;\"\u003e\n                \u003cdiv class=\"detail-label\"\u003eCommand\u003c/div\u003e\n                \u003cdiv class=\"detail-value mono\" style=\"font-size: 11px; background: #f8f9fa; padding: 8px; border-radius: 4px;\"\u003e./devpipe --dry-run --verbose --config /Users/drew/repos/devpipe/config/path-testing.toml\u003c/div\u003e\n            \u003c/div\u003e\n            \n            \n            \u003cdiv style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;\"\u003e\n                \u003cdiv\u003e\n                    \u003ch3 style=\"font-size: 16px; color: #2c3e50; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #dee2e6;\"\u003eConfiguration\u003c/h3\u003e\n                    \u003cdiv class=\"task-details\" style=\"grid-template-columns: 1fr;\"\u003e\n                        \u003cdiv class=\"detail-item\"\u003e\n                            \u003cdiv class=\"detail-label\"\u003eConfig File\u003c/div\u003e\n                            \u003cdiv class=\"detail-value\"\u003e\n                                \n                                \u003ca href=\"config.toml\" class=\"log-link\"\u003e/Users/drew/repos/devpipe/config/path-testing.toml\u003c/a\u003e\n                                \n                            \u003c/div\u003e\n                        \u003c/div\u003e\n                        \u003cdiv class=\"detail-item\"\u003e\n                            \u003cdiv class=\"detail-label\"\u003eFast Mode\u003c/div\u003e\n                            \u003cdiv class=\"detail-value\"\u003eNo\u003c/div\u003e\n                        \u003c/div\u003e\n                        \u003cdiv class=\"detail-item\"\u003e\n                            \u003cdiv class=\"detail-label\"\u003eFail Fast\u003c/div\u003e\n                            \u003cdiv class=\"detail-value\"\u003eNo\u003c/div\u003e\n                        \u003c/div\u003e\n                        \u003cdiv class=\"detail-item\"\u003e\n                            \u003cdiv class=\"detail-label\"\u003eDry Run\u003c/div\u003e\n                            \u003cdiv class=\"detail-value\"\u003eYes\u003c/div\u003e\n                        \u003c/div\u003e\n                        \n                        \n                    \u003c/div\u003e\n                \u003c/div\u003e\n                \n                \n                \u003cdiv\u003e\n                    \u003ch3 style=\"font-size: 16px; color: #2c3e50; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #dee2e6;\"\u003eGit Information\u003c/h3\u003e\n                    \u003cdiv class=\"task-details\" style=\"grid-template-columns: 1fr;\"\u003e\n                        \u003cdiv class=\"detail-item\"\u003e\n                            \u003cdiv class=\"detail-label\"\u003eMode\u003c/div\u003e\n                            \u003cdiv class=\"detail-value\"\u003estaged_unstaged\u003c/div\u003e\n                        \u003c/div\u003e\n                        \u003cdiv class=\"detail-item\"\u003e\n                            \u003cdiv class=\"detail-label\"\u003eReference\u003c/div\u003e\n                            \u003cdiv class=\"detail-value mono\"\u003eHEAD\u003c/div\u003e\n                        \u003c/div\u003e\n                        \n                        \u003cdiv class=\"detail-item\"\u003e\n                            \u003cdiv class=\"detail-label\"\u003eChanged Files (17)\u003c/div\u003e\n                            \u003cdiv class=\"detail-value mono\" style=\"font-size: 12px; line-height: 1.8;\"\u003e\n                                \n                                \u003cdiv\u003e.gitignore\u003c/div\u003e\n                                \n                                \u003cdiv\u003econfig.example.toml\u003c/div\u003e\n                                \n                                \u003cdiv\u003econfig.schema.json\u003c/div\u003e\n                                \n                                \u003cdiv\u003econfig/path-testing.toml\u003c/div\u003e\n                                \n                                \u003cdiv\u003edocs/project-root.md\u003c/div\u003e\n                                \n                                \u003cdiv\u003edocs/safety-checks.md\u003c/div\u003e\n                                \n                                \u003cdiv\u003einternal/config/config.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003einternal/config/config_test.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003einternal/config/defaults.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003einternal/git/git.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003einternal/git/git_test.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003einternal/model/model.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003einternal/ui/renderer.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003einternal/ui/renderer_test.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003emain.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003emain_task_test.go\u003c/div\u003e\n                                \n                                \u003cdiv\u003emain_test.go\u003c/div\u003e\n                                \n                            \u003c/div\u003e\n                        \u003c/div\u003e\n                        \n                    \u003c/div\u003e\n                \u003c/div\u003e\n                \n            \u003c/div\u003e\n        \u003c/div\u003e\n        \n        \n        \u003cdiv class=\"section\"\u003e\n            \u003cdetails\u003e\n                \u003csummary style=\"cursor: pointer; font-weight: 600; color: #2c3e50; font-size: 20px; margin-bottom: 20px;\"\u003e\n                    \u003ch2 style=\"display: inline;\"\u003e⚙️ Configuration\u003c/h2\u003e\n                \u003c/summary\u003e\n                \u003cdiv\u003e\n                    \n                    \u003cdiv\u003e\n                        \u003cdiv style=\"border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; background: #f8f9fa;\"\u003e\n                            \u003ch3 style=\"font-weight: 600; color: #2c3e50; font-size: 16px; margin: 0 0 10px 0;\"\u003e⚙️ Effective Configuration\u003c/h3\u003e\n                            \u003cp style=\"color: #7f8c8d; margin: 15px 0; font-size: 13px;\"\u003e\n                                Final configuration values used for this run, including their sources and overrides.\n                            \u003c/p\u003e\n                        \n                        \n                        \n                        \n                        \n                        \n                            \n                                \n                            \n                        \n                            \n                                \n                            \n                        \n                            \n                                \n                            \n                        \n                            \n                                \n                            \n                        \n                            \n                                \n                            \n                        \n                            \n                                \n                            \n                        \n                            \n                                \n                            \n                        \n                            \n                                \n                            \n                        \n                        \n                        \n                        \u003cdiv style=\"margin-top: 20px;\"\u003e\n                            \u003ch4 style=\"color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;\"\u003eDefaults\u003c/h4\u003e\n                            \u003ctable style=\"width: 100%; font-size: 13px;\"\u003e\n                                \n                                \u003ctr\u003e\n                                    \u003ctd class=\"mono\" style=\"color: #495057; padding: 6px 0; width: 30%;\"\u003eoutputRoot\u003c/td\u003e\n                                    \u003ctd class=\"mono\" style=\"font-weight: bold; padding: 6px 0;\"\u003e./devpipe-output-test\u003c/td\u003e\n                                    \u003ctd style=\"padding: 6px 0; text-align: right;\"\u003e\n                                        \n                                        \u003cspan class=\"badge\" style=\"background: #d4edda; color: #155724; font-size: 10px;\"\u003e📄 Config\u003c/span\u003e\n                                        \n                                        \n                                    \u003c/td\u003e\n                                \u003c/tr\u003e\n                                \n                                \u003ctr\u003e\n                                    \u003ctd class=\"mono\" style=\"color: #495057; padding: 6px 0; width: 30%;\"\u003efastThreshold\u003c/td\u003e\n                                    \u003ctd class=\"mono\" style=\"font-weight: bold; padding: 6px 0;\"\u003e300\u003c/td\u003e\n                                    \u003ctd style=\"padding: 6px 0; text-align: right;\"\u003e\n                                        \n                                        \u003cspan class=\"badge\" style=\"background: #d4edda; color: #155724; font-size: 10px;\"\u003e📄 Config\u003c/span\u003e\n                                        \n                                        \n                                    \u003c/td\u003e\n                                \u003c/tr\u003e\n                                \n                                \u003ctr\u003e\n                                    \u003ctd class=\"mono\" style=\"color: #495057; padding: 6px 0; width: 30%;\"\u003euiMode\u003c/td\u003e\n                                    \u003ctd class=\"mono\" style=\"font-weight: bold; padding: 6px 0;\"\u003ebasic\u003c/td\u003e\n                                    \u003ctd style=\"padding: 6px 0; text-align: right;\"\u003e\n                                        \n                                        \u003cspan class=\"badge\" style=\"background: #d4edda; color: #155724; font-size: 10px;\"\u003e📄 Config\u003c/span\u003e\n                                        \n                                        \n                                    \u003c/td\u003e\n                                \u003c/tr\u003e\n                                \n                                \u003ctr\u003e\n                                    \u003ctd class=\"mono\" style=\"color: #495057; padding: 6px 0; width: 30%;\"\u003eanimationRefreshMs\u003c/td\u003e\n                                    \u003ctd class=\"mono\" style=\"font-weight: bold; padding: 6px 0;\"\u003e500\u003c/td\u003e\n                                    \u003ctd style=\"padding: 6px 0; text-align: right;\"\u003e\n                                        \n                                        \u003cspan class=\"badge\" style=\"background: #d4edda; color: #155724; font-size: 10px;\"\u003e📄 Config\u003c/span\u003e\n                                        \n                                        \n                                    \u003c/td\u003e\n                                \u003c/tr\u003e\n                                \n                            \u003c/table\u003e\n                        \u003c/div\u003e\n                        \n                        \n                        \n                        \u003cdiv style=\"margin-top: 20px;\"\u003e\n                            \u003ch4 style=\"color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;\"\u003eGit Settings\u003c/h4\u003e\n                            \u003ctable style=\"width: 100%; font-size: 13px;\"\u003e\n                                \n                                \u003ctr\u003e\n                                    \u003ctd class=\"mono\" style=\"color: #495057; padding: 6px 0; width: 30%;\"\u003emode\u003c/td\u003e\n                                    \u003ctd class=\"mono\" style=\"font-weight: bold; padding: 6px 0;\"\u003estaged_unstaged\u003c/td\u003e\n                                    \u003ctd style=\"padding: 6px 0; text-align: right;\"\u003e\n                                        \n                                        \u003cspan class=\"badge\" style=\"background: #d4edda; color: #155724; font-size: 10px;\"\u003e📄 Config\u003c/span\u003e\n                                        \n                                        \n                                    \u003c/td\u003e\n                                \u003c/tr\u003e\n                                \n                                \u003ctr\u003e\n                                    \u003ctd class=\"mono\" style=\"color: #495057; padding: 6px 0; width: 30%;\"\u003eref\u003c/td\u003e\n                                    \u003ctd class=\"mono\" style=\"font-weight: bold; padding: 6px 0;\"\u003eHEAD\u003c/td\u003e\n                                    \u003ctd style=\"padding: 6px 0; text-align: right;\"\u003e\n                                        \n                                        \u003cspan class=\"badge\" style=\"background: #d4edda; color: #155724; font-size: 10px;\"\u003e📄 Config\u003c/span\u003e\n                                        \n                                        \n                                    \u003c/td\u003e\n                                \u003c/tr\u003e\n                                \n                            \u003c/table\u003e\n                        \u003c/div\u003e\n                        \n                        \n                        \n                        \u003cdiv style=\"margin-top: 20px;\"\u003e\n                            \u003ch4 style=\"color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;\"\u003eTask Defaults\u003c/h4\u003e\n                            \u003ctable style=\"width: 100%; font-size: 13px;\"\u003e\n                                \n                                \u003ctr\u003e\n                                    \u003ctd class=\"mono\" style=\"color: #495057; padding: 6px 0; width: 30%;\"\u003eenabled\u003c/td\u003e\n                                    \u003ctd class=\"mono\" style=\"font-weight: bold; padding: 6px 0;\"\u003etrue\u003c/td\u003e\n                                    \u003ctd style=\"padding: 6px 0; text-align: right;\"\u003e\n                                        \n                                        \u003cspan class=\"badge\" style=\"background: #d4edda; color: #155724; font-size: 10px;\"\u003e📄 Config\u003c/span\u003e\n                                        \n                                    \u003c/td\u003e\n                                \u003c/tr\u003e\n                                \n                                \u003ctr\u003e\n                                    \u003ctd class=\"mono\" style=\"color: #495057; padding: 6px 0; width: 30%;\"\u003eworkdir\u003c/td\u003e\n                                    \u003ctd class=\"mono\" style=\"font-weight: bold; padding: 6px 0;\"\u003e.\u003c/td\u003e\n                                    \u003ctd style=\"padding: 6px 0; text-align: right;\"\u003e\n                                        \n                                        \u003cspan class=\"badge\" style=\"background: #d4edda; color: #155724; font-size: 10px;\"\u003e📄 Config\u003c/span\u003e\n                                        \n                                    \u003c/td\u003e\n                                \u003c/tr\u003e\n                                \n                            \u003c/table\u003e\n                        \u003c/div\u003e\n                        \n                        \n                        \n                        \u003c/div\u003e\n                    \u003c/div\u003e\n                    \n                    \n                    \n                    \u003cdiv style=\"margin-top: 20px;\"\u003e\n                        \u003cdiv style=\"border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; background: #f8f9fa;\"\u003e\n                            \u003cdiv style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;\"\u003e\n                                \u003ch3 style=\"font-weight: 600; color: #2c3e50; font-size: 16px; margin: 0;\"\u003e📄 Raw Configuration File\u003c/h3\u003e\n                                \u003cbutton onclick=\"toggleConfigFullscreen()\" style=\"background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;\"\u003e\n                                    ⛶ Fullscreen\n                                \u003c/button\u003e\n                            \u003c/div\u003e\n                            \u003cp style=\"color: #7f8c8d; margin: 15px 0 10px 0; font-size: 13px;\"\u003e\n                                Configuration file as it was on disk at the time of the run.\n                            \u003c/p\u003e\n                            \u003cdiv id=\"rawConfigContainer\" style=\"position: relative; overflow-x: auto;\"\u003e\n                                \u003cpre class=\"line-numbers\" style=\"background: #2c3e50; border-radius: 4px; margin: 0;\"\u003e\u003ccode id=\"rawConfigContent\" class=\"language-toml\" style=\"font-size: 12px;\"\u003e# Test paths\n\n[defaults]\noutputRoot = \u0026#34;./devpipe-output-test\u0026#34;\n#projectRoot = \u0026#34;/Users/drew/repos/devpipe\u0026#34;\n\n[tasks.echo]\nname = \u0026#34;echo\u0026#34;\ncommand = \u0026#34;echo hello\u0026#34;\u003c/code\u003e\u003c/pre\u003e\n                            \u003c/div\u003e\n                        \u003c/div\u003e\n                    \u003c/div\u003e\n                    \u003clink href=\"https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css\" rel=\"stylesheet\" /\u003e\n                    \u003clink href=\"https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css\" rel=\"stylesheet\" /\u003e\n                    \u003cscript src=\"https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js\"\u003e\u003c/script\u003e\n                    \u003cscript src=\"https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-toml.min.js\"\u003e\u003c/script\u003e\n                    \u003cscript src=\"https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js\"\u003e\u003c/script\u003e\n                    \u003cscript\u003e\n                    (function() {\n                        \n                        Prism.highlightAll();\n                    })();\n                    \n                    function toggleConfigFullscreen() {\n                        const elem = document.getElementById('rawConfigContainer');\n                        if (!document.fullscreenElement) {\n                            elem.requestFullscreen().catch(err =\u003e {\n                                alert('Error attempting to enable fullscreen: ' + err.message);\n                            });\n                        } else {\n                            document.exitFullscreen();\n                        }\n                    }\n                    \u003c/script\u003e\n                    \u003cstyle\u003e\n                     \n                    .line-numbers .line-numbers-rows {\n                        border-right-color: #34495e !important;\n                    }\n                    .line-numbers-rows \u003e span:before {\n                        color: #7f8c8d !important;\n                    }\n                     \n                    .line-numbers .line-numbers-rows \u003e span {\n                        position: relative;\n                    }\n                    #rawConfigContainer:fullscreen {\n                        background: #2c3e50;\n                        padding: 20px;\n                        overflow: auto;\n                    }\n                    #rawConfigContainer:fullscreen pre {\n                        font-size: 14px !important;\n                        max-width: 100%;\n                        height: 100%;\n                    }\n                    #rawConfigContainer:fullscreen code {\n                        font-size: 14px !important;\n                    }\n                    \u003c/style\u003e\n                    \n                \u003c/div\u003e\n            \u003c/details\u003e\n        \u003c/div\u003e\n        \n        \n        \n        \u003cdiv class=\"section phase-flow-container\" id=\"phaseFlow\"\u003e\n            \u003cdiv class=\"phase-flow-header\"\u003e\n                \u003ch2\u003e🔄 Pipeline Flow\u003c/h2\u003e\n                \u003cdiv style=\"display: flex; gap: 15px; align-items: center;\"\u003e\n                    \u003cdiv class=\"slider-container\"\u003e\n                        \u003cspan class=\"slider-label\"\u003eDensity:\u003c/span\u003e\n                        \u003cinput type=\"range\" min=\"1\" max=\"4\" value=\"4\" class=\"column-slider\" id=\"columnSlider\" oninput=\"updateColumns()\"\u003e\n                    \u003c/div\u003e\n                    \u003cbutton class=\"fullscreen-btn\" onclick=\"toggleFullscreen()\"\u003e⛶ Fullscreen\u003c/button\u003e\n                \u003c/div\u003e\n            \u003c/div\u003e\n            \n            \u003cdiv class=\"phase-flow-scroll\"\u003e\n                \u003cdiv class=\"phase-flow\"\u003e\n                    \n                    \n                    \n                    \u003cdiv class=\"phase-container\"\u003e\n                        \u003cdiv class=\"phase-header\"\u003e\n                            \u003cdiv class=\"phase-header-top\"\u003e\n                                \u003ch3\u003e📋 Tasks\u003c/h3\u003e\n                                \u003cdiv class=\"phase-status\"\u003e\n                                    \n                                    \u003cspan class=\"phase-status-icon success\"\u003e✓\u003c/span\u003e\n                                    \n                                \u003c/div\u003e\n                            \u003c/div\u003e\n                            \n                            \u003cdiv class=\"phase-meta\"\u003e\n                                \u003cspan\u003e1 tasks in parallel\u003c/span\u003e\n                                \u003cspan\u003e\u003cstrong\u003e0ms\u003c/strong\u003e\u003c/span\u003e\n                            \u003c/div\u003e\n                        \u003c/div\u003e\n                        \u003cdiv class=\"phase-tasks compact\"\u003e\n                            \n                            \u003cdiv class=\"phase-task-card\" data-task-id=\"echo\" onclick=\"scrollToTask('echo')\"\u003e\n                                \u003cdiv class=\"phase-task-card-header\"\u003e\n                                    \n                                    \u003cspan class=\"phase-task-icon skip\"\u003e⊘\u003c/span\u003e\n                                    \n                                    \u003cspan class=\"phase-task-name\" title=\"echo\"\u003eecho\u003c/span\u003e\n                                    \u003cspan class=\"phase-task-duration\"\u003e0ms\u003c/span\u003e\n                                \u003c/div\u003e\n                                \n                                \u003cdiv class=\"phase-task-desc\"\u003eecho\u003c/div\u003e\n                                \n                                \n                            \u003c/div\u003e\n                            \n                        \u003c/div\u003e\n                    \u003c/div\u003e\n                    \n                \u003c/div\u003e\n            \u003c/div\u003e\n        \u003c/div\u003e\n        \n        \n        \u003cdiv class=\"section\"\u003e\n            \u003ch2\u003eTasks (1)\u003c/h2\u003e\n            \n            \u003cdiv class=\"task-card\"\u003e\n                \u003cdiv class=\"task-header\"\u003e\n                    \u003cdiv\u003e\n                        \u003cspan class=\"task-title\"\u003eecho\u003c/span\u003e\n                        \u003cspan class=\"task-id\"\u003e(echo)\u003c/span\u003e\n                    \u003c/div\u003e\n                    \u003cspan class=\"badge badge-skip\"\u003e\n                        ⊘ SKIPPED\n                    \u003c/span\u003e\n                \u003c/div\u003e\n                \n                \u003cdiv class=\"task-details\"\u003e\n                    \u003cdiv class=\"detail-item\"\u003e\n                        \u003cdiv class=\"detail-label\"\u003eType\u003c/div\u003e\n                        \u003cdiv class=\"detail-value\"\u003e\u003c/div\u003e\n                    \u003c/div\u003e\n                    \u003cdiv class=\"detail-item\"\u003e\n                        \u003cdiv class=\"detail-label\"\u003eDuration\u003c/div\u003e\n                        \u003cdiv class=\"detail-value\"\u003e0ms\u003c/div\u003e\n                    \u003c/div\u003e\n                    \n                    \n                    \u003cdiv class=\"detail-item\"\u003e\n                        \u003cdiv class=\"detail-label\"\u003eStart Time (CST)\u003c/div\u003e\n                        \u003cdiv class=\"detail-value\"\u003e\u003c/div\u003e\n                    \u003c/div\u003e\n                    \u003cdiv class=\"detail-item\"\u003e\n                        \u003cdiv class=\"detail-label\"\u003eEnd Time (CST)\u003c/div\u003e\n                        \u003cdiv class=\"detail-value\"\u003e\u003c/div\u003e\n                    \u003c/div\u003e\n                \u003c/div\u003e\n                \n                \u003cdiv class=\"detail-item\" style=\"margin-top: 15px;\"\u003e\n                    \u003cdiv class=\"detail-label\"\u003eCommand\u003c/div\u003e\n                    \u003cdiv class=\"detail-value mono\"\u003eecho hello\u003c/div\u003e\n                \u003c/div\u003e\n                \n                \n                \n                \n                \n                \n                \u003cdiv class=\"detail-item\" style=\"margin-top: 15px;\"\u003e\n                    \u003cdiv class=\"detail-label\"\u003eOutput (last 10 lines)\u003c/div\u003e\n                    \u003cpre style=\"background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;\"\u003eError reading log file\n\u003c/pre\u003e\n                    \u003cdiv style=\"display: flex; gap: 15px; margin-top: 10px;\"\u003e\n                        \u003ca href=\"logs/echo.log\" class=\"log-link\"\u003e📄 View raw log\u003c/a\u003e\n                        \u003ca href=\"ide.html?file=logs/echo.log\" class=\"log-link\"\u003e🖥️ View in web IDE\u003c/a\u003e\n                    \u003c/div\u003e\n                \u003c/div\u003e\n                \n            \u003c/div\u003e\n            \n        \u003c/div\u003e\n    \u003c/div\u003e\n    \n    \u003cscript\u003e\n        function updateColumns() {\n            const slider = document.getElementById('columnSlider');\n            const phaseTasks = document.querySelectorAll('.phase-tasks');\n            \n            const maxCols = parseInt(slider.value);\n            \n            \n            phaseTasks.forEach(tasks =\u003e {\n                const taskCount = tasks.querySelectorAll('.phase-task-card').length;\n                \n                \n                \n                const neededCols = Math.min(maxCols, Math.ceil(taskCount / 5));\n                \n                \n                const rowsPerCol = Math.ceil(taskCount / neededCols);\n                \n                \n                const colWidth = 280;\n                const gap = 8;\n                const padding = 12;\n                \n                \n                \n                const gridContentWidth = (colWidth * neededCols) + (gap * (neededCols - 1));\n                const totalWidth = gridContentWidth + (padding * 2);\n                \n                tasks.style.gridTemplateColumns = 'repeat(' + neededCols + ', ' + colWidth + 'px)';\n                tasks.style.gridTemplateRows = 'repeat(' + rowsPerCol + ', auto)';\n                tasks.style.width = totalWidth + 'px';\n                tasks.style.gap = gap + 'px';\n                tasks.style.padding = padding + 'px';\n            });\n        }\n        \n        \n        document.addEventListener('DOMContentLoaded', updateColumns);\n        \n        function toggleFullscreen() {\n            const container = document.getElementById('phaseFlow');\n            const fullscreenBtns = container.querySelectorAll('.fullscreen-btn');\n            \n            container.classList.toggle('fullscreen');\n            \n            \n            fullscreenBtns.forEach(btn =\u003e {\n                if (btn.id !== 'compactBtn') {\n                    if (container.classList.contains('fullscreen')) {\n                        btn.textContent = '✕ Exit Fullscreen';\n                    } else {\n                        btn.textContent = '⛶ Fullscreen';\n                    }\n                }\n            });\n        }\n        \n        function scrollToTask(taskId) {\n            \n            const container = document.getElementById('phaseFlow');\n            const wasFullscreen = container \u0026\u0026 container.classList.contains('fullscreen');\n            \n            if (wasFullscreen) {\n                container.classList.remove('fullscreen');\n                \n                const fullscreenBtns = container.querySelectorAll('.fullscreen-btn');\n                fullscreenBtns.forEach(btn =\u003e {\n                    if (btn.id !== 'compactBtn') {\n                        btn.textContent = '⛶ Fullscreen';\n                    }\n                });\n            }\n            \n            \n            const doScroll = () =\u003e {\n                const taskCards = document.querySelectorAll('.task-card');\n                for (const card of taskCards) {\n                    const titleEl = card.querySelector('.task-id');\n                    if (titleEl \u0026\u0026 titleEl.textContent.includes(taskId)) {\n                        card.scrollIntoView({ behavior: 'smooth', block: 'start' });\n                        \n                        card.style.boxShadow = '0 0 0 3px #3498db';\n                        setTimeout(() =\u003e {\n                            card.style.boxShadow = '';\n                        }, 2000);\n                        break;\n                    }\n                }\n            };\n            \n            \n            if (wasFullscreen) {\n                setTimeout(doScroll, 100);\n            } else {\n                doScroll();\n            }\n        }\n        \n        \n        (function() {\n            const mascot = document.querySelector('.mascot');\n            \n            document.addEventListener('keydown', function(e) {\n                \n                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {\n                    return;\n                }\n                \n                if (e.key === 'h' || e.key === 'H') {\n                    mascot.classList.add('hidden');\n                } else if (e.key === 's' || e.key === 'S') {\n                    mascot.classList.remove('hidden');\n                }\n            });\n        })();\n        \n        \n        (function() {\n            const pupils = document.querySelectorAll('.mascot-pupil');\n            const eyes = document.querySelectorAll('.mascot-eye');\n            \n            \n            const leftMaxDistanceX = 1.14;\n            const leftMaxDistanceY = 4.55;\n            const rightMaxDistanceX = 2.84;\n            const rightMaxDistanceY = 4.55;\n            \n            document.addEventListener('mousemove', function(e) {\n                pupils.forEach(function(pupil, index) {\n                    const eye = eyes[index];\n                    const eyeRect = eye.getBoundingClientRect();\n                    \n                    \n                    const eyeCenterX = eyeRect.left + eyeRect.width / 2;\n                    const eyeCenterY = eyeRect.top + eyeRect.height / 2;\n                    \n                    \n                    const angleRad = Math.atan2(e.clientY - eyeCenterY, e.clientX - eyeCenterX);\n                    \n                    \n                    const maxDistanceX = index === 0 ? leftMaxDistanceX : rightMaxDistanceX;\n                    const maxDistanceY = index === 0 ? leftMaxDistanceY : rightMaxDistanceY;\n                    \n                    \n                    let pupilX = Math.cos(angleRad) * maxDistanceX;\n                    let pupilY = Math.sin(angleRad) * maxDistanceY;\n                    \n                    \n                    const normalizedX = pupilX / maxDistanceX;\n                    const normalizedY = pupilY / maxDistanceY;\n                    const distanceFromCenter = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);\n                    \n                    if (distanceFromCenter \u003e 1) {\n                        pupilX = (normalizedX / distanceFromCenter) * maxDistanceX;\n                        pupilY = (normalizedY / distanceFromCenter) * maxDistanceY;\n                    }\n                    \n                    \n                    pupil.style.transform = 'translate(' + pupilX + 'px, ' + pupilY + 'px)';\n                });\n            });\n        })();\n    \u003c/script\u003e\n\u003c/body\u003e\n\u003c/html\u003e\n"},{"name":"run.json","path":"artifacts/../run.json","size":2656,"content":"{\n  \"runId\": \"2025-12-08T01-36-49Z_097810\",\n  \"timestamp\": \"2025-12-08T01:36:49Z\",\n  \"repoRoot\": \"/Users/drew/repos/devpipe\",\n  \"outputRoot\": \"/Users/drew/repos/devpipe/devpipe-output-test\",\n  \"configPath\": \"/Users/drew/repos/devpipe/config/path-testing.toml\",\n  \"command\": \"./devpipe --dry-run --verbose --config /Users/drew/repos/devpipe/config/path-testing.toml\",\n  \"pipelineVersion\": \"dev\",\n  \"reportVersion\": \"dev\",\n  \"git\": {\n    \"changedFiles\": [\n      \".gitignore\",\n      \"config.example.toml\",\n      \"config.schema.json\",\n      \"config/path-testing.toml\",\n      \"docs/project-root.md\",\n      \"docs/safety-checks.md\",\n      \"internal/config/config.go\",\n      \"internal/config/config_test.go\",\n      \"internal/config/defaults.go\",\n      \"internal/git/git.go\",\n      \"internal/git/git_test.go\",\n      \"internal/model/model.go\",\n      \"internal/ui/renderer.go\",\n      \"internal/ui/renderer_test.go\",\n      \"main.go\",\n      \"main_task_test.go\",\n      \"main_test.go\"\n    ],\n    \"inGitRepo\": true,\n    \"mode\": \"staged_unstaged\",\n    \"ref\": \"HEAD\",\n    \"repoRoot\": \"/Users/drew/repos/devpipe\"\n  },\n  \"flags\": {\n    \"fast\": false,\n    \"failFast\": false,\n    \"dryRun\": true,\n    \"verbose\": true,\n    \"config\": \"/Users/drew/repos/devpipe/config/path-testing.toml\"\n  },\n  \"tasks\": [\n    {\n      \"id\": \"echo\",\n      \"name\": \"echo\",\n      \"type\": \"\",\n      \"status\": \"SKIPPED\",\n      \"skipped\": true,\n      \"skipReason\": \"dry-run\",\n      \"command\": \"echo hello\",\n      \"workdir\": \"/Users/drew/repos/devpipe\",\n      \"logPath\": \"/Users/drew/repos/devpipe/devpipe-output-test/runs/2025-12-08T01-36-49Z_097810/logs/echo.log\",\n      \"durationMs\": 0,\n      \"estimatedSeconds\": 10\n    }\n  ],\n  \"effectiveConfig\": {\n    \"values\": [\n      {\n        \"key\": \"defaults.outputRoot\",\n        \"value\": \"./devpipe-output-test\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.fastThreshold\",\n        \"value\": \"300\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.uiMode\",\n        \"value\": \"basic\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.animationRefreshMs\",\n        \"value\": \"500\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.git.mode\",\n        \"value\": \"staged_unstaged\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"defaults.git.ref\",\n        \"value\": \"HEAD\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"task_defaults.enabled\",\n        \"value\": \"true\",\n        \"source\": \"config-file\"\n      },\n      {\n        \"key\": \"task_defaults.workdir\",\n        \"value\": \".\",\n        \"source\": \"config-file\"\n      }\n    ]\n  }\n}\n"}];  
+        
+        require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }});
+        
+        require(['vs/editor/editor.main'], function() {
+            
+            editor = monaco.editor.create(document.getElementById('editor'), {
+                value: '',
+                theme: 'vs-dark',
+                readOnly: true,
+                automaticLayout: true,
+                minimap: { enabled: true },
+                fontSize: 13,
+                lineNumbers: 'on',
+                wordWrap: 'off',
+                scrollBeyondLastLine: false,
+            });
+            
+            
+            renderFileTree(files);
+            
+            
+            const params = new URLSearchParams(window.location.search);
+            const fileToOpen = params.get('file');
+            if (fileToOpen) {
+                setTimeout(() => openFile(fileToOpen), 500);
+            }
+            
+            
+            setupSearch();
+        });
+        
+        
+        function renderFileTree(files) {
+            const tree = document.getElementById('fileTree');
+            tree.innerHTML = '';
+            
+            
+            const structure = {
+                'root': [],
+                'logs': [],
+                'artifacts': []
+            };
+            
+            files.forEach(file => {
+                if (file.path.startsWith('logs/')) {
+                    structure.logs.push(file);
+                } else if (file.path.startsWith('artifacts/')) {
+                    structure.artifacts.push(file);
+                } else {
+                    structure.root.push(file);
+                }
+            });
+            
+            
+            structure.root.forEach(file => {
+                tree.appendChild(createFileItem(file));
+            });
+            
+            
+            if (structure.logs.length > 0) {
+                const logsFolder = createFolderItem('📁 logs', structure.logs);
+                tree.appendChild(logsFolder);
+            }
+            
+            
+            if (structure.artifacts.length > 0) {
+                const artifactsFolder = createFolderItem('📦 artifacts', structure.artifacts);
+                tree.appendChild(artifactsFolder);
+            }
+        }
+        
+        function createFileItem(file) {
+            const li = document.createElement('li');
+            li.className = 'file-item';
+            li.innerHTML = getFileIcon(file.path) + ' ' + file.name;
+            li.onclick = () => openFile(file.path);
+            li.dataset.path = file.path;
+            return li;
+        }
+        
+        function createFolderItem(label, files) {
+            const container = document.createElement('div');
+            
+            const folderHeader = document.createElement('li');
+            folderHeader.className = 'folder-item';
+            folderHeader.innerHTML = label;
+            
+            const children = document.createElement('ul');
+            children.className = 'folder-children';
+            children.style.listStyle = 'none';
+            files.forEach(file => {
+                children.appendChild(createFileItem(file));
+            });
+            
+            folderHeader.onclick = (e) => {
+                e.stopPropagation();
+                const isHidden = children.style.display === 'none';
+                children.style.display = isHidden ? 'block' : 'none';
+                
+                folderHeader.innerHTML = (isHidden ? '📂 ' : '📁 ') + label.split(' ').slice(1).join(' ');
+            };
+            
+            const wrapper = document.createElement('li');
+            wrapper.style.listStyle = 'none';
+            wrapper.appendChild(folderHeader);
+            wrapper.appendChild(children);
+            
+            return wrapper;
+        }
+        
+        function getFileIcon(path) {
+            if (path.endsWith('.log')) return '📄';
+            if (path.endsWith('.toml')) return '⚙️';
+            if (path.endsWith('.xml')) return '📋';
+            if (path.endsWith('.json')) return '📊';
+            return '📄';
+        }
+        
+        function getLanguage(path) {
+            if (path.endsWith('.log')) return 'plaintext';
+            if (path.endsWith('.toml')) return 'ini';
+            if (path.endsWith('.xml')) return 'xml';
+            if (path.endsWith('.json')) return 'json';
+            if (path.endsWith('.sh')) return 'shell';
+            if (path.endsWith('.go')) return 'go';
+            return 'plaintext';
+        }
+        
+        function openFile(path) {
+            try {
+                
+                const file = files.find(f => f.path === path);
+                if (!file) {
+                    throw new Error('File not found: ' + path);
+                }
+                
+                
+                const language = getLanguage(path);
+                monaco.editor.setModelLanguage(editor.getModel(), language);
+                editor.setValue(file.content);
+                
+                
+                document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('active');
+                    if (item.dataset.path === path) {
+                        item.classList.add('active');
+                    }
+                });
+                
+                
+                const tabs = document.getElementById('editorTabs');
+                tabs.innerHTML = '<div class="editor-tab active">' + getFileIcon(path) + ' ' + path.split('/').pop() + '</div>';
+                
+                currentFile = path;
+            } catch (error) {
+                console.error('Error opening file:', error);
+                editor.setValue('❌ Error loading file: ' + path + '\n\n' + error.message);
+            }
+        }
+        
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            const searchResults = document.getElementById('searchResults');
+            const fileTreeContainer = document.getElementById('fileTreeContainer');
+            
+            let searchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+                
+                if (query.length < 2) {
+                    searchResults.style.display = 'none';
+                    fileTreeContainer.style.display = 'block';
+                    return;
+                }
+                
+                searchTimeout = setTimeout(() => {
+                    performSearch(query);
+                }, 300);
+            });
+        }
+        
+        function performSearch(query) {
+            const searchResults = document.getElementById('searchResults');
+            const fileTreeContainer = document.getElementById('fileTreeContainer');
+            const results = [];
+            
+            
+            files.forEach(file => {
+                const lines = file.content.split('\n');
+                lines.forEach((line, lineNum) => {
+                    if (line.toLowerCase().includes(query.toLowerCase())) {
+                        results.push({
+                            file: file,
+                            lineNum: lineNum + 1,
+                            line: line.trim()
+                        });
+                    }
+                });
+            });
+            
+            
+            if (results.length === 0) {
+                searchResults.innerHTML = '<div style="padding: 10px;">No results found</div>';
+            } else {
+                const maxResults = 50;
+                const displayResults = results.slice(0, maxResults);
+                
+                searchResults.innerHTML = 
+                    '<div style="padding: 10px; border-bottom: 1px solid #3e3e42;">' +
+                    results.length + ' result' + (results.length !== 1 ? 's' : '') +
+                    (results.length > maxResults ? ' (showing first ' + maxResults + ')' : '') +
+                    '</div>';
+                
+                displayResults.forEach(result => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    
+                    const highlighted = result.line.replace(
+                        new RegExp(query, 'gi'),
+                        match => '<span class="search-match">' + match + '</span>'
+                    );
+                    
+                    item.innerHTML = 
+                        '<div><span class="search-result-file">' + result.file.name + '</span>' +
+                        '<span class="search-result-line">:' + result.lineNum + '</span></div>' +
+                        '<div class="search-result-preview">' + highlighted + '</div>';
+                    
+                    item.onclick = () => {
+                        openFile(result.file.path);
+                        
+                        setTimeout(() => {
+                            editor.revealLineInCenter(result.lineNum);
+                            editor.setPosition({ lineNumber: result.lineNum, column: 1 });
+                        }, 100);
+                    };
+                    
+                    searchResults.appendChild(item);
+                });
+            }
+            
+            searchResults.style.display = 'block';
+            fileTreeContainer.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

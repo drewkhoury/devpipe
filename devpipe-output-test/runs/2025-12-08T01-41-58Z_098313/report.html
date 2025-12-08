@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run 2025-12-08T01-41-58Z_098313 - devpipe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .breadcrumb {
+            margin-bottom: 20px;
+            color: #7f8c8d;
+        }
+        
+        .breadcrumb a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .run-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .meta-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .meta-value {
+            font-size: 16px;
+            color: #2c3e50;
+        }
+        
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .task-card {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        
+        .task-header > div:first-child {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .task-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            word-break: break-word;
+        }
+        
+        .task-id {
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-left: 10px;
+        }
+        
+        .task-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            font-size: 11px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        
+        .detail-value {
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .exit-code-success {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .exit-code-error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .status-pass {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .status-fail {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .status-skip {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .badge-skip {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .mono {
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .metrics-box {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 4px;
+        }
+        
+         
+        .phase-flow-container {
+            position: relative;
+        }
+        
+        .phase-flow-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+            background: white;
+            padding: 20px;
+            overflow-y: auto;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .phase-flow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+        
+        .fullscreen-btn {
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .fullscreen-btn:hover {
+            background: #2980b9;
+        }
+        
+        .fullscreen-btn.active {
+            background: #27ae60;
+        }
+        
+        .fullscreen-btn.active:hover {
+            background: #229954;
+        }
+        
+         
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .slider-label {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .column-slider {
+            width: 120px;
+            height: 6px;
+            border-radius: 3px;
+            background: #dee2e6;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .column-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+        }
+        
+        .column-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .phase-flow-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 10px;
+        }
+        
+        .phase-flow-container.fullscreen .phase-flow-scroll {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        .phase-flow {
+            display: flex;
+            gap: 40px;
+            min-width: min-content;
+        }
+        
+        .phase-container {
+            flex-shrink: 0;
+            width: fit-content;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            overflow: visible;
+        }
+        
+        .phase-header {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            padding: 12px;
+        }
+        
+        .phase-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .phase-header h3 {
+            font-size: 18px;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .phase-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .phase-status-icon {
+            font-size: 20px;
+        }
+        
+        .phase-status-icon.success { color: #27ae60; }
+        .phase-status-icon.fail { color: #e74c3c; }
+        
+        .phase-desc {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 6px;
+            margin-bottom: 4px;
+            line-height: 1.5;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        .phase-meta {
+            font-size: 13px;
+            color: #7f8c8d;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .phase-tasks {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .phase-tasks.compact {
+            display: grid;
+            grid-auto-flow: column;
+        }
+        
+        .phase-task-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+        
+        .phase-task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: #3498db;
+        }
+        
+        .phase-task-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        
+        .phase-task-icon {
+            font-size: 18px;
+        }
+        
+        .phase-task-icon.success { color: #27ae60; }
+        .phase-task-icon.fail { color: #e74c3c; }
+        .phase-task-icon.skip { color: #f39c12; }
+        
+        .phase-task-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #2c3e50;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        
+        .phase-task-duration {
+            font-size: 12px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+        
+        .phase-task-desc {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .phase-task-type {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            background: #ecf0f1;
+            color: #7f8c8d;
+            border-radius: 3px;
+            margin-top: 4px;
+        }
+        
+        .phase-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #95a5a6;
+            flex-shrink: 0;
+        }
+        
+        .metrics-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        
+        .log-link {
+            display: inline-block;
+            margin-top: 10px;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .log-link:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .mascot {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            z-index: 1000;
+            pointer-events: none;
+            transition: opacity 0.3s ease-out;
+        }
+        
+        .mascot.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        @media (max-width: 1500px) {
+            .mascot {
+                display: none;
+            }
+        }
+        
+        .mascot-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .mascot-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .mascot-eyes-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .mascot-eye {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mascot-eye-left {
+            top: 29.5%;
+            left: 13.1%;
+            width: 13.08px;
+            height: 19.91px;
+        }
+        
+        .mascot-eye-right {
+            top: 29.7%;
+            left: 37.4%;
+            width: 16.50px;
+            height: 21.61px;
+        }
+        
+        .mascot-pupil {
+            position: relative;
+            width: 5.69px;
+            height: 6.83px;
+            background: #ffffff;
+            border-radius: 50%;
+            transition: transform 0.1s ease-out;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="mascot">
+        <div class="mascot-container">
+            <img src="../../mascot/squirrel-blank-eyes-transparent.png" alt="DevPipe Squirrel" class="mascot-image" onerror="this.style.display='none'">
+            <div class="mascot-eyes-overlay">
+                <div class="mascot-eye mascot-eye-left">
+                    <div class="mascot-pupil"></div>
+                </div>
+                <div class="mascot-eye mascot-eye-right">
+                    <div class="mascot-pupil"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../report.html">← Back to Dashboard</a>
+        </div>
+        
+        <header>
+            <h1>Run Details</h1>
+            <div class="run-meta">
+                <div class="meta-item">
+                    <div class="meta-label">Run ID</div>
+                    <div class="meta-value mono">2025-12-08T01-41-58Z_098313</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Timestamp (CST)</div>
+                    <div class="meta-value">2025-12-07 19:41:58</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Project Root</div>
+                    <div class="meta-value mono">

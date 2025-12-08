@@ -1614,8 +1614,8 @@ const runDetailTemplate = `<!DOCTYPE html>
                     <div class="meta-value">{{formatTime .Timestamp}}</div>
                 </div>
                 <div class="meta-item">
-                    <div class="meta-label">Repo Root</div>
-                    <div class="meta-value mono">{{.RepoRoot}}</div>
+                    <div class="meta-label">Project Root</div>
+                    <div class="meta-value mono">{{.ProjectRoot}}</div>
                 </div>
                 {{if .PipelineVersion}}
                 <div class="meta-item">

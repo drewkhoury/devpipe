@@ -20,7 +20,7 @@ type Config struct {
 // DefaultsConfig holds global defaults
 type DefaultsConfig struct {
 	// Repo/project root directory (optional, auto-detected if not set)
-	RepoRoot string `toml:"repoRoot" doc:"Repo/project root directory (optional override, auto-detected from git or config location if not set)"`
+	ProjectRoot string `toml:"projectRoot" doc:"Repo/project root directory (optional override, auto-detected from git or config location if not set)"`
 	// Directory for run outputs and logs
 	OutputRoot string `toml:"outputRoot" doc:"Directory for run outputs and logs"`
 	// Tasks longer than this (seconds) are skipped with --fast
@@ -201,7 +201,7 @@ func MergeWithDefaults(cfg *Config) Config {
 }
 
 // ResolveTaskConfig resolves a task config by applying defaults
-func (c *Config) ResolveTaskConfig(_ string, taskCfg TaskConfig, repoRoot string) TaskConfig {
+func (c *Config) ResolveTaskConfig(_ string, taskCfg TaskConfig, projectRoot string) TaskConfig {
 	// Apply task defaults
 	if taskCfg.Workdir == "" {
 		if c.TaskDefaults.Workdir != "" {
@@ -211,9 +211,9 @@ func (c *Config) ResolveTaskConfig(_ string, taskCfg TaskConfig, repoRoot string
 		}
 	}
 
-	// Make workdir absolute relative to repo root
+	// Make workdir absolute relative to project root
 	if !filepath.IsAbs(taskCfg.Workdir) {
-		taskCfg.Workdir = filepath.Join(repoRoot, taskCfg.Workdir)
+		taskCfg.Workdir = filepath.Join(projectRoot, taskCfg.Workdir)
 	}
 
 	if taskCfg.Enabled == nil {

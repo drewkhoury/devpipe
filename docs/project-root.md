@@ -1,8 +1,8 @@
-# Repo Root vs Git Root
+# Project Root vs Git Root
 
 devpipe uses two distinct concepts for directory resolution:
 
-## Repo Root (repoRoot)
+## Project Root (projectRoot)
 
 **Purpose:** Base directory for devpipe operations (the project root)
 
@@ -15,7 +15,7 @@ devpipe uses two distinct concepts for directory resolution:
 
 **How it's determined:**
 
-1. **If `repoRoot` is set in config:** Use that value (can be absolute or relative to config file)
+1. **If `projectRoot` is set in config:** Use that value (can be absolute or relative to config file)
 2. **Otherwise, auto-detect:**
    - Resolve config file to absolute path
    - Get config directory: `filepath.Dir(configPath)`
@@ -33,9 +33,9 @@ devpipe uses two distinct concepts for directory resolution:
 - ✅ Matching changed files against task `watchPaths`
 
 **How it's determined:**
-- Runs `git rev-parse --show-toplevel` from the **repo root** location
+- Runs `git rev-parse --show-toplevel` from the **project root** location
 - This ensures git operations work correctly even when running devpipe from outside the project
-- Falls back to repo root if not in a git repo
+- Falls back to project root if not in a git repo
 
 ## When They Differ
 
@@ -51,7 +51,7 @@ devpipe uses two distinct concepts for directory resolution:
 
 ```toml
 [defaults]
-repoRoot = "/monorepo/services/api"
+projectRoot = "/monorepo/services/api"
 ```
 
 ### Scenario 2: Config Outside Project
@@ -66,7 +66,7 @@ repoRoot = "/monorepo/services/api"
 
 ```toml
 [defaults]
-repoRoot = "/projects/myapp"
+projectRoot = "/projects/myapp"
 ```
 
 ### Scenario 3: No Git Repo
@@ -81,55 +81,55 @@ repoRoot = "/projects/myapp"
 
 ## Configuration
 
-### Optional: Explicit repoRoot
+### Optional: Explicit projectRoot
 
 ```toml
 [defaults]
-repoRoot = "/absolute/path/to/project"  # Absolute path (recommended)
+projectRoot = "/absolute/path/to/project"  # Absolute path (recommended)
 # OR
-repoRoot = ".."                          # Relative to config file location
+projectRoot = ".."                          # Relative to config file location
 ```
 
-**When to set `repoRoot`:**
+**When to set `projectRoot`:**
 - Non-git projects
 - Configs stored outside the project
 - Monorepo scenarios with multiple projects
 - When auto-detection doesn't match your needs
 
-**When NOT to set `repoRoot`:**
+**When NOT to set `projectRoot`:**
 - Standard single-repo projects (auto-detection works)
 - Config is at or near project root
 - You're using git
 
 ### Auto-Detection (Default)
 
-If `repoRoot` is not set, devpipe automatically determines it:
+If `projectRoot` is not set, devpipe automatically determines it:
 
 ```bash
 # Example 1: Standard usage
 cd /Users/drew/repos/myproject
 devpipe
-# → repoRoot = /Users/drew/repos/myproject (git root)
+# → projectRoot = /Users/drew/repos/myproject (git root)
 
 # Example 2: Absolute config path
 cd /
 devpipe --config /Users/drew/repos/myproject/config.toml
-# → repoRoot = /Users/drew/repos/myproject (git root from config dir)
+# → projectRoot = /Users/drew/repos/myproject (git root from config dir)
 
 # Example 3: Config in subdirectory
 cd /Users/drew/repos/myproject
 devpipe --config configs/prod.toml
-# → repoRoot = /Users/drew/repos/myproject (git root from configs/)
+# → projectRoot = /Users/drew/repos/myproject (git root from configs/)
 
 # Example 4: No git repo
 cd /opt/myapp
 devpipe
-# → repoRoot = /opt/myapp (config directory, no git)
+# → projectRoot = /opt/myapp (config directory, no git)
 ```
 
 ## Verbose Logging
 
-Use `--verbose` to see how repoRoot and gitRoot are resolved:
+Use `--verbose` to see how projectRoot and gitRoot are resolved:
 
 ```bash
 devpipe --verbose
@@ -138,16 +138,16 @@ devpipe --verbose
 Output:
 ```
 Config: config.toml
-Repo root: /Users/drew/repos/myproject (auto-detected from git)
-Git root: /Users/drew/repos/myproject (detected by running git from repo root)
+Project root: /Users/drew/repos/myproject (auto-detected from git)
+Git root: /Users/drew/repos/myproject (detected by running git from project root)
 Output directory: /Users/drew/repos/myproject/.devpipe
 ```
 
-Or with explicit repoRoot:
+Or with explicit projectRoot:
 ```
 Config: /configs/shared.toml (from --config)
-Repo root: /opt/myapp (from config)
-Git root: /opt/myapp (no git repo found at repo root)
+Project root: /opt/myapp (from config)
+Git root: /opt/myapp (no git repo found at project root)
 Output directory: /opt/myapp/.devpipe
 ```
 
@@ -173,11 +173,11 @@ devpipe
 - Output: `/Users/drew/repos/myproject/.devpipe`
 - Build workdir: `/Users/drew/repos/myproject/src`
 
-### Example 2: Explicit repoRoot
+### Example 2: Explicit projectRoot
 
 ```toml
 [defaults]
-repoRoot = "/opt/myapp"
+projectRoot = "/opt/myapp"
 outputRoot = ".devpipe"
 
 [tasks.build]
@@ -205,16 +205,16 @@ workdir = "/absolute/path/to/src"
 ```
 
 **Resolution:**
-- Output: `/var/log/devpipe` (absolute, not relative to repoRoot)
-- Build workdir: `/absolute/path/to/src` (absolute, not relative to repoRoot)
+- Output: `/var/log/devpipe` (absolute, not relative to projectRoot)
+- Build workdir: `/absolute/path/to/src` (absolute, not relative to projectRoot)
 
 ## Best Practices
 
-1. **Let auto-detection work** - Don't set `repoRoot` unless you need to
-2. **Use absolute paths** - If you do set `repoRoot`, use absolute paths for clarity
+1. **Let auto-detection work** - Don't set `projectRoot` unless you need to
+2. **Use absolute paths** - If you do set `projectRoot`, use absolute paths for clarity
 3. **Keep configs in the project** - Simplifies path resolution
 4. **Use `--verbose`** - When debugging path issues
-5. **Document your setup** - If using non-standard `repoRoot`, document why
+5. **Document your setup** - If using non-standard `projectRoot`, document why
 
 ## Troubleshooting
 
@@ -228,7 +228,7 @@ devpipe --verbose
 Look for the "Project root" line to see where devpipe thinks the project is.
 
 **Solutions:**
-1. Set explicit `repoRoot` in config
+1. Set explicit `projectRoot` in config
 2. Move config file to project root
 3. Use absolute `outputRoot` path
 
@@ -243,7 +243,7 @@ Look for task workdir resolution.
 
 **Solutions:**
 1. Use absolute `workdir` in task config
-2. Set correct `repoRoot`
+2. Set correct `projectRoot`
 3. Verify config file location
 
 ### Issue: WatchPaths not matching files
@@ -258,4 +258,4 @@ Git root and project root should usually be the same for watchPaths to work corr
 **Solutions:**
 1. Ensure config is within git repo
 2. Use absolute paths in `watchPaths`
-3. Set `repoRoot` to match git root
+3. Set `projectRoot` to match git root

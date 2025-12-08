@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run 2025-12-08T01-36-49Z_097810 - devpipe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .breadcrumb {
+            margin-bottom: 20px;
+            color: #7f8c8d;
+        }
+        
+        .breadcrumb a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .run-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .meta-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .meta-value {
+            font-size: 16px;
+            color: #2c3e50;
+        }
+        
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .task-card {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        
+        .task-header > div:first-child {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .task-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            word-break: break-word;
+        }
+        
+        .task-id {
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-left: 10px;
+        }
+        
+        .task-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            font-size: 11px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        
+        .detail-value {
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .exit-code-success {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .exit-code-error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .status-pass {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .status-fail {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .status-skip {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .badge-skip {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .mono {
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .metrics-box {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 4px;
+        }
+        
+         
+        .phase-flow-container {
+            position: relative;
+        }
+        
+        .phase-flow-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+            background: white;
+            padding: 20px;
+            overflow-y: auto;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .phase-flow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+        
+        .fullscreen-btn {
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .fullscreen-btn:hover {
+            background: #2980b9;
+        }
+        
+        .fullscreen-btn.active {
+            background: #27ae60;
+        }
+        
+        .fullscreen-btn.active:hover {
+            background: #229954;
+        }
+        
+         
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .slider-label {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .column-slider {
+            width: 120px;
+            height: 6px;
+            border-radius: 3px;
+            background: #dee2e6;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .column-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+        }
+        
+        .column-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .phase-flow-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 10px;
+        }
+        
+        .phase-flow-container.fullscreen .phase-flow-scroll {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        .phase-flow {
+            display: flex;
+            gap: 40px;
+            min-width: min-content;
+        }
+        
+        .phase-container {
+            flex-shrink: 0;
+            width: fit-content;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            overflow: visible;
+        }
+        
+        .phase-header {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            padding: 12px;
+        }
+        
+        .phase-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .phase-header h3 {
+            font-size: 18px;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .phase-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .phase-status-icon {
+            font-size: 20px;
+        }
+        
+        .phase-status-icon.success { color: #27ae60; }
+        .phase-status-icon.fail { color: #e74c3c; }
+        
+        .phase-desc {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 6px;
+            margin-bottom: 4px;
+            line-height: 1.5;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        .phase-meta {
+            font-size: 13px;
+            color: #7f8c8d;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .phase-tasks {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .phase-tasks.compact {
+            display: grid;
+            grid-auto-flow: column;
+        }
+        
+        .phase-task-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+        
+        .phase-task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: #3498db;
+        }
+        
+        .phase-task-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        
+        .phase-task-icon {
+            font-size: 18px;
+        }
+        
+        .phase-task-icon.success { color: #27ae60; }
+        .phase-task-icon.fail { color: #e74c3c; }
+        .phase-task-icon.skip { color: #f39c12; }
+        
+        .phase-task-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #2c3e50;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        
+        .phase-task-duration {
+            font-size: 12px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+        
+        .phase-task-desc {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .phase-task-type {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            background: #ecf0f1;
+            color: #7f8c8d;
+            border-radius: 3px;
+            margin-top: 4px;
+        }
+        
+        .phase-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #95a5a6;
+            flex-shrink: 0;
+        }
+        
+        .metrics-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        
+        .log-link {
+            display: inline-block;
+            margin-top: 10px;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .log-link:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .mascot {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            z-index: 1000;
+            pointer-events: none;
+            transition: opacity 0.3s ease-out;
+        }
+        
+        .mascot.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        @media (max-width: 1500px) {
+            .mascot {
+                display: none;
+            }
+        }
+        
+        .mascot-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .mascot-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .mascot-eyes-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .mascot-eye {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mascot-eye-left {
+            top: 29.5%;
+            left: 13.1%;
+            width: 13.08px;
+            height: 19.91px;
+        }
+        
+        .mascot-eye-right {
+            top: 29.7%;
+            left: 37.4%;
+            width: 16.50px;
+            height: 21.61px;
+        }
+        
+        .mascot-pupil {
+            position: relative;
+            width: 5.69px;
+            height: 6.83px;
+            background: #ffffff;
+            border-radius: 50%;
+            transition: transform 0.1s ease-out;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="mascot">
+        <div class="mascot-container">
+            <img src="../../mascot/squirrel-blank-eyes-transparent.png" alt="DevPipe Squirrel" class="mascot-image" onerror="this.style.display='none'">
+            <div class="mascot-eyes-overlay">
+                <div class="mascot-eye mascot-eye-left">
+                    <div class="mascot-pupil"></div>
+                </div>
+                <div class="mascot-eye mascot-eye-right">
+                    <div class="mascot-pupil"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../report.html">← Back to Dashboard</a>
+        </div>
+        
+        <header>
+            <h1>Run Details</h1>
+            <div class="run-meta">
+                <div class="meta-item">
+                    <div class="meta-label">Run ID</div>
+                    <div class="meta-value mono">2025-12-08T01-36-49Z_097810</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Timestamp (CST)</div>
+                    <div class="meta-value">2025-12-07 19:36:49</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Repo Root</div>
+                    <div class="meta-value mono">/Users/drew/repos/devpipe</div>
+                </div>
+                
+                <div class="meta-item">
+                    <div class="meta-label">Pipeline Version</div>
+                    <div class="meta-value mono">dev</div>
+                </div>
+                
+                
+                <div class="meta-item">
+                    <div class="meta-label">Report Version</div>
+                    <div class="meta-value mono">dev</div>
+                </div>
+                
+            </div>
+        </header>
+        
+        <div class="section">
+            <h2>Run</h2>
+            
+            
+            <div class="detail-item" style="margin-bottom: 20px;">
+                <div class="detail-label">Command</div>
+                <div class="detail-value mono" style="font-size: 11px; background: #f8f9fa; padding: 8px; border-radius: 4px;">./devpipe --dry-run --verbose --config /Users/drew/repos/devpipe/config/path-testing.toml</div>
+            </div>
+            
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
+                <div>
+                    <h3 style="font-size: 16px; color: #2c3e50; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #dee2e6;">Configuration</h3>
+                    <div class="task-details" style="grid-template-columns: 1fr;">
+                        <div class="detail-item">
+                            <div class="detail-label">Config File</div>
+                            <div class="detail-value">
+                                
+                                <a href="config.toml" class="log-link">/Users/drew/repos/devpipe/config/path-testing.toml</a>
+                                
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Fast Mode</div>
+                            <div class="detail-value">No</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Fail Fast</div>
+                            <div class="detail-value">No</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Dry Run</div>
+                            <div class="detail-value">Yes</div>
+                        </div>
+                        
+                        
+                    </div>
+                </div>
+                
+                
+                <div>
+                    <h3 style="font-size: 16px; color: #2c3e50; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #dee2e6;">Git Information</h3>
+                    <div class="task-details" style="grid-template-columns: 1fr;">
+                        <div class="detail-item">
+                            <div class="detail-label">Mode</div>
+                            <div class="detail-value">staged_unstaged</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Reference</div>
+                            <div class="detail-value mono">HEAD</div>
+                        </div>
+                        
+                        <div class="detail-item">
+                            <div class="detail-label">Changed Files (17)</div>
+                            <div class="detail-value mono" style="font-size: 12px; line-height: 1.8;">
+                                
+                                <div>.gitignore</div>
+                                
+                                <div>config.example.toml</div>
+                                
+                                <div>config.schema.json</div>
+                                
+                                <div>config/path-testing.toml</div>
+                                
+                                <div>docs/project-root.md</div>
+                                
+                                <div>docs/safety-checks.md</div>
+                                
+                                <div>internal/config/config.go</div>
+                                
+                                <div>internal/config/config_test.go</div>
+                                
+                                <div>internal/config/defaults.go</div>
+                                
+                                <div>internal/git/git.go</div>
+                                
+                                <div>internal/git/git_test.go</div>
+                                
+                                <div>internal/model/model.go</div>
+                                
+                                <div>internal/ui/renderer.go</div>
+                                
+                                <div>internal/ui/renderer_test.go</div>
+                                
+                                <div>main.go</div>
+                                
+                                <div>main_task_test.go</div>
+                                
+                                <div>main_test.go</div>
+                                
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="section">
+            <details>
+                <summary style="cursor: pointer; font-weight: 600; color: #2c3e50; font-size: 20px; margin-bottom: 20px;">
+                    <h2 style="display: inline;">⚙️ Configuration</h2>
+                </summary>
+                <div>
+                    
+                    <div>
+                        <div style="border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                            <h3 style="font-weight: 600; color: #2c3e50; font-size: 16px; margin: 0 0 10px 0;">⚙️ Effective Configuration</h3>
+                            <p style="color: #7f8c8d; margin: 15px 0; font-size: 13px;">
+                                Final configuration values used for this run, including their sources and overrides.
+                            </p>
+                        
+                        
+                        
+                        
+                        
+                        
+                            
+                                
+                            
+                        
+                            
+                                
+                            
+                        
+                            
+                                
+                            
+                        
+                            
+                                
+                            
+                        
+                            
+                                
+                            
+                        
+                            
+                                
+                            
+                        
+                            
+                                
+                            
+                        
+                            
+                                
+                            
+                        
+                        
+                        
+                        <div style="margin-top: 20px;">
+                            <h4 style="color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;">Defaults</h4>
+                            <table style="width: 100%; font-size: 13px;">
+                                
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">outputRoot</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">./devpipe-output-test</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        
+                                        
+                                    </td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">fastThreshold</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">300</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        
+                                        
+                                    </td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">uiMode</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">basic</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        
+                                        
+                                    </td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">animationRefreshMs</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">500</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        
+                                        
+                                    </td>
+                                </tr>
+                                
+                            </table>
+                        </div>
+                        
+                        
+                        
+                        <div style="margin-top: 20px;">
+                            <h4 style="color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;">Git Settings</h4>
+                            <table style="width: 100%; font-size: 13px;">
+                                
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">mode</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">staged_unstaged</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        
+                                        
+                                    </td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">ref</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">HEAD</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        
+                                        
+                                    </td>
+                                </tr>
+                                
+                            </table>
+                        </div>
+                        
+                        
+                        
+                        <div style="margin-top: 20px;">
+                            <h4 style="color: #2c3e50; font-size: 14px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #dee2e6;">Task Defaults</h4>
+                            <table style="width: 100%; font-size: 13px;">
+                                
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">enabled</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">true</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        
+                                    </td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="mono" style="color: #495057; padding: 6px 0; width: 30%;">workdir</td>
+                                    <td class="mono" style="font-weight: bold; padding: 6px 0;">.</td>
+                                    <td style="padding: 6px 0; text-align: right;">
+                                        
+                                        <span class="badge" style="background: #d4edda; color: #155724; font-size: 10px;">📄 Config</span>
+                                        
+                                    </td>
+                                </tr>
+                                
+                            </table>
+                        </div>
+                        
+                        
+                        
+                        </div>
+                    </div>
+                    
+                    
+                    
+                    <div style="margin-top: 20px;">
+                        <div style="border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h3 style="font-weight: 600; color: #2c3e50; font-size: 16px; margin: 0;">📄 Raw Configuration File</h3>
+                                <button onclick="toggleConfigFullscreen()" style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                    ⛶ Fullscreen
+                                </button>
+                            </div>
+                            <p style="color: #7f8c8d; margin: 15px 0 10px 0; font-size: 13px;">
+                                Configuration file as it was on disk at the time of the run.
+                            </p>
+                            <div id="rawConfigContainer" style="position: relative; overflow-x: auto;">
+                                <pre class="line-numbers" style="background: #2c3e50; border-radius: 4px; margin: 0;"><code id="rawConfigContent" class="language-toml" style="font-size: 12px;"># Test paths
+
+[defaults]
+outputRoot = &#34;./devpipe-output-test&#34;
+#projectRoot = &#34;/Users/drew/repos/devpipe&#34;
+
+[tasks.echo]
+name = &#34;echo&#34;
+command = &#34;echo hello&#34;</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+                    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-toml.min.js"></script>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+                    <script>
+                    (function() {
+                        
+                        Prism.highlightAll();
+                    })();
+                    
+                    function toggleConfigFullscreen() {
+                        const elem = document.getElementById('rawConfigContainer');
+                        if (!document.fullscreenElement) {
+                            elem.requestFullscreen().catch(err => {
+                                alert('Error attempting to enable fullscreen: ' + err.message);
+                            });
+                        } else {
+                            document.exitFullscreen();
+                        }
+                    }
+                    </script>
+                    <style>
+                     
+                    .line-numbers .line-numbers-rows {
+                        border-right-color: #34495e !important;
+                    }
+                    .line-numbers-rows > span:before {
+                        color: #7f8c8d !important;
+                    }
+                     
+                    .line-numbers .line-numbers-rows > span {
+                        position: relative;
+                    }
+                    #rawConfigContainer:fullscreen {
+                        background: #2c3e50;
+                        padding: 20px;
+                        overflow: auto;
+                    }
+                    #rawConfigContainer:fullscreen pre {
+                        font-size: 14px !important;
+                        max-width: 100%;
+                        height: 100%;
+                    }
+                    #rawConfigContainer:fullscreen code {
+                        font-size: 14px !important;
+                    }
+                    </style>
+                    
+                </div>
+            </details>
+        </div>
+        
+        
+        
+        <div class="section phase-flow-container" id="phaseFlow">
+            <div class="phase-flow-header">
+                <h2>🔄 Pipeline Flow</h2>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div class="slider-container">
+                        <span class="slider-label">Density:</span>
+                        <input type="range" min="1" max="4" value="4" class="column-slider" id="columnSlider" oninput="updateColumns()">
+                    </div>
+                    <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+                </div>
+            </div>
+            
+            <div class="phase-flow-scroll">
+                <div class="phase-flow">
+                    
+                    
+                    
+                    <div class="phase-container">
+                        <div class="phase-header">
+                            <div class="phase-header-top">
+                                <h3>📋 Tasks</h3>
+                                <div class="phase-status">
+                                    
+                                    <span class="phase-status-icon success">✓</span>
+                                    
+                                </div>
+                            </div>
+                            
+                            <div class="phase-meta">
+                                <span>1 tasks in parallel</span>
+                                <span><strong>0ms</strong></span>
+                            </div>
+                        </div>
+                        <div class="phase-tasks compact">
+                            
+                            <div class="phase-task-card" data-task-id="echo" onclick="scrollToTask('echo')">
+                                <div class="phase-task-card-header">
+                                    
+                                    <span class="phase-task-icon skip">⊘</span>
+                                    
+                                    <span class="phase-task-name" title="echo">echo</span>
+                                    <span class="phase-task-duration">0ms</span>
+                                </div>
+                                
+                                <div class="phase-task-desc">echo</div>
+                                
+                                
+                            </div>
+                            
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        
+        
+        <div class="section">
+            <h2>Tasks (1)</h2>
+            
+            <div class="task-card">
+                <div class="task-header">
+                    <div>
+                        <span class="task-title">echo</span>
+                        <span class="task-id">(echo)</span>
+                    </div>
+                    <span class="badge badge-skip">
+                        ⊘ SKIPPED
+                    </span>
+                </div>
+                
+                <div class="task-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Type</div>
+                        <div class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Duration</div>
+                        <div class="detail-value">0ms</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Start Time (CST)</div>
+                        <div class="detail-value"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">End Time (CST)</div>
+                        <div class="detail-value"></div>
+                    </div>
+                </div>
+                
+                <div class="detail-item" style="margin-top: 15px;">
+                    <div class="detail-label">Command</div>
+                    <div class="detail-value mono">echo hello</div>
+                </div>
+                
+                
+                
+                
+                
+                
+                <div class="detail-item" style="margin-top: 15px;">
+                    <div class="detail-label">Output (last 10 lines)</div>
+                    <pre style="background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">Error reading log file
+</pre>
+                    <div style="display: flex; gap: 15px; margin-top: 10px;">
+                        <a href="logs/echo.log" class="log-link">📄 View raw log</a>
+                        <a href="ide.html?file=logs/echo.log" class="log-link">🖥️ View in web IDE</a>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
+    </div>
+    
+    <script>
+        function updateColumns() {
+            const slider = document.getElementById('columnSlider');
+            const phaseTasks = document.querySelectorAll('.phase-tasks');
+            
+            const maxCols = parseInt(slider.value);
+            
+            
+            phaseTasks.forEach(tasks => {
+                const taskCount = tasks.querySelectorAll('.phase-task-card').length;
+                
+                
+                
+                const neededCols = Math.min(maxCols, Math.ceil(taskCount / 5));
+                
+                
+                const rowsPerCol = Math.ceil(taskCount / neededCols);
+                
+                
+                const colWidth = 280;
+                const gap = 8;
+                const padding = 12;
+                
+                
+                
+                const gridContentWidth = (colWidth * neededCols) + (gap * (neededCols - 1));
+                const totalWidth = gridContentWidth + (padding * 2);
+                
+                tasks.style.gridTemplateColumns = 'repeat(' + neededCols + ', ' + colWidth + 'px)';
+                tasks.style.gridTemplateRows = 'repeat(' + rowsPerCol + ', auto)';
+                tasks.style.width = totalWidth + 'px';
+                tasks.style.gap = gap + 'px';
+                tasks.style.padding = padding + 'px';
+            });
+        }
+        
+        
+        document.addEventListener('DOMContentLoaded', updateColumns);
+        
+        function toggleFullscreen() {
+            const container = document.getElementById('phaseFlow');
+            const fullscreenBtns = container.querySelectorAll('.fullscreen-btn');
+            
+            container.classList.toggle('fullscreen');
+            
+            
+            fullscreenBtns.forEach(btn => {
+                if (btn.id !== 'compactBtn') {
+                    if (container.classList.contains('fullscreen')) {
+                        btn.textContent = '✕ Exit Fullscreen';
+                    } else {
+                        btn.textContent = '⛶ Fullscreen';
+                    }
+                }
+            });
+        }
+        
+        function scrollToTask(taskId) {
+            
+            const container = document.getElementById('phaseFlow');
+            const wasFullscreen = container && container.classList.contains('fullscreen');
+            
+            if (wasFullscreen) {
+                container.classList.remove('fullscreen');
+                
+                const fullscreenBtns = container.querySelectorAll('.fullscreen-btn');
+                fullscreenBtns.forEach(btn => {
+                    if (btn.id !== 'compactBtn') {
+                        btn.textContent = '⛶ Fullscreen';
+                    }
+                });
+            }
+            
+            
+            const doScroll = () => {
+                const taskCards = document.querySelectorAll('.task-card');
+                for (const card of taskCards) {
+                    const titleEl = card.querySelector('.task-id');
+                    if (titleEl && titleEl.textContent.includes(taskId)) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        
+                        card.style.boxShadow = '0 0 0 3px #3498db';
+                        setTimeout(() => {
+                            card.style.boxShadow = '';
+                        }, 2000);
+                        break;
+                    }
+                }
+            };
+            
+            
+            if (wasFullscreen) {
+                setTimeout(doScroll, 100);
+            } else {
+                doScroll();
+            }
+        }
+        
+        
+        (function() {
+            const mascot = document.querySelector('.mascot');
+            
+            document.addEventListener('keydown', function(e) {
+                
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+                
+                if (e.key === 'h' || e.key === 'H') {
+                    mascot.classList.add('hidden');
+                } else if (e.key === 's' || e.key === 'S') {
+                    mascot.classList.remove('hidden');
+                }
+            });
+        })();
+        
+        
+        (function() {
+            const pupils = document.querySelectorAll('.mascot-pupil');
+            const eyes = document.querySelectorAll('.mascot-eye');
+            
+            
+            const leftMaxDistanceX = 1.14;
+            const leftMaxDistanceY = 4.55;
+            const rightMaxDistanceX = 2.84;
+            const rightMaxDistanceY = 4.55;
+            
+            document.addEventListener('mousemove', function(e) {
+                pupils.forEach(function(pupil, index) {
+                    const eye = eyes[index];
+                    const eyeRect = eye.getBoundingClientRect();
+                    
+                    
+                    const eyeCenterX = eyeRect.left + eyeRect.width / 2;
+                    const eyeCenterY = eyeRect.top + eyeRect.height / 2;
+                    
+                    
+                    const angleRad = Math.atan2(e.clientY - eyeCenterY, e.clientX - eyeCenterX);
+                    
+                    
+                    const maxDistanceX = index === 0 ? leftMaxDistanceX : rightMaxDistanceX;
+                    const maxDistanceY = index === 0 ? leftMaxDistanceY : rightMaxDistanceY;
+                    
+                    
+                    let pupilX = Math.cos(angleRad) * maxDistanceX;
+                    let pupilY = Math.sin(angleRad) * maxDistanceY;
+                    
+                    
+                    const normalizedX = pupilX / maxDistanceX;
+                    const normalizedY = pupilY / maxDistanceY;
+                    const distanceFromCenter = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+                    
+                    if (distanceFromCenter > 1) {
+                        pupilX = (normalizedX / distanceFromCenter) * maxDistanceX;
+                        pupilY = (normalizedY / distanceFromCenter) * maxDistanceY;
+                    }
+                    
+                    
+                    pupil.style.transform = 'translate(' + pupilX + 'px, ' + pupilY + 'px)';
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

@@ -1018,7 +1018,7 @@ func TestResolveTaskConfigWorkdir(t *testing.T) {
 	tests := []struct {
 		name        string
 		taskCfg     TaskConfig
-		repoRoot    string
+		projectRoot string
 		wantWorkdir string
 	}{
 		{
@@ -1027,7 +1027,7 @@ func TestResolveTaskConfigWorkdir(t *testing.T) {
 				Command: "test",
 				Workdir: "/absolute/path",
 			},
-			repoRoot:    "/repo",
+			projectRoot: "/repo",
 			wantWorkdir: "/absolute/path",
 		},
 		{
@@ -1035,7 +1035,7 @@ func TestResolveTaskConfigWorkdir(t *testing.T) {
 			taskCfg: TaskConfig{
 				Command: "test",
 			},
-			repoRoot:    "/repo",
+			projectRoot: "/repo",
 			wantWorkdir: "/repo/custom", // filepath.Join normalizes ./custom to custom
 		},
 		{
@@ -1044,14 +1044,14 @@ func TestResolveTaskConfigWorkdir(t *testing.T) {
 				Command: "test",
 				Workdir: "subdir",
 			},
-			repoRoot:    "/repo",
+			projectRoot: "/repo",
 			wantWorkdir: "/repo/subdir",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resolved := cfg.ResolveTaskConfig("test", tt.taskCfg, tt.repoRoot)
+			resolved := cfg.ResolveTaskConfig("test", tt.taskCfg, tt.projectRoot)
 			if resolved.Workdir != tt.wantWorkdir {
 				t.Errorf("ResolveTaskConfig() workdir = %v, want %v", resolved.Workdir, tt.wantWorkdir)
 			}
