@@ -526,7 +526,7 @@ func TestPrintValidationResultWithFieldErrors(_ *testing.T) {
 			{Message: "General error without field"},
 		},
 		Warnings: []ValidationError{
-			{Field: "tasks.lint.metricsPath", Message: "Missing path"},
+			{Field: "tasks.lint.outputPath", Message: "Missing path"},
 			{Message: "General warning"},
 		},
 	}

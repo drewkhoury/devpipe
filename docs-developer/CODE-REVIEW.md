@@ -525,7 +525,7 @@ func main() {
 **File**: `main.go:1348`, `main.go:1384`
 
 ```go
-artifactPath = filepath.Join(st.Workdir, st.MetricsPath)
+artifactPath = filepath.Join(st.Workdir, st.OutputPath)
 ```
 
 **Problem**: No validation that paths stay within repo boundaries.
@@ -537,9 +537,9 @@ outputPath = "../../../etc/passwd"
 
 **Fix**: Validate paths with `filepath.Clean` and boundary checks:
 ```go
-cleanPath := filepath.Clean(st.MetricsPath)
+cleanPath := filepath.Clean(st.OutputPath)
 if strings.HasPrefix(cleanPath, "..") {
-    return fmt.Errorf("path traversal not allowed: %s", st.MetricsPath)
+    return fmt.Errorf("path traversal not allowed: %s", st.OutputPath)
 }
 ```
 

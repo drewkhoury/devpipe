@@ -161,8 +161,8 @@ name = "Tests"
 [tasks.unit-tests]
 command = "npm test"
 type = "test"
-metricsFormat = "junit"
-metricsPath = "test-results/junit.xml"
+outputType = "junit"
+outputPath = "test-results/junit.xml"
 
 [tasks.e2e-tests]
 command = "npm run test:e2e"

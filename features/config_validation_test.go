@@ -232,7 +232,7 @@ type = "test"
 	return os.WriteFile(c.configPath, []byte(config), 0644)
 }
 
-func (c *configValidationContext) aConfigWithMetricsFormatButNoMetricsPath() error {
+func (c *configValidationContext) aConfigWithOutputTypeButNoOutputPath() error {
 	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-validation-%d", os.Getpid()))
 	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
 		return err
@@ -251,7 +251,7 @@ outputType = "junit"
 	return os.WriteFile(c.configPath, []byte(config), 0644)
 }
 
-func (c *configValidationContext) aConfigWithMetricsPathButNoMetricsFormat() error {
+func (c *configValidationContext) aConfigWithOutputPathButNoOutputType() error {
 	c.tempDir = filepath.Join(os.TempDir(), fmt.Sprintf("devpipe-validation-%d", os.Getpid()))
 	if err := os.MkdirAll(c.tempDir, 0755); err != nil {
 		return err
@@ -319,12 +319,12 @@ func (c *configValidationContext) theOutputShouldShowValidationWarningAboutMissi
 	return c.theOutputShouldContain("no ref is specified")
 }
 
-func (c *configValidationContext) theOutputShouldShowValidationWarningAboutMissingMetricsPath() error {
-	return c.theOutputShouldContain("metricsPath is not specified")
+func (c *configValidationContext) theOutputShouldShowValidationWarningAboutMissingOutputPath() error {
+	return c.theOutputShouldContain("outputPath is not specified")
 }
 
-func (c *configValidationContext) theOutputShouldShowValidationWarningAboutMissingMetricsFormat() error {
-	return c.theOutputShouldContain("metricsFormat is not specified")
+func (c *configValidationContext) theOutputShouldShowValidationWarningAboutMissingOutputType() error {
+	return c.theOutputShouldContain("outputType is not specified")
 }
 
 func (c *configValidationContext) theExecutionShouldSucceed() error {
@@ -354,8 +354,8 @@ func InitializeConfigValidationScenario(ctx *godog.ScenarioContext, shared *shar
 	ctx.Step(`^a config with invalid task-level fix type$`, c.aConfigWithInvalidTaskLevelFixType)
 	ctx.Step(`^a config with fix type but missing fix command$`, c.aConfigWithFixTypeButMissingFixCommand)
 	ctx.Step(`^a config with git ref mode but no ref specified$`, c.aConfigWithGitRefModeButNoRefSpecified)
-	ctx.Step(`^a config with metrics format but no metrics path$`, c.aConfigWithMetricsFormatButNoMetricsPath)
-	ctx.Step(`^a config with metrics path but no metrics format$`, c.aConfigWithMetricsPathButNoMetricsFormat)
+	ctx.Step(`^a config with output type but no output path$`, c.aConfigWithOutputTypeButNoOutputPath)
+	ctx.Step(`^a config with output path but no output type$`, c.aConfigWithOutputPathButNoOutputType)
 
 	ctx.Step(`^I run devpipe validate with that config$`, c.iRunDevpipeValidateWithThatConfig)
 	ctx.Step(`^the execution should fail$`, c.theValidationShouldFail)
@@ -369,8 +369,8 @@ func InitializeConfigValidationScenario(ctx *godog.ScenarioContext, shared *shar
 	ctx.Step(`^the output should indicate invalid fix type$`, c.theOutputShouldIndicateInvalidFixType)
 	ctx.Step(`^the output should indicate missing fix command$`, c.theOutputShouldIndicateMissingFixCommand)
 	ctx.Step(`^the output should show validation warning about missing ref$`, c.theOutputShouldShowValidationWarningAboutMissingRef)
-	ctx.Step(`^the output should show validation warning about missing metrics path$`, c.theOutputShouldShowValidationWarningAboutMissingMetricsPath)
-	ctx.Step(`^the output should show validation warning about missing metrics format$`, c.theOutputShouldShowValidationWarningAboutMissingMetricsFormat)
+	ctx.Step(`^the output should show validation warning about missing output path$`, c.theOutputShouldShowValidationWarningAboutMissingOutputPath)
+	ctx.Step(`^the output should show validation warning about missing output type$`, c.theOutputShouldShowValidationWarningAboutMissingOutputType)
 
 	ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		c.cleanup()

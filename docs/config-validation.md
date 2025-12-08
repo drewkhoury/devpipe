@@ -121,7 +121,7 @@ name = "My Task"
 # ERROR: command is required
 ```
 
-**Invalid Metrics Format:**
+**Invalid Output Type:**
 ```toml
 [tasks.test]
 name = "Test"

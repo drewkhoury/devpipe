@@ -175,7 +175,7 @@ Feature: Since Flag
 
 #### 8. Artifact Metrics - 2-3 scenarios
 **Planned scenarios:**
-- [ ] Artifact collection with metricsFormat="artifact"
+- [ ] Artifact collection with outputType="artifact"
 - [ ] Artifact path validation
 - [ ] Multiple artifact formats
 
