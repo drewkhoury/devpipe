@@ -335,30 +335,31 @@ func main() {
 
 	// Verbose logging (after all paths are determined)
 	if flagVerbose {
+		renderer.Verbose(flagVerbose, "devpipe version: %s (commit: %s, built: %s)", version, commit, buildDate)
 		configPath := flagConfig
 		if configPath == "" {
 			configPath = "config.toml"
 		}
 		if flagConfig != "" {
-			fmt.Printf("Config: %s (from --config)\n", configPath)
+			renderer.Verbose(flagVerbose, "Config: %s (from --config)", configPath)
 		} else {
-			fmt.Printf("Config: %s\n", configPath)
+			renderer.Verbose(flagVerbose, "Config: %s", configPath)
 		}
 		if mergedCfg.Defaults.ProjectRoot != "" {
-			fmt.Printf("Project root: %s (from config)\n", projectRoot)
+			renderer.Verbose(flagVerbose, "Project root: %s (from config)", projectRoot)
 		} else {
 			if inGitRepo {
-				fmt.Printf("Project root: %s (auto-detected from git)\n", projectRoot)
+				renderer.Verbose(flagVerbose, "Project root: %s (auto-detected from git)", projectRoot)
 			} else {
-				fmt.Printf("Project root: %s (auto-detected from config location)\n", projectRoot)
+				renderer.Verbose(flagVerbose, "Project root: %s (auto-detected from config location)", projectRoot)
 			}
 		}
 		if inGitRepo {
-			fmt.Printf("Git root: %s (detected by running git from project root)\n", gitRoot)
+			renderer.Verbose(flagVerbose, "Git root: %s (detected by running git from project root)", gitRoot)
 		} else {
-			fmt.Printf("Git root: %s (no git repo found at project root)\n", gitRoot)
+			renderer.Verbose(flagVerbose, "Git root: %s (no git repo found at project root)", gitRoot)
 		}
-		fmt.Printf("Output directory: %s\n", outputRoot)
+		renderer.Verbose(flagVerbose, "Output directory: %s", outputRoot)
 		fmt.Println() // Blank line before run output
 	}
 	runID := makeRunID()

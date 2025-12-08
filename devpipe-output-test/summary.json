@@ -1,6 +1,18 @@
 {
-  "totalRuns": 3,
+  "totalRuns": 4,
   "recentRuns": [
+    {
+      "runId": "2025-12-08T01-49-11Z_010762",
+      "timestamp": "2025-12-08T01:49:11Z",
+      "status": "SKIPPED",
+      "duration": 0,
+      "passCount": 0,
+      "failCount": 0,
+      "skipCount": 1,
+      "totalTasks": 1,
+      "command": "/Users/drew/repos/devpipe/devpipe --dry-run --verbose --config /Users/drew/repos/devpipe/config/path-testing.toml",
+      "pipelineVersion": "dev"
+    },
     {
       "runId": "2025-12-08T01-41-58Z_098313",
       "timestamp": "2025-12-08T01:41:58Z",
@@ -42,10 +54,10 @@
     "echo": {
       "id": "echo",
       "name": "echo",
-      "totalRuns": 3,
+      "totalRuns": 4,
       "passCount": 0,
       "failCount": 0,
-      "skipCount": 3,
+      "skipCount": 4,
       "avgDuration": 0,
       "lastStatus": "SKIPPED"
     }
@@ -66,16 +78,16 @@
     "echo": {
       "id": "echo",
       "name": "echo",
-      "totalRuns": 3,
+      "totalRuns": 4,
       "passCount": 0,
       "failCount": 0,
-      "skipCount": 3,
+      "skipCount": 4,
       "avgDuration": 0,
       "lastStatus": "SKIPPED"
     }
   },
-  "lastGenerated": "2025-12-08T01:41:58Z",
+  "lastGenerated": "2025-12-08T01:49:11Z",
   "username": "drew",
-  "greeting": "Ahoy",
+  "greeting": "Hi",
   "version": "dev"
 }

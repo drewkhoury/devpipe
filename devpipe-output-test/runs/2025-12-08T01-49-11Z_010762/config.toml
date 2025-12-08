@@ -1,0 +1,9 @@
+# Test paths
+
+[defaults]
+outputRoot = "./devpipe-output-test"
+#projectRoot = "/Users/drew/repos/devpipe"
+
+[tasks.echo]
+name = "echo"
+command = "echo hello"

@@ -137,18 +137,20 @@ devpipe --verbose
 
 Output:
 ```
-Config: config.toml
-Project root: /Users/drew/repos/myproject (auto-detected from git)
-Git root: /Users/drew/repos/myproject (detected by running git from project root)
-Output directory: /Users/drew/repos/myproject/.devpipe
+[verbose] devpipe version: 1.0.0 (commit: abc123, built: 2025-12-08)
+[verbose] Config: config.toml
+[verbose] Project root: /Users/drew/repos/myproject (auto-detected from git)
+[verbose] Git root: /Users/drew/repos/myproject (detected by running git from project root)
+[verbose] Output directory: /Users/drew/repos/myproject/.devpipe
 ```
 
 Or with explicit projectRoot:
 ```
-Config: /configs/shared.toml (from --config)
-Project root: /opt/myapp (from config)
-Git root: /opt/myapp (no git repo found at project root)
-Output directory: /opt/myapp/.devpipe
+[verbose] devpipe version: 1.0.0 (commit: abc123, built: 2025-12-08)
+[verbose] Config: /configs/shared.toml (from --config)
+[verbose] Project root: /opt/myapp (from config)
+[verbose] Git root: /opt/myapp (no git repo found at project root)
+[verbose] Output directory: /opt/myapp/.devpipe
 ```
 
 ## Path Resolution Examples
